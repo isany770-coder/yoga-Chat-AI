@@ -9,7 +9,7 @@ from langchain_community.vectorstores import FAISS
 
 # --- CẤU HÌNH TRANG ---
 st.set_page_config(
-    page_title="Trợ lý AI", 
+    page_title="Yoga Assistant", 
     page_icon="🧘", 
     layout="wide", 
     initial_sidebar_state="collapsed",
@@ -40,12 +40,15 @@ st.markdown("""
         background-color: #e3f2fd; flex-direction: row-reverse; text-align: right; border: none;
     }
     
-    /* 4. Link tham khảo */
-    .ref-link {
-        font-size: 13px; color: #666; margin-top: 5px; display: block;
-        text-decoration: none; border-left: 3px solid #6c5ce7; padding-left: 5px;
+    /* 4. Link tham khảo (Style Markdown chuẩn) */
+    .stMarkdown a {
+        color: #6c5ce7 !important; 
+        font-weight: bold !important; 
+        text-decoration: none;
     }
-    .ref-link:hover {color: #6c5ce7; font-weight: bold;}
+    .stMarkdown a:hover {
+        text-decoration: underline;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -127,7 +130,7 @@ def search_engine(query, db):
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
 if "guest_usage" not in st.session_state: st.session_state.guest_usage = 0
-if "messages" not in st.session_state: st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Chúng ta nên bắt đầu từ đâu nhỉ?"}]
+if "messages" not in st.session_state: st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Guru đây."}]
 
 can_chat = False
 if st.session_state.authenticated:
@@ -152,24 +155,36 @@ if can_chat:
                 if st.session_state.authenticated: increment_member_usage(st.session_state.username)
                 else: st.session_state.guest_usage += 1
                 
-                ref_html = ""
+                # --- PHẦN KHÔI PHỤC LOGIC LINK ĐẸP ---
+                links_markdown = ""
                 context = ""
+                final_links = {} # Dùng dict để lọc trùng lặp link
+                
                 if top_docs:
                     context = "\n".join([d.page_content for d in top_docs])
-                    ref_html = "\n\n---\n"
+                    
                     for d in top_docs:
-                        title = d.metadata.get('title', 'Xem chi tiết')
+                        title = d.metadata.get('title', 'Tài liệu tham khảo')
                         url = d.metadata.get('url', '#')
-                        if url != '#': ref_html += f"<a href='{url}' target='_blank' class='ref-link'>🔗 {title}</a>"
+                        # Làm sạch tiêu đề (bỏ dấu ngoặc thừa nếu có)
+                        clean_title = title.replace("[", "").replace("]", "").replace("(", " - ").replace(")", "")
+                        
+                        if url != '#' and "http" in url:
+                            final_links[url] = clean_title
+
+                    # Tạo Markdown list
+                    if final_links:
+                        links_markdown = "\n\n---\n**📚 Tài liệu tham khảo:**\n"
+                        for url, name in final_links.items():
+                            links_markdown += f"- 🔗 [{name}]({url})\n"
                 
-                # --- SỬA LỖI TÊN BIẾN Ở ĐÂY ---
                 sys_prompt = f"""
                 Bạn là chuyên gia Yoga.
                 DỮ LIỆU BÀI VIẾT:
                 {context}
                 CÂU HỎI: "{prompt}"
                 YÊU CẦU:
-                 1. **Trung thực:** Chỉ trả lời dựa trên thông tin có trong tài liệu.
+                      1. **Trung thực:** Chỉ trả lời dựa trên thông tin có trong tài liệu.
             2. **Chuyên môn:** Nếu là câu hỏi kỹ thuật, hãy hướng dẫn từng bước rõ ràng, chú ý đến hơi thở và định tuyến an toàn.
             3. **Cấu trúc:** Trả lời ngắn gọn, súc tích, sử dụng gạch đầu dòng để dễ đọc.
             4. **Lưu ý:** KHÔNG tự ý chèn đường link vào nội dung trả lời (Hệ thống sẽ tự động thêm danh sách tham khảo ở cuối).
@@ -177,7 +192,7 @@ if can_chat:
                 
                 try:
                     response_text = model.generate_content(sys_prompt).text
-                    final_content = response_text + ref_html
+                    final_content = response_text + links_markdown
                     st.markdown(final_content, unsafe_allow_html=True)
                     st.session_state.messages.append({"role": "assistant", "content": final_content})
                 except Exception as e:
