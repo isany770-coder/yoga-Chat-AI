@@ -3,6 +3,7 @@ import os
 import re
 import json
 import datetime
+import uuid # Thêm thư viện để tạo ID cho khách
 import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -16,7 +17,7 @@ st.set_page_config(
     menu_items=None
 )
 
-# --- CSS ẨN THANH CÔNG CỤ & FOOTER ---
+# --- CSS ẨN THANH CÔNG CỤ & FOOTER & UI MỚI ---
 st.markdown("""
 <style>
     /* 1. Ẩn menu 3 chấm, Header, Footer, Toolbar */
@@ -27,7 +28,7 @@ st.markdown("""
     
     /* 2. Đẩy nội dung lên sát mép trên */
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 3rem !important; /* Tăng padding để nhường chỗ cho thanh bar */
     }
     
     /* 3. Bong bóng chat đẹp */
@@ -49,6 +50,55 @@ st.markdown("""
     .stMarkdown a:hover {
         text-decoration: underline;
     }
+
+    /* 5. THANH PROGRESS BAR XỊN XÒ */
+    .usage-bar-container {
+        position: fixed; top: 0; left: 0; width: 100%; height: 6px;
+        background-color: #f0f0f0; z-index: 999999;
+    }
+    .usage-bar-fill {
+        height: 100%; 
+        background: linear-gradient(90deg, #00d2ff 0%, #3a7bd5 100%);
+        transition: width 0.5s ease-in-out;
+    }
+    .usage-text {
+        position: fixed; top: 10px; right: 20px; 
+        background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px;
+        font-size: 12px; color: #555; font-weight: bold;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 999998;
+    }
+
+    /* 6. MODAL THÔNG BÁO HẾT LƯỢT */
+    .limit-modal {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(8px);
+        z-index: 1000000;
+        display: flex; align-items: center; justify-content: center;
+        flex-direction: column;
+    }
+    .limit-box {
+        background: white; padding: 40px; border-radius: 25px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        text-align: center; max-width: 400px;
+        border: 1px solid #eee;
+        animation: popup 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    }
+    @keyframes popup {
+        0% { transform: scale(0.5); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    .limit-icon { font-size: 60px; margin-bottom: 20px; }
+    .limit-title { font-size: 24px; font-weight: 800; color: #ff6b6b; margin-bottom: 10px; }
+    .limit-desc { color: #666; margin-bottom: 25px; line-height: 1.5; }
+    .limit-btn {
+        background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+        color: white !important; padding: 12px 30px; border-radius: 50px;
+        text-decoration: none; font-weight: bold; display: inline-block;
+        box-shadow: 0 5px 15px rgba(108, 92, 231, 0.3);
+        transition: transform 0.2s;
+    }
+    .limit-btn:hover { transform: translateY(-3px); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -64,24 +114,38 @@ USAGE_DB_FILE = "usage_database.json"
 DAILY_LIMIT = 25
 TRIAL_LIMIT = 10
 
+# --- XỬ LÝ USER & KHÁCH (CHỐNG F5) ---
+# Lấy hoặc tạo Guest ID cố định trên URL
+if "guest_id" not in st.query_params:
+    st.query_params["guest_id"] = str(uuid.uuid4())
+GUEST_ID = f"guest_{st.query_params['guest_id']}"
+
 def load_usage_db():
     if not os.path.exists(USAGE_DB_FILE): return {}
     with open(USAGE_DB_FILE, "r") as f: return json.load(f)
+
 def save_usage_db(data):
     with open(USAGE_DB_FILE, "w") as f: json.dump(data, f)
-def check_member_limit(username):
+
+# Hàm kiểm tra chung cho cả Member và Khách (Lưu vào DB để chống F5)
+def check_usage_limit(user_key, limit_max):
     data = load_usage_db()
     today = str(datetime.date.today())
-    if username not in data or data[username]["date"] != today:
-        data[username] = {"date": today, "count": 0}
+    
+    # Nếu user chưa có hoặc khác ngày -> Reset
+    if user_key not in data or data[user_key]["date"] != today:
+        data[user_key] = {"date": today, "count": 0}
         save_usage_db(data)
-        return 0, DAILY_LIMIT
-    return data[username]["count"], DAILY_LIMIT - data[username]["count"]
-def increment_member_usage(username):
+        return 0, limit_max
+    
+    current = data[user_key]["count"]
+    return current, limit_max - current
+
+def increment_usage(user_key):
     data = load_usage_db()
     today = str(datetime.date.today())
-    if username in data and data[username]["date"] == today:
-        data[username]["count"] += 1
+    if user_key in data and data[user_key]["date"] == today:
+        data[user_key]["count"] += 1
         save_usage_db(data)
 
 SPECIAL_MAPPING = {"trồng chuối": ["sirsasana"], "con quạ": ["bakasana"], "cái cày": ["halasana"]}
@@ -129,17 +193,44 @@ def search_engine(query, db):
 # --- LOGIC CHAT ---
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
-if "guest_usage" not in st.session_state: st.session_state.guest_usage = 0
 if "messages" not in st.session_state: st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Chúc bạn một ngày nhiều niềm vui, chúng ta sẽ bắt đầu từ đâu?."}]
 
-can_chat = False
-if st.session_state.authenticated:
-    used, remaining = check_member_limit(st.session_state.username)
-    if remaining > 0: can_chat = True
-    else: st.warning("⛔ Hôm nay bạn đã hỏi đủ 25 câu.")
+# Xác định User hiện tại và Giới hạn
+current_user_key = st.session_state.username if st.session_state.authenticated else GUEST_ID
+current_limit_max = DAILY_LIMIT if st.session_state.authenticated else TRIAL_LIMIT
+
+# Lấy thông tin sử dụng (Đã được lưu bền vững trong JSON)
+used_count, remaining_count = check_usage_limit(current_user_key, current_limit_max)
+percent_used = (used_count / current_limit_max) * 100
+
+# --- HIỂN THỊ THANH BAR ---
+st.markdown(f"""
+    <div class="usage-bar-container">
+        <div class="usage-bar-fill" style="width: {percent_used}%;"></div>
+    </div>
+    <div class="usage-text">
+        ⚡ Lượt dùng: {used_count}/{current_limit_max}
+    </div>
+""", unsafe_allow_html=True)
+
+# --- HIỂN THỊ MODAL NẾU HẾT LƯỢT ---
+if remaining_count <= 0:
+    st.markdown(f"""
+    <div class="limit-modal">
+        <div class="limit-box">
+            <div class="limit-icon">🧘‍♀️</div>
+            <div class="limit-title">Đã hết năng lượng!</div>
+            <div class="limit-desc">
+                Bạn đã dùng hết {current_limit_max} câu hỏi miễn phí hôm nay.<br>
+                Hãy quay lại vào ngày mai hoặc đăng nhập để tập luyện tiếp nhé!
+            </div>
+            <a href="https://zalo.me/84963759566" target="_blank" class="limit-btn">💬 Liên hệ Admin</a>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    can_chat = False
 else:
-    if st.session_state.guest_usage < TRIAL_LIMIT: can_chat = True
-    else: st.info(f"🔒 Dùng thử: {st.session_state.guest_usage}/{TRIAL_LIMIT} câu.")
+    can_chat = True
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"], unsafe_allow_html=True)
@@ -151,14 +242,19 @@ if can_chat:
         
         with st.chat_message("assistant"):
             if db:
+                # Tăng lượt dùng ngay khi hỏi (Lưu vào JSON ngay lập tức)
+                increment_usage(current_user_key)
+                
+                # Cập nhật lại thanh bar ngay lập tức bằng cách rerun (tạo cảm giác mượt)
+                # Tuy nhiên rerun sẽ reload cả trang, nên ta chấp nhận bar cập nhật ở lần tương tác sau 
+                # hoặc dùng placeholder nếu muốn phức tạp hơn. Ở đây giữ đơn giản.
+                
                 top_docs = search_engine(prompt, db)
-                if st.session_state.authenticated: increment_member_usage(st.session_state.username)
-                else: st.session_state.guest_usage += 1
                 
                 # --- PHẦN KHÔI PHỤC LOGIC LINK ĐẸP ---
                 links_markdown = ""
                 context = ""
-                final_links = {} # Dùng dict để lọc trùng lặp link
+                final_links = {} 
                 
                 if top_docs:
                     context = "\n".join([d.page_content for d in top_docs])
@@ -166,13 +262,11 @@ if can_chat:
                     for d in top_docs:
                         title = d.metadata.get('title', 'Tài liệu tham khảo')
                         url = d.metadata.get('url', '#')
-                        # Làm sạch tiêu đề (bỏ dấu ngoặc thừa nếu có)
                         clean_title = title.replace("[", "").replace("]", "").replace("(", " - ").replace(")", "")
                         
                         if url != '#' and "http" in url:
                             final_links[url] = clean_title
 
-                    # Tạo Markdown list
                     if final_links:
                         links_markdown = "\n\n---\n**📚 Tài liệu tham khảo:**\n"
                         for url, name in final_links.items():
@@ -196,18 +290,23 @@ if can_chat:
                     final_content = response_text + links_markdown
                     st.markdown(final_content, unsafe_allow_html=True)
                     st.session_state.messages.append({"role": "assistant", "content": final_content})
+                    # Rerun nhẹ để cập nhật thanh bar
+                    st.rerun() 
                 except Exception as e:
                     st.error(f"Lỗi AI: {e}")
             else: st.error("Đang kết nối não bộ...")
 else:
-    if not st.session_state.authenticated:
-        st.markdown("---")
-        with st.form("login"):
-            st.markdown("### 🔐 Đăng nhập Thành viên")
-            u = st.text_input("User")
-            p = st.text_input("Pass", type="password")
-            if st.form_submit_button("Vào tập"):
-                if st.secrets["passwords"].get(u) == p:
-                    st.session_state.authenticated = True; st.session_state.username = u; st.rerun()
-                else: st.error("Sai thông tin!")
-        st.markdown(f"<div style='text-align:center; margin-top:10px'><a href='https://zalo.me/84963759566' target='_blank' style='color:#6c5ce7; text-decoration:none; font-weight:bold'>💬 Lấy TK Zalo</a></div>", unsafe_allow_html=True)
+    # Nếu hết lượt thì ẩn khung chat input bằng cách không gọi st.chat_input
+    pass
+
+if not st.session_state.authenticated and can_chat: # Chỉ hiện form login nếu chưa hết lượt
+    st.markdown("---")
+    with st.form("login"):
+        st.markdown("### 🔐 Đăng nhập Thành viên")
+        u = st.text_input("User")
+        p = st.text_input("Pass", type="password")
+        if st.form_submit_button("Vào tập"):
+            if st.secrets["passwords"].get(u) == p:
+                st.session_state.authenticated = True; st.session_state.username = u; st.rerun()
+            else: st.error("Sai thông tin!")
+    st.markdown(f"<div style='text-align:center; margin-top:10px'><a href='https://zalo.me/84963759566' target='_blank' style='color:#6c5ce7; text-decoration:none; font-weight:bold'>💬 Lấy TK Zalo</a></div>", unsafe_allow_html=True)
