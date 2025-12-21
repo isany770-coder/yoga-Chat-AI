@@ -20,59 +20,43 @@ st.set_page_config(
 st.markdown("""
 <style>
 
-/* ===== RESET TOÀN BỘ NỀN ===== */
+/* NỀN CHUẨN */
 html, body {
     background: #ffffff !important;
 }
 
+/* ROOT STREAMLIT */
 [data-testid="stAppViewContainer"],
 [data-testid="stApp"],
 .stApp {
-    background-color: #ffffff !important;
-    opacity: 1 !important;
+    background: #ffffff !important;
 }
 
-/* ===== ẨN TOOLBAR AN TOÀN (KHÔNG PHÁ LAYOUT) ===== */
+/* ẨN TOOLBAR GỌN (KHÔNG display:none) */
 [data-testid="stToolbar"] {
     visibility: hidden;
     height: 0;
 }
 
-/* KHÔNG hide header/footer bằng display:none */
-header, footer {
-    visibility: hidden;
-    height: 0;
-}
-
-/* ===== FIX MOBILE TEXT MỜ ===== */
-* {
-    -webkit-font-smoothing: antialiased !important;
-    -moz-osx-font-smoothing: grayscale !important;
-}
-
-iframe {
-    background: #ffffff !important;
-}
-
-/* ===== CHAT UI ===== */
+/* CHAT UI */
 div[data-testid="stChatMessage"] {
-    background-color: #f8f9fa;
+    background: #f8f9fa;
     border-radius: 14px;
     padding: 12px;
-    margin-top: 24px;
+    margin-top: 22px;
     border: 1px solid #eee;
 }
 
 div[data-testid="stChatMessage"][data-test-role="user"] {
-    background-color: #e3f2fd;
+    background: #e3f2fd;
     flex-direction: row-reverse;
     text-align: right;
     border: none;
 }
 
-/* ===== LINK ===== */
+/* LINK */
 .stMarkdown a {
-    color: #6c5ce7 !important;
+    color: #0f988b;
     font-weight: 600;
     text-decoration: none;
 }
@@ -80,11 +64,10 @@ div[data-testid="stChatMessage"][data-test-role="user"] {
     text-decoration: underline;
 }
 
-/* ===== MOBILE FIX ===== */
-@media (max-width: 600px) {
-    body {
-        overflow: auto !important;
-    }
+/* FONT MOBILE */
+* {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 </style>
