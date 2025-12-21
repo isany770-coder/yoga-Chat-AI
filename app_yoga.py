@@ -7,38 +7,57 @@ import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
-# --- CẤU HÌNH CƠ BẢN ---
-st.set_page_config(page_title="Yoga Guru", page_icon="🧘", layout="wide", initial_sidebar_state="collapsed")
+# --- CẤU HÌNH TRANG (QUAN TRỌNG: menu_items=None để ẩn menu) ---
+st.set_page_config(
+    page_title="Yoga Guru", 
+    page_icon="🧘", 
+    layout="wide", 
+    initial_sidebar_state="collapsed",
+    menu_items=None 
+)
 
-# --- CSS "DỌN RÁC" TRIỆT ĐỂ (FIX LỖI TRẮNG MÀN HÌNH) ---
+# --- CSS DIỆT FOOTER & TOOLBAR (LEVEL MAX) ---
 st.markdown("""
 <style>
-    /* 1. Ẩn thanh công cụ Streamlit (3 chấm, Fullscreen) */
-    [data-testid="stToolbar"] {visibility: hidden !important; display: none !important;}
-    .stAppDeployButton {display: none !important;}
+    /* 1. Ẩn Footer & Hamburger Menu */
+    footer, header, [data-testid="stToolbar"] {
+        visibility: hidden !important;
+        display: none !important;
+        height: 0px !important;
+    }
     
-    /* 2. Ẩn Footer "Built with Streamlit" */
-    footer {visibility: hidden !important; display: none !important;}
-    #MainMenu {visibility: hidden !important; display: none !important;}
+    /* 2. Ẩn nút Deploy & Decoration */
+    .stAppDeployButton, [data-testid="stDecoration"] {
+        display: none !important;
+    }
     
-    /* 3. Ẩn Header mặc định nhưng giữ khoảng cách để không bị dính lên trên */
-    header[data-testid="stHeader"] {background: transparent !important;}
+    /* 3. Đẩy nội dung lên sát mép trên cùng (Lấp khoảng trống Header) */
+    .block-container {
+        padding-top: 0rem !important;
+        padding-bottom: 1rem !important;
+        margin-top: -50px !important; /* Kéo ngược lên */
+    }
     
-    /* 4. Tinh chỉnh Chat cho đẹp */
-    .stApp {background-color: #ffffff;}
+    /* 4. Tùy chỉnh Bong bóng Chat */
+    .stApp {background-color: white;}
     div[data-testid="stChatMessage"] {
-        background-color: #f0f2f6; border-radius: 15px; padding: 10px; margin-bottom: 10px;
+        background-color: #f8f9fa; border-radius: 15px; padding: 12px; margin-bottom: 10px;
+        border: 1px solid #eee;
     }
     div[data-testid="stChatMessage"][data-test-role="user"] {
-        background-color: #e8f0fe; flex-direction: row-reverse; text-align: right;
+        background-color: #e3f2fd; flex-direction: row-reverse; text-align: right; border: none;
     }
     
-    /* 5. Ẩn Avatar mặc định cho gọn */
-    .stChatMessage .st-emotion-cache-1p1m4ay {display: none;}
+    /* 5. Link tham khảo đẹp */
+    .ref-link {
+        font-size: 13px; color: #666; margin-top: 5px; display: block;
+        text-decoration: none; border-left: 3px solid #6c5ce7; padding-left: 5px;
+    }
+    .ref-link:hover {color: #6c5ce7; font-weight: bold;}
 </style>
 """, unsafe_allow_html=True)
 
-# --- CẤU HÌNH API & DATABASE (GIỮ NGUYÊN) ---
+# --- API & DB SETUP ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
@@ -70,8 +89,10 @@ def increment_member_usage(username):
         data[username]["count"] += 1
         save_usage_db(data)
 
+# --- LOGIC TÌM KIẾM & LINK (ĐÃ HỒI SINH) ---
 SPECIAL_MAPPING = {"trồng chuối": ["sirsasana"], "con quạ": ["bakasana"], "cái cày": ["halasana"]}
 STOPWORDS = {'là', 'của', 'như', 'thế', 'nào', 'tập', 'bài', 'cách', 'tôi', 'bạn', 'muốn', 'hỏi', 'gì'}
+
 def clean_and_extract_keywords(text):
     text = text.lower()
     text = re.sub(r'[^\w\s]', ' ', text)
@@ -98,22 +119,30 @@ def search_engine(query, db):
     
     raw_docs = db.similarity_search(f"{query} {' '.join(injected_keywords)}", k=100)
     matched_docs = []
+    seen_titles = set()
+    
     for d in raw_docs:
+        title = d.metadata.get('title', 'Tài liệu Yoga')
+        if title in seen_titles: continue # Bỏ trùng lặp
+        
         score = 0
-        title_keywords = clean_and_extract_keywords(d.metadata.get('title', ''))
+        title_keywords = clean_and_extract_keywords(title)
         common = user_keywords.intersection(title_keywords)
         if common: score += len(common) * 10
-        if score > 0: matched_docs.append((d, score))
+        if score > 0: 
+            matched_docs.append((d, score))
+            seen_titles.add(title)
+            
     matched_docs.sort(key=lambda x: x[1], reverse=True)
-    return [x[0] for x in matched_docs[:4]] # Lấy ít thôi cho nhanh
+    return [x[0] for x in matched_docs[:3]] # Lấy 3 bài tốt nhất
 
-# --- LOGIC CHÍNH ---
+# --- SESSION ---
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
 if "guest_usage" not in st.session_state: st.session_state.guest_usage = 0
 if "messages" not in st.session_state: st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Guru đây."}]
 
-# --- GIAO DIỆN (BỎ SIDEBAR, DỒN HẾT VÀO GIỮA CHO MOBILE) ---
+# --- GIAO DIỆN CHAT ---
 can_chat = False
 if st.session_state.authenticated:
     used, remaining = check_member_limit(st.session_state.username)
@@ -121,10 +150,11 @@ if st.session_state.authenticated:
     else: st.warning("⛔ Hôm nay bạn đã hỏi đủ 15 câu.")
 else:
     if st.session_state.guest_usage < TRIAL_LIMIT: can_chat = True
-    else: st.info("🔒 Hết lượt dùng thử.")
+    else: st.info(f"🔒 Dùng thử: {st.session_state.guest_usage}/{TRIAL_LIMIT} câu.")
 
+# Hiển thị tin nhắn
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]): st.markdown(msg["content"])
+    with st.chat_message(msg["role"]): st.markdown(msg["content"], unsafe_allow_html=True)
 
 if can_chat:
     if prompt := st.chat_input("Nhập câu hỏi..."):
@@ -137,19 +167,48 @@ if can_chat:
                 if st.session_state.authenticated: increment_member_usage(st.session_state.username)
                 else: st.session_state.guest_usage += 1
                 
-                context = "\n".join([d.page_content for d in top_docs]) if top_docs else ""
-                response = model.generate_content(f"Bạn là Yoga Guru. Dữ liệu: {context}. Câu hỏi: {prompt}. Trả lời ngắn gọn 5 ý chính. Không link.").text
-                st.markdown(response)
-                st.session_state.messages.append({"role": "assistant", "content": response})
+                # Xử lý Link tham khảo
+                ref_html = ""
+                context = ""
+                if top_docs:
+                    context = "\n".join([d.page_content for d in top_docs])
+                    ref_html = "\n\n---\n"
+                    for d in top_docs:
+                        title = d.metadata.get('title', 'Xem chi tiết')
+                        url = d.metadata.get('url', '#')
+                        if url != '#':
+                            ref_html += f"<a href='{url}' target='_blank' class='ref-link'>🔗 {title}</a>"
+                
+                # Gọi AI
+                system_prompt = f"""
+                        Bạn là chuyên gia Yoga.
+                        DỮ LIỆU BÀI VIẾT:
+                        {context_text}
+                        CÂU HỎI: "{prompt}"
+                        YÊU CẦU:
+                        1. **Trung thực:** Chỉ trả lời dựa trên thông tin có trong tài liệu.
+            2. **Chuyên môn:** Nếu là câu hỏi kỹ thuật, hãy hướng dẫn từng bước rõ ràng, chú ý đến hơi thở và định tuyến an toàn.
+            3. **Cấu trúc:** Trả lời ngắn gọn, súc tích, sử dụng gạch đầu dòng để dễ đọc.
+            4. **Lưu ý:** KHÔNG tự ý chèn đường link vào nội dung trả lời (Hệ thống sẽ tự động thêm danh sách tham khảo ở cuối).
+            """
+                
+                # Ghép nội dung + Link
+                final_content = response_text + ref_html
+                
+                st.markdown(final_content, unsafe_allow_html=True)
+                st.session_state.messages.append({"role": "assistant", "content": final_content})
             else:
-                st.error("Lỗi DB.")
+                st.error("Đang kết nối não bộ...")
 else:
-    # FORM ĐĂNG NHẬP (HIỆN KHI HẾT LƯỢT)
+    # FORM ĐĂNG NHẬP
     if not st.session_state.authenticated:
+        st.markdown("---")
         with st.form("login"):
+            st.markdown("### 🔐 Đăng nhập Thành viên")
             u = st.text_input("User")
             p = st.text_input("Pass", type="password")
-            if st.form_submit_button("Login"):
+            if st.form_submit_button("Vào tập"):
                 if st.secrets["passwords"].get(u) == p:
                     st.session_state.authenticated = True; st.session_state.username = u; st.rerun()
-                else: st.error("Sai!")
+                else: st.error("Sai thông tin!")
+        st.markdown(f"<div style='text-align:center; margin-top:10px'><a href='https://zalo.me/84963759566' target='_blank' style='color:#6c5ce7; text-decoration:none; font-weight:bold'>💬 Lấy TK Zalo</a></div>", unsafe_allow_html=True)
