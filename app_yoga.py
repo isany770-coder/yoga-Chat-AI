@@ -19,38 +19,77 @@ st.set_page_config(
 # --- CSS ẨN THANH CÔNG CỤ & FOOTER ---
 st.markdown("""
 <style>
-    /* 1. Ẩn menu 3 chấm, Header, Footer, Toolbar */
-    [data-testid="stToolbar"], header, footer, .stAppDeployButton {
-        display: none !important;
-        visibility: hidden !important;
+
+/* ===== RESET TOÀN BỘ NỀN ===== */
+html, body {
+    background: #ffffff !important;
+}
+
+[data-testid="stAppViewContainer"],
+[data-testid="stApp"],
+.stApp {
+    background-color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+/* ===== ẨN TOOLBAR AN TOÀN (KHÔNG PHÁ LAYOUT) ===== */
+[data-testid="stToolbar"] {
+    visibility: hidden;
+    height: 0;
+}
+
+/* KHÔNG hide header/footer bằng display:none */
+header, footer {
+    visibility: hidden;
+    height: 0;
+}
+
+/* ===== FIX MOBILE TEXT MỜ ===== */
+* {
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+}
+
+iframe {
+    background: #ffffff !important;
+}
+
+/* ===== CHAT UI ===== */
+div[data-testid="stChatMessage"] {
+    background-color: #f8f9fa;
+    border-radius: 14px;
+    padding: 12px;
+    margin-top: 24px;
+    border: 1px solid #eee;
+}
+
+div[data-testid="stChatMessage"][data-test-role="user"] {
+    background-color: #e3f2fd;
+    flex-direction: row-reverse;
+    text-align: right;
+    border: none;
+}
+
+/* ===== LINK ===== */
+.stMarkdown a {
+    color: #6c5ce7 !important;
+    font-weight: 600;
+    text-decoration: none;
+}
+.stMarkdown a:hover {
+    text-decoration: underline;
+}
+
+/* ===== MOBILE FIX ===== */
+@media (max-width: 600px) {
+    body {
+        overflow: auto !important;
     }
-    
-    /* 2. Đẩy nội dung lên sát mép trên */
-    .block-container {
-        padding-top: 1rem !important;
-    }
-    
-    /* 3. Bong bóng chat đẹp */
-    .stApp {background-color: white;}
-    div[data-testid="stChatMessage"] {
-        background-color: #f8f9fa; border-radius: 15px; padding: 12px; margin-top: 30px;
-        border: 1px solid #eee;
-    }
-    div[data-testid="stChatMessage"][data-test-role="user"] {
-        background-color: #e3f2fd; flex-direction: row-reverse; text-align: right; border: none;
-    }
-    
-    /* 4. Link tham khảo (Style Markdown chuẩn) */
-    .stMarkdown a {
-        color: #6c5ce7 !important; 
-        font-weight: bold !important; 
-        text-decoration: none;
-    }
-    .stMarkdown a:hover {
-        text-decoration: underline;
-    }
+}
+
 </style>
 """, unsafe_allow_html=True)
+
 
 # --- KHỞI TẠO API ---
 try:
