@@ -7,6 +7,10 @@ import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
+# --- CẤU HÌNH LOGO (THAY LINK ẢNH CỦA BÁC VÀO ĐÂY) ---
+LOGO_URL = "https://yogaismylife.vn/wp-content/uploads/2025/02/png-lo-final.webp" 
+ZALO_LINK = "https://zalo.me/84963759566"
+
 # --- 1. CẤU HÌNH TRANG ---
 st.set_page_config(
     page_title="Yoga Guru AI",
@@ -29,6 +33,19 @@ st.markdown("""
     section[data-testid="stSidebar"] {background-color: #ffffff; border-right: 1px solid #ddd;}
     .stMarkdown a {color: #ff6b6b !important; font-weight: bold;}
     #MainMenu {visibility: hidden;} footer {visibility: hidden;}
+    
+    /* Style cho nút Zalo */
+    .stLinkButton a {
+        background-color: #0068ff !important;
+        color: white !important;
+        font-weight: bold !important;
+        border-radius: 8px !important;
+        text-align: center !important;
+        border: none !important;
+    }
+    .stLinkButton a:hover {
+        background-color: #0056d6 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -40,8 +57,7 @@ except:
     st.error("⚠️ Lỗi: Chưa cấu hình API Key trong Secrets.")
     st.stop()
 
-# --- 4. CẤU HÌNH ĐƯỜNG DẪN (FIX LỖI TÌM FILE) ---
-# Lấy đường dẫn tuyệt đối của thư mục hiện tại
+# --- 4. CẤU HÌNH ĐƯỜNG DẪN ---
 CURRENT_DIR = os.getcwd()
 VECTOR_DB_FOLDER = "bo_nao_vector"
 VECTOR_DB_PATH = os.path.join(CURRENT_DIR, VECTOR_DB_FOLDER)
@@ -94,34 +110,24 @@ def clean_and_extract_keywords(text):
     words = text.split()
     return set([w for w in words if w not in STOPWORDS and len(w) > 1])
 
-# --- 5. LOAD BRAIN (CỰC KỲ CHI TIẾT ĐỂ DEBUG) ---
+# --- 5. LOAD BRAIN ---
 @st.cache_resource
 def load_brain():
-    # 1. Kiểm tra folder
     if not os.path.exists(VECTOR_DB_PATH):
-        st.error(f"❌ LỖI: Không tìm thấy thư mục '{VECTOR_DB_FOLDER}'.")
-        st.warning(f"📂 Danh sách file đang có trên Server: {os.listdir(CURRENT_DIR)}")
+        st.error(f"❌ Lỗi: Không tìm thấy thư mục '{VECTOR_DB_FOLDER}'.")
         return None, None
-    
-    # 2. Kiểm tra file index
     index_file = os.path.join(VECTOR_DB_PATH, "index.faiss")
     if not os.path.exists(index_file):
-        st.error(f"❌ LỖI: Thư mục có đó, nhưng thiếu file 'index.faiss'.")
-        st.warning(f"📂 Bên trong folder '{VECTOR_DB_FOLDER}' chỉ có: {os.listdir(VECTOR_DB_PATH)}")
+        st.error(f"❌ Lỗi: Thiếu file index.faiss")
         return None, None
-        
-    # 3. Kiểm tra dung lượng file (Check lỗi Git LFS)
-    file_size = os.path.getsize(index_file)
-    if file_size < 100000: # Nhỏ hơn 100KB là nghi vấn
-        st.error(f"❌ LỖI FILE HỎNG: File dữ liệu quá nhẹ ({file_size} bytes).")
-        st.info("💡 Nguyên nhân: Có thể bạn chưa upload thành công file nặng qua Git LFS. Đây chỉ là file pointer.")
+    if os.path.getsize(index_file) < 100000:
+        st.error(f"❌ Lỗi: File dữ liệu quá nhẹ (Lỗi Git LFS).")
         return None, None
 
     embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
     try:
-        # Load với đường dẫn tuyệt đối
         db = FAISS.load_local(VECTOR_DB_PATH, embeddings, allow_dangerous_deserialization=True)
-        model = genai.GenerativeModel('gemini-flash-latest') 
+        model = genai.GenerativeModel('gemini-lash-latest') 
         return db, model
     except Exception as e:
         st.error(f"❌ Lỗi nạp DB: {e}")
@@ -166,54 +172,47 @@ if "authenticated" not in st.session_state: st.session_state.authenticated = Fal
 if "username" not in st.session_state: st.session_state.username = ""
 if "guest_usage" not in st.session_state: st.session_state.guest_usage = 0
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Hỏi mình bất cứ điều gì về Yoga nhé."}]
+    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Guru đã sẵn sàng."}]
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2647/2647596.png", width=60)
+    # 1. LOGO
+    st.image(LOGO_URL, width=80) 
     st.title("Yoga Guru AI")
     st.markdown("---")
     
+    # 2. TRẠNG THÁI NGƯỜI DÙNG
     if st.session_state.authenticated:
-        st.success(f"👋 Chào Yogi, **{st.session_state.username}**!")
+        st.success(f"👋 Xin chào, **{st.session_state.username}**!")
         used, remaining = check_member_limit(st.session_state.username)
-        percent = used / DAILY_LIMIT
-        st.progress(percent)
-        st.write(f"📊 Đã dùng: **{used}/{DAILY_LIMIT}** câu")
+        st.progress(used / DAILY_LIMIT)
+        st.caption(f"Đã dùng: {used}/{DAILY_LIMIT} câu")
         if st.button("🚪 Đăng xuất", type="secondary"):
             st.session_state.authenticated = False
             st.rerun()
     else:
-        st.info("🌱 Chế độ: **Khách dùng thử**")
+        st.info("🌱 Chế độ: **Dùng thử**")
         st.metric(label="Câu hỏi còn lại", value=f"{TRIAL_LIMIT - st.session_state.guest_usage}", delta=None)
         
-        if st.session_state.guest_usage >= TRIAL_LIMIT:
-            st.warning("🔒 Hết lượt thử.")
-            with st.form("login_form"):
+        # Form đăng nhập
+        with st.expander("🔐 Đăng nhập Thành viên"):
+             with st.form("login_form"):
                 user_input = st.text_input("Tài khoản")
                 pass_input = st.text_input("Mật khẩu", type="password")
-                if st.form_submit_button("🔑 Đăng nhập ngay"):
+                if st.form_submit_button("Đăng nhập"):
                     secrets_pass = st.secrets["passwords"].get(user_input)
                     if secrets_pass and secrets_pass == pass_input:
                         st.session_state.authenticated = True
                         st.session_state.username = user_input
                         st.rerun()
-                    else: st.error("Sai mật khẩu!")
-        else:
-             st.markdown("---")
-             with st.expander("🔐 Thành viên đăng nhập"):
-                with st.form("login_form_guest"):
-                    user_input = st.text_input("Tài khoản")
-                    pass_input = st.text_input("Mật khẩu", type="password")
-                    if st.form_submit_button("Đăng nhập"):
-                        secrets_pass = st.secrets["passwords"].get(user_input)
-                        if secrets_pass and secrets_pass == pass_input:
-                            st.session_state.authenticated = True
-                            st.session_state.username = user_input
-                            st.rerun()
-                        else: st.error("Sai thông tin!")
-    
+                    else: st.error("Sai thông tin!")
+
     st.markdown("---")
+    
+    # 3. NÚT ZALO LẤY TÀI KHOẢN (MỚI)
+    st.markdown("### 💬 Cần tài khoản VIP?")
+    st.link_button("📲 Nhắn Zalo lấy TK ngay", ZALO_LINK)
+    
     st.caption("© 2024 Yoga Guru AI")
 
 # --- GIAO DIỆN CHAT ---
@@ -236,7 +235,7 @@ if can_chat:
 
         with st.chat_message("assistant"):
             if db is None:
-                st.error("❌ Hệ thống đang khởi động lại hoặc gặp lỗi dữ liệu. Vui lòng thử lại sau giây lát.")
+                st.error("❌ Hệ thống đang khởi động. Vui lòng thử lại sau giây lát.")
                 st.stop()
             
             msg_placeholder = st.empty()
@@ -249,7 +248,7 @@ if can_chat:
                 else: st.session_state.guest_usage += 1
 
                 if not top_docs:
-                    resp = "Guru chưa tìm thấy bài viết phù hợp trong thư viện."
+                    resp = "Guru chưa tìm thấy bài viết phù hợp."
                     msg_placeholder.markdown(resp)
                     st.session_state.messages.append({"role": "assistant", "content": resp})
                 else:
@@ -265,22 +264,16 @@ if can_chat:
                     
                     link_md = ""
                     if links:
-                        link_md = "\n\n---\n**📚 Tham khảo chi tiết:**\n" + "\n".join([f"- [{n}]({u})" for u, n in links.items()])
+                        link_md = "\n\n---\n**📚 Tham khảo:**\n" + "\n".join([f"- [{n}]({u})" for u, n in links.items()])
 
-                    # --- PROMPT CHUẨN ---
                     sys_prompt = f"""
                     Bạn là Yoga Guru chuyên nghiệp.
-                    Dựa trên dữ liệu dưới đây, hãy trả lời câu hỏi.
-                    
-                    DỮ LIỆU:
-                    {context}
-                    
-                    CÂU HỎI: "{prompt}"
-                    
-                    YÊU CẦU:
-                    1. Trả lời dưới dạng các gạch đầu dòng (khoảng 8-10 ý).
-                    2. Tổng độ dài khoảng 200 từ.
-                    3. Văn phong chuyên nghiệp, đi thẳng vào vấn đề.
+                    Dữ liệu: {context}
+                    Câu hỏi: "{prompt}"
+                    Yêu cầu:
+                    1. Trả lời bằng gạch đầu dòng (8-10 ý).
+                    2. Độ dài ~200 từ.
+                    3. Văn phong chuyên gia, ngắn gọn.
                     4. KHÔNG tự viết link.
                     """
                     
@@ -291,9 +284,9 @@ if can_chat:
                     st.rerun()
 
             except Exception as e: 
-                st.error(f"Lỗi hệ thống: {e}"); print(e)
+                st.error(f"Lỗi: {e}"); print(e)
 else:
     if st.session_state.authenticated:
-        st.info("⛔ Hôm nay bạn đã hỏi đủ 15 câu rồi. Hẹn gặp lại ngày mai nhé!")
+        st.info("⛔ Hết lượt hôm nay.")
     else:
-        st.warning(f"🔒 Bạn đã hết {TRIAL_LIMIT} câu hỏi dùng thử. Vui lòng **Đăng nhập** ở cột bên trái.")
+        st.warning(f"🔒 Hết lượt dùng thử. Vui lòng Đăng nhập hoặc bấm nút **Lấy TK Zalo** bên dưới.")
