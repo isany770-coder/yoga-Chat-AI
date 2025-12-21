@@ -61,8 +61,8 @@ except: st.stop()
 CURRENT_DIR = os.getcwd()
 VECTOR_DB_PATH = os.path.join(CURRENT_DIR, "bo_nao_vector")
 USAGE_DB_FILE = "usage_database.json"
-DAILY_LIMIT = 15
-TRIAL_LIMIT = 5
+DAILY_LIMIT = 25
+TRIAL_LIMIT = 10
 
 def load_usage_db():
     if not os.path.exists(USAGE_DB_FILE): return {}
@@ -136,7 +136,7 @@ can_chat = False
 if st.session_state.authenticated:
     used, remaining = check_member_limit(st.session_state.username)
     if remaining > 0: can_chat = True
-    else: st.warning("⛔ Hôm nay bạn đã hỏi đủ 15 câu.")
+    else: st.warning("⛔ Hôm nay bạn đã hỏi đủ 25 câu.")
 else:
     if st.session_state.guest_usage < TRIAL_LIMIT: can_chat = True
     else: st.info(f"🔒 Dùng thử: {st.session_state.guest_usage}/{TRIAL_LIMIT} câu.")
@@ -184,11 +184,13 @@ if can_chat:
                 {context}
                 CÂU HỎI: "{prompt}"
                 YÊU CẦU:
-                      1. **Trung thực:** Chỉ trả lời dựa trên thông tin có trong tài liệu.
-            2. **Chuyên môn:** Nếu là câu hỏi kỹ thuật, hãy hướng dẫn từng bước rõ ràng, chú ý đến hơi thở và định tuyến an toàn.
-            3. **Cấu trúc:** Trả lời ngắn gọn, súc tích, sử dụng gạch đầu dòng để dễ đọc.
-            4. **Lưu ý:** KHÔNG tự ý chèn đường link vào nội dung trả lời (Hệ thống sẽ tự động thêm danh sách tham khảo ở cuối).
-            """
+                    YÊU CẦU TRẢ LỜI (QUAN TRỌNG):
+                1. Trả lời CỰC KỲ NGẮN GỌN (Tối đa 5-6 gạch đầu dòng).
+                2. Tổng độ dài KHÔNG QUÁ 100 TỪ.
+                3. Đi thẳng vào trọng tâm, bỏ qua lời dẫn dắt vô nghĩa.
+                4. Giọng văn thân thiện, dứt khoát.
+                5. KHÔNG tự chèn link (Hệ thống sẽ tự làm).
+                """
                 
                 try:
                     response_text = model.generate_content(sys_prompt).text
