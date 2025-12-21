@@ -1,4 +1,21 @@
 import streamlit as st
+st.markdown("""
+    <style>
+    /* Ép nền trắng và chữ đen cho toàn bộ app */
+    .stApp {
+        background-color: white !important;
+        color: #212121 !important;
+    }
+    /* Sửa màu cho các ô input để không bị trắng chữ trên nền trắng */
+    input, textarea {
+        color: #212121 !important;
+    }
+    /* Ép sidebar luôn dễ nhìn */
+    [data-testid="stSidebar"] {
+        background-color: #F1F8E9 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 import os
 import re
 import json
