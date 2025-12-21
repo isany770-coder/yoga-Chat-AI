@@ -140,8 +140,7 @@ def search_engine(query, db):
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
 if "guest_usage" not in st.session_state: st.session_state.guest_usage = 0
-if "messages" not in st.session_state: st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Chúng ta nên bắt đầu từ đâu nhỉ?
-."}]
+if "messages" not in st.session_state: st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Chúng ta nên bắt đầu từ đâu nhỉ?."}]
 
 # --- GIAO DIỆN CHAT ---
 can_chat = False
