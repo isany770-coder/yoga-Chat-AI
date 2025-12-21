@@ -121,7 +121,7 @@ def load_brain():
     try:
         # Load với đường dẫn tuyệt đối
         db = FAISS.load_local(VECTOR_DB_PATH, embeddings, allow_dangerous_deserialization=True)
-        model = genai.GenerativeModel('gemini-1.5-flash-latest') 
+        model = genai.GenerativeModel('gemini-flash-latest') 
         return db, model
     except Exception as e:
         st.error(f"❌ Lỗi nạp DB: {e}")
