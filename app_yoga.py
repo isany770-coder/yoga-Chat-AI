@@ -127,7 +127,7 @@ def load_brain():
     embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
     try:
         db = FAISS.load_local(VECTOR_DB_PATH, embeddings, allow_dangerous_deserialization=True)
-        model = genai.GenerativeModel('gemini-lash-latest') 
+        model = genai.GenerativeModel('gemini-flash-latest') 
         return db, model
     except Exception as e:
         st.error(f"❌ Lỗi nạp DB: {e}")
