@@ -1,21 +1,19 @@
-# ==============================
-# IMPORT – KHÔNG STREAMLIT TRƯỚC
-# ==============================
+# ================================
+# IMPORTS (TUYỆT ĐỐI KHÔNG CÓ ST LỆNH TRƯỚC set_page_config)
+# ================================
+import streamlit as st
 import os
 import re
 import json
 import datetime
-
-import streamlit as st
 import google.generativeai as genai
-
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
 
-# ==============================
-# PAGE CONFIG – BẮT BUỘC ĐẦU TIÊN
-# ==============================
+# ================================
+# PAGE CONFIG (PHẢI LÀ LỆNH STREAMLIT ĐẦU TIÊN)
+# ================================
 st.set_page_config(
     page_title="Yoga Assistant",
     page_icon="🧘",
@@ -24,13 +22,13 @@ st.set_page_config(
 )
 
 
-# ==============================
-# CSS – SAFE, KHÔNG CRASH, KHÔNG XUYÊN
-# ==============================
+# ================================
+# GLOBAL CSS (CHỐNG XUYÊN – CHỐNG MỜ – AN TOÀN MOBILE)
+# ================================
 st.markdown("""
 <style>
 
-/* ===== RESET NỀN TUYỆT ĐỐI ===== */
+/* RESET NỀN */
 html, body {
     background: #ffffff !important;
 }
@@ -40,6 +38,7 @@ html, body {
 [data-testid="stApp"],
 .stApp {
     background-color: #ffffff !important;
+    opacity: 1 !important;
 }
 
 /* ẨN TOOLBAR AN TOÀN */
@@ -48,13 +47,13 @@ html, body {
     height: 0;
 }
 
-/* ===== FONT & RENDER ===== */
+/* FONT RENDER MOBILE */
 * {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
 }
 
-/* ===== CHAT MESSAGE ===== */
+/* CHAT BUBBLE */
 div[data-testid="stChatMessage"] {
     background-color: #f8f9fa;
     border-radius: 14px;
@@ -70,7 +69,7 @@ div[data-testid="stChatMessage"][data-test-role="user"] {
     border: none;
 }
 
-/* ===== LINK ===== */
+/* LINK */
 .stMarkdown a {
     color: #0f988b !important;
     font-weight: 600;
@@ -84,31 +83,30 @@ div[data-testid="stChatMessage"][data-test-role="user"] {
 """, unsafe_allow_html=True)
 
 
-# ==============================
-# API CONFIG
-# ==============================
+# ================================
+# API INIT
+# ================================
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
 except Exception:
-    st.error("❌ Không tìm thấy GOOGLE_API_KEY trong secrets")
+    st.error("❌ Thiếu GOOGLE_API_KEY trong secrets")
     st.stop()
 
 
-# ==============================
+# ================================
 # CONSTANTS
-# ==============================
+# ================================
 CURRENT_DIR = os.getcwd()
 VECTOR_DB_PATH = os.path.join(CURRENT_DIR, "bo_nao_vector")
 USAGE_DB_FILE = "usage_database.json"
-
 DAILY_LIMIT = 25
 TRIAL_LIMIT = 10
 
 
-# ==============================
-# USAGE DB
-# ==============================
+# ================================
+# USAGE DATABASE
+# ================================
 def load_usage_db():
     if not os.path.exists(USAGE_DB_FILE):
         return {}
@@ -122,26 +120,23 @@ def save_usage_db(data):
 def check_member_limit(username):
     data = load_usage_db()
     today = str(datetime.date.today())
-
     if username not in data or data[username]["date"] != today:
         data[username] = {"date": today, "count": 0}
         save_usage_db(data)
         return 0, DAILY_LIMIT
-
     return data[username]["count"], DAILY_LIMIT - data[username]["count"]
 
 def increment_member_usage(username):
     data = load_usage_db()
     today = str(datetime.date.today())
-
     if username in data and data[username]["date"] == today:
         data[username]["count"] += 1
         save_usage_db(data)
 
 
-# ==============================
+# ================================
 # SEARCH ENGINE
-# ==============================
+# ================================
 SPECIAL_MAPPING = {
     "trồng chuối": ["sirsasana"],
     "con quạ": ["bakasana"],
@@ -149,9 +144,7 @@ SPECIAL_MAPPING = {
 }
 
 STOPWORDS = {
-    "là", "của", "như", "thế", "nào",
-    "tập", "bài", "cách", "tôi", "bạn",
-    "muốn", "hỏi", "gì"
+    "là","của","như","thế","nào","tập","bài","cách","tôi","bạn","muốn","hỏi","gì"
 }
 
 def clean_and_extract_keywords(text):
@@ -189,40 +182,40 @@ def search_engine(query, db):
     user_keywords = clean_and_extract_keywords(query)
     injected = set()
 
-    for key, values in SPECIAL_MAPPING.items():
-        if key in query.lower():
-            injected.update(values)
-
-    if not user_keywords:
-        user_keywords = set(query.lower().split())
+    for k, v in SPECIAL_MAPPING.items():
+        if k in query.lower():
+            injected.update(v)
 
     raw_docs = db.similarity_search(
         f"{query} {' '.join(injected)}",
         k=100
     )
 
-    matched = []
+    scored = []
     seen = set()
 
     for d in raw_docs:
-        title = d.metadata.get("title", "Tài liệu Yoga")
+        title = d.metadata.get("title", "")
         if title in seen:
             continue
 
-        title_keywords = clean_and_extract_keywords(title)
-        common = user_keywords.intersection(title_keywords)
+        score = len(
+            user_keywords.intersection(
+                clean_and_extract_keywords(title)
+            )
+        ) * 10
 
-        if common:
-            matched.append((d, len(common) * 10))
+        if score > 0:
+            scored.append((d, score))
             seen.add(title)
 
-    matched.sort(key=lambda x: x[1], reverse=True)
-    return [x[0] for x in matched[:3]]
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return [x[0] for x in scored[:3]]
 
 
-# ==============================
+# ================================
 # SESSION STATE
-# ==============================
+# ================================
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
@@ -235,13 +228,13 @@ if "guest_usage" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = [{
         "role": "assistant",
-        "content": "Namaste! 🙏 Chúc bạn một ngày nhiều niềm vui, bạn muốn hỏi điều gì về Yoga?"
+        "content": "Namaste! 🙏 Chúc bạn một ngày an lành. Bạn muốn hỏi điều gì về Yoga?"
     }]
 
 
-# ==============================
-# CHAT PERMISSION
-# ==============================
+# ================================
+# PERMISSION
+# ================================
 can_chat = False
 
 if st.session_state.authenticated:
@@ -257,32 +250,30 @@ else:
         st.info(f"🔒 Dùng thử: {st.session_state.guest_usage}/{TRIAL_LIMIT} câu.")
 
 
-# ==============================
-# RENDER CHAT
-# ==============================
+# ================================
+# RENDER CHAT HISTORY
+# ================================
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"], unsafe_allow_html=True)
 
 
-# ==============================
-# INPUT & RESPONSE
-# ==============================
+# ================================
+# CHAT INPUT
+# ================================
 if can_chat:
-    if prompt := st.chat_input("Nhập câu hỏi..."):
-        st.session_state.messages.append({
-            "role": "user",
-            "content": prompt
-        })
+    prompt = st.chat_input("Nhập câu hỏi…")
+    if prompt:
+        st.session_state.messages.append({"role": "user", "content": prompt})
 
         with st.chat_message("user"):
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
             if not db or not model:
-                st.error("🧠 Đang kết nối não bộ, vui lòng thử lại sau.")
+                st.error("⚠️ Hệ thống đang khởi động lại.")
             else:
-                top_docs = search_engine(prompt, db)
+                docs = search_engine(prompt, db)
 
                 if st.session_state.authenticated:
                     increment_member_usage(st.session_state.username)
@@ -290,72 +281,57 @@ if can_chat:
                     st.session_state.guest_usage += 1
 
                 context = ""
-                links_markdown = ""
-                final_links = {}
+                links = {}
 
-                if top_docs:
-                    context = "\n".join(d.page_content for d in top_docs)
-
-                    for d in top_docs:
-                        title = d.metadata.get("title", "Tài liệu tham khảo")
-                        url = d.metadata.get("url", "")
-
-                        clean_title = (
-                            title.replace("[", "")
-                            .replace("]", "")
-                            .replace("(", " - ")
-                            .replace(")", "")
-                        )
-
-                        if url.startswith("http"):
-                            final_links[url] = clean_title
-
-                    if final_links:
-                        links_markdown = "\n\n---\n**📚 Tài liệu tham khảo:**\n"
-                        for url, name in final_links.items():
-                            links_markdown += f"- 🔗 [{name}]({url})\n"
+                for d in docs:
+                    context += d.page_content + "\n"
+                    title = d.metadata.get("title", "Tài liệu")
+                    url = d.metadata.get("url", "")
+                    if url.startswith("http"):
+                        links[url] = title.replace("[","").replace("]","")
 
                 sys_prompt = f"""
 Bạn là chuyên gia Yoga.
-
 DỮ LIỆU:
 {context}
-
 CÂU HỎI: "{prompt}"
 
 YÊU CẦU:
-- Trả lời tối đa 5–6 gạch đầu dòng
+- Tối đa 5–6 gạch đầu dòng
 - Không quá 100 từ
+- Không chèn link
 - Đi thẳng trọng tâm
-- Giọng thân thiện, dứt khoát
-- KHÔNG tự chèn link
 """
 
                 try:
-                    response = model.generate_content(sys_prompt).text
-                    final_content = response + links_markdown
-                    st.markdown(final_content, unsafe_allow_html=True)
+                    answer = model.generate_content(sys_prompt).text.strip()
+
+                    if links:
+                        answer += "\n\n---\n**📚 Tài liệu tham khảo:**\n"
+                        for u, t in links.items():
+                            answer += f"- 🔗 [{t}]({u})\n"
+
+                    st.markdown(answer, unsafe_allow_html=True)
                     st.session_state.messages.append({
                         "role": "assistant",
-                        "content": final_content
+                        "content": answer
                     })
+
                 except Exception as e:
-                    st.error(f"❌ Lỗi AI: {e}")
+                    st.error(f"Lỗi AI: {e}")
 
 
-# ==============================
+# ================================
 # LOGIN
-# ==============================
+# ================================
 if not can_chat and not st.session_state.authenticated:
     st.markdown("---")
-
     with st.form("login"):
         st.markdown("### 🔐 Đăng nhập Thành viên")
         u = st.text_input("User")
         p = st.text_input("Pass", type="password")
-
         if st.form_submit_button("Vào tập"):
-            if st.secrets.get("passwords", {}).get(u) == p:
+            if st.secrets["passwords"].get(u) == p:
                 st.session_state.authenticated = True
                 st.session_state.username = u
                 st.rerun()
