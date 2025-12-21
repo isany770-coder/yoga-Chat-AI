@@ -275,10 +275,12 @@ if can_chat:
             
 else:
     # --- GIAO DIỆN KHI HẾT LƯỢT (PAYWALL) ---
+    # Kiểm tra nếu chưa đăng nhập thì hiện bảng thông báo
     if not st.session_state.authenticated:
+        # Sử dụng \U0001F9D8 thay cho icon người ngồi thiền để tránh lỗi SyntaxError
         st.markdown(f"""
         <div class="paywall-box">
-            <div class="paywall-title">🧘‍♀️ Bạn đã hoàn thành bài tập thử nghiệm!</div>
+            <div class="paywall-title">\U0001F9D8 Bạn đã hoàn thành bài tập thử nghiệm!</div>
             <p>Bạn đã sử dụng hết <b>{TRIAL_LIMIT}/{TRIAL_LIMIT}</b> lượt hỏi miễn phí trong ngày.</p>
             <p>Để tiếp tục hành trình Yoga chuyên sâu và hỏi đáp không giới hạn, hãy trở thành thành viên ngay.</p>
             <a href="https://zalo.me/84963759566" target="_blank" class="paywall-btn">💎 Đăng ký Thành viên qua Zalo</a>
@@ -293,6 +295,7 @@ if not st.session_state.authenticated:
             u = st.text_input("Tên đăng nhập")
             p = st.text_input("Mật khẩu", type="password")
             if st.form_submit_button("Đăng nhập"):
+                # Sửa lại đoạn này khớp với biến st.secrets của bạn
                 if st.secrets["passwords"].get(u) == p:
                     st.session_state.authenticated = True
                     st.session_state.username = u
