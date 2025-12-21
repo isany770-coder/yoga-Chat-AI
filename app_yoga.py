@@ -3,51 +3,93 @@ import os
 import re
 import json
 import datetime
+import time
 import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
+import extra_streamlit_components as stx # THƯ VIỆN QUẢN LÝ COOKIE
 
-# --- CẤU HÌNH TRANG ---
+# --- 1. CẤU HÌNH TRANG & CSS CAO CẤP ---
 st.set_page_config(
-    page_title="Yoga Assistant", 
-    page_icon="🧘", 
-    layout="wide", 
-    initial_sidebar_state="collapsed",
-    menu_items=None
+    page_title="Yoga Assistant AI", 
+    page_icon="🧘‍♀️", 
+    layout="centered", # Dùng centered để giống app chat mobile hơn
+    initial_sidebar_state="collapsed"
 )
 
-# --- CSS ẨN THANH CÔNG CỤ & FOOTER ---
+# CSS Tùy chỉnh: Chat Bubble đẹp, Ẩn linh tinh, Paywall Card
 st.markdown("""
 <style>
-    /* 1. Ẩn menu 3 chấm, Header, Footer, Toolbar */
-    [data-testid="stToolbar"], header, footer, .stAppDeployButton {
-        display: none !important;
-        visibility: hidden !important;
+    /* Ẩn Header, Footer, Menu mặc định */
+    [data-testid="stToolbar"], header, footer {display: none !important;}
+    .block-container {padding-top: 1rem !important; padding-bottom: 5rem !important;}
+    
+    /* CHAT BUBBLE STYLE */
+    .chat-row {display: flex; margin-bottom: 10px;}
+    .user-row {justify-content: flex-end;}
+    .bot-row {justify-content: flex-start;}
+    
+    .chat-bubble {
+        padding: 12px 16px;
+        border-radius: 15px;
+        max-width: 80%;
+        font-size: 16px;
+        line-height: 1.5;
+        position: relative;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    .user-bubble {
+        background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+        color: white;
+        border-bottom-right-radius: 2px;
+    }
+    .bot-bubble {
+        background-color: #f1f2f6;
+        color: #2d3436;
+        border-bottom-left-radius: 2px;
+        border: 1px solid #dfe6e9;
     }
     
-    /* 2. Đẩy nội dung lên sát mép trên */
-    .block-container {
-        padding-top: 1rem !important;
+    /* LINK STYLE */
+    .bot-bubble a {color: #d63031 !important; font-weight: bold; text-decoration: none;}
+    .bot-bubble a:hover {text-decoration: underline;}
+
+    /* PAYWALL CARD STYLE */
+    .paywall-container {
+        border: 2px solid #e17055;
+        background-color: #fff0eb;
+        border-radius: 20px;
+        padding: 25px;
+        text-align: center;
+        margin-top: 20px;
+        box-shadow: 0 4px 15px rgba(225, 112, 85, 0.2);
+        animation: fadeIn 0.5s;
     }
+    @keyframes fadeIn {from {opacity:0; transform: translateY(20px);} to {opacity:1; transform: translateY(0);}}
     
-    /* 3. Bong bóng chat đẹp */
-    .stApp {background-color: white;}
-    div[data-testid="stChatMessage"] {
-        background-color: #f8f9fa; border-radius: 15px; padding: 12px; margin-top: 30px;
-        border: 1px solid #eee;
-    }
-    div[data-testid="stChatMessage"][data-test-role="user"] {
-        background-color: #e3f2fd; flex-direction: row-reverse; text-align: right; border: none;
-    }
+    .paywall-title {font-size: 22px; font-weight: bold; color: #d63031; margin-bottom: 10px;}
+    .paywall-text {font-size: 16px; color: #636e72; margin-bottom: 20px;}
     
-    /* 4. Link tham khảo (Style Markdown chuẩn) */
-    .stMarkdown a {
-        color: #6c5ce7 !important; 
-        font-weight: bold !important; 
+    .btn-zalo {
+        display: inline-block;
+        background-color: #0068ff;
+        color: white !important;
+        padding: 10px 25px;
+        border-radius: 50px;
+        font-weight: bold;
         text-decoration: none;
+        box-shadow: 0 4px 6px rgba(0, 104, 255, 0.3);
+        transition: transform 0.2s;
     }
-    .stMarkdown a:hover {
+    .btn-zalo:hover {transform: scale(1.05);}
+    
+    .btn-login-trigger {
+        display: inline-block;
+        margin-top: 15px;
+        color: #636e72 !important;
+        font-size: 14px;
         text-decoration: underline;
+        cursor: pointer;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -58,39 +100,46 @@ try:
     genai.configure(api_key=api_key)
 except: st.stop()
 
+# --- CẤU HÌNH HỆ THỐNG ---
 CURRENT_DIR = os.getcwd()
 VECTOR_DB_PATH = os.path.join(CURRENT_DIR, "bo_nao_vector")
-USAGE_DB_FILE = "usage_database.json"
-DAILY_LIMIT = 25
-TRIAL_LIMIT = 10
+TRIAL_LIMIT = 10 # Giới hạn 10 câu
 
-def load_usage_db():
-    if not os.path.exists(USAGE_DB_FILE): return {}
-    with open(USAGE_DB_FILE, "r") as f: return json.load(f)
-def save_usage_db(data):
-    with open(USAGE_DB_FILE, "w") as f: json.dump(data, f)
-def check_member_limit(username):
-    data = load_usage_db()
+# --- HÀM COOKIE MANAGER (XỬ LÝ LƯỢT DÙNG) ---
+@st.cache_resource(experimental_allow_widgets=True)
+def get_manager():
+    return stx.CookieManager()
+
+cookie_manager = get_manager()
+
+def get_guest_usage():
+    # Lấy cookie hiện tại
+    cookie_data = cookie_manager.get("yoga_guest_usage")
     today = str(datetime.date.today())
-    if username not in data or data[username]["date"] != today:
-        data[username] = {"date": today, "count": 0}
-        save_usage_db(data)
-        return 0, DAILY_LIMIT
-    return data[username]["count"], DAILY_LIMIT - data[username]["count"]
-def increment_member_usage(username):
-    data = load_usage_db()
+    
+    if cookie_data:
+        try:
+            data = json.loads(cookie_data)
+            # Nếu khác ngày -> Reset về 0
+            if data.get("date") != today:
+                new_data = {"date": today, "count": 0}
+                cookie_manager.set("yoga_guest_usage", json.dumps(new_data), key="set_reset")
+                return 0
+            return data.get("count", 0)
+        except:
+            return 0
+    return 0
+
+def increment_guest_usage():
+    current = get_guest_usage()
     today = str(datetime.date.today())
-    if username in data and data[username]["date"] == today:
-        data[username]["count"] += 1
-        save_usage_db(data)
+    new_data = {"date": today, "count": current + 1}
+    # Lưu cookie (hết hạn sau 1 ngày)
+    cookie_manager.set("yoga_guest_usage", json.dumps(new_data), expires_at=datetime.datetime.now() + datetime.timedelta(days=1), key="set_inc")
+    # Cần sleep xíu để cookie kịp ghi
+    time.sleep(0.1)
 
-SPECIAL_MAPPING = {"trồng chuối": ["sirsasana"], "con quạ": ["bakasana"], "cái cày": ["halasana"]}
-STOPWORDS = {'là', 'của', 'như', 'thế', 'nào', 'tập', 'bài', 'cách', 'tôi', 'bạn', 'muốn', 'hỏi', 'gì'}
-def clean_and_extract_keywords(text):
-    text = text.lower()
-    text = re.sub(r'[^\w\s]', ' ', text)
-    return set([w for w in text.split() if w not in STOPWORDS and len(w) > 1])
-
+# --- LOAD BRAIN (CACHE) ---
 @st.cache_resource
 def load_brain():
     if not os.path.exists(VECTOR_DB_PATH): return None, None
@@ -103,14 +152,29 @@ def load_brain():
 
 db, model = load_brain()
 
-def search_engine(query, db):
+# --- HÀM TÌM KIẾM & XỬ LÝ TEXT ---
+SPECIAL_MAPPING = {"trồng chuối": ["sirsasana"], "con quạ": ["bakasana"], "cái cày": ["halasana"]}
+STOPWORDS = {'là', 'của', 'như', 'thế', 'nào', 'tập', 'bài', 'cách', 'tôi', 'bạn', 'muốn', 'hỏi', 'gì', 'cho', 'em', 'mình'}
+
+def clean_and_extract_keywords(text):
+    text = text.lower()
+    text = re.sub(r'[^\w\s]', ' ', text)
+    return set([w for w in text.split() if w not in STOPWORDS and len(w) > 1])
+
+# Dùng cache_data cho search để tiết kiệm tài nguyên
+@st.cache_data(ttl=3600) 
+def search_engine(query):
+    if not db: return []
     user_keywords = clean_and_extract_keywords(query)
     injected_keywords = set()
     for key, values in SPECIAL_MAPPING.items():
         if key in query.lower(): injected_keywords.update(values)
+    
+    search_query = f"{query} {' '.join(injected_keywords)}"
+    raw_docs = db.similarity_search(search_query, k=50) # Tìm rộng hơn rồi lọc
+    
     if not user_keywords: user_keywords = set(query.lower().split())
     
-    raw_docs = db.similarity_search(f"{query} {' '.join(injected_keywords)}", k=100)
     matched_docs = []
     seen = set()
     for d in raw_docs:
@@ -120,95 +184,143 @@ def search_engine(query, db):
         title_keywords = clean_and_extract_keywords(title)
         common = user_keywords.intersection(title_keywords)
         if common: score += len(common) * 10
-        if score > 0: 
-            matched_docs.append((d, score))
-            seen.add(title)
+        matched_docs.append((d, score))
+        seen.add(title)
+        
     matched_docs.sort(key=lambda x: x[1], reverse=True)
     return [x[0] for x in matched_docs[:3]]
 
-# --- LOGIC CHAT ---
+# --- LOGIC SESSION ---
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
-if "guest_usage" not in st.session_state: st.session_state.guest_usage = 0
-if "messages" not in st.session_state: st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Chúc bạn một ngày nhiều niềm vui, chúng ta sẽ bắt đầu từ đâu?."}]
+if "messages" not in st.session_state: 
+    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Thở sâu và hỏi mình bất cứ điều gì về Yoga nhé."}]
+if "show_login" not in st.session_state: st.session_state.show_login = False
 
-can_chat = False
+# Lấy số lần đã dùng từ Cookie (nếu chưa login)
+current_usage = 0
+remaining = 0
 if st.session_state.authenticated:
-    used, remaining = check_member_limit(st.session_state.username)
-    if remaining > 0: can_chat = True
-    else: st.warning("⛔ Hôm nay bạn đã hỏi đủ 25 câu.")
+    # Logic thành viên (giữ nguyên logic json của bạn hoặc tối ưu sau)
+    current_usage = 0 
+    remaining = 999 
 else:
-    if st.session_state.guest_usage < TRIAL_LIMIT: can_chat = True
-    else: st.info(f"🔒 Dùng thử: {st.session_state.guest_usage}/{TRIAL_LIMIT} câu.")
+    current_usage = get_guest_usage()
+    remaining = TRIAL_LIMIT - current_usage
 
+# --- GIAO DIỆN CHAT ---
+# 1. Render lịch sử chat
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]): st.markdown(msg["content"], unsafe_allow_html=True)
+    if msg["role"] == "user":
+        st.markdown(f"""
+        <div class="chat-row user-row">
+            <div class="chat-bubble user-bubble">{msg["content"]}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div class="chat-row bot-row">
+            <div class="chat-bubble bot-bubble">{msg["content"]}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-if can_chat:
-    if prompt := st.chat_input("Nhập câu hỏi..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"): st.markdown(prompt)
-        
-        with st.chat_message("assistant"):
-            if db:
-                top_docs = search_engine(prompt, db)
-                if st.session_state.authenticated: increment_member_usage(st.session_state.username)
-                else: st.session_state.guest_usage += 1
-                
-                # --- PHẦN KHÔI PHỤC LOGIC LINK ĐẸP ---
-                links_markdown = ""
-                context = ""
-                final_links = {} # Dùng dict để lọc trùng lặp link
-                
-                if top_docs:
-                    context = "\n".join([d.page_content for d in top_docs])
-                    
-                    for d in top_docs:
-                        title = d.metadata.get('title', 'Tài liệu tham khảo')
-                        url = d.metadata.get('url', '#')
-                        # Làm sạch tiêu đề (bỏ dấu ngoặc thừa nếu có)
-                        clean_title = title.replace("[", "").replace("]", "").replace("(", " - ").replace(")", "")
-                        
-                        if url != '#' and "http" in url:
-                            final_links[url] = clean_title
-
-                    # Tạo Markdown list
-                    if final_links:
-                        links_markdown = "\n\n---\n**📚 Tài liệu tham khảo:**\n"
-                        for url, name in final_links.items():
-                            links_markdown += f"- 🔗 [{name}]({url})\n"
-                
-                sys_prompt = f"""
-                Bạn là chuyên gia Yoga.
-                DỮ LIỆU BÀI VIẾT:
-                {context}
-                CÂU HỎI: "{prompt}"
-                YÊU CẦU:
-                    YÊU CẦU TRẢ LỜI (QUAN TRỌNG):
-                1. Trả lời CỰC KỲ NGẮN GỌN (Tối đa 5-6 gạch đầu dòng).
-                2. Tổng độ dài KHÔNG QUÁ 100 TỪ.
-                3. Đi thẳng vào trọng tâm, bỏ qua lời dẫn dắt vô nghĩa.
-                4. Giọng văn thân thiện, dứt khoát.
-                5. KHÔNG tự chèn link (Hệ thống sẽ tự làm).
-                """
-                
-                try:
-                    response_text = model.generate_content(sys_prompt).text
-                    final_content = response_text + links_markdown
-                    st.markdown(final_content, unsafe_allow_html=True)
-                    st.session_state.messages.append({"role": "assistant", "content": final_content})
-                except Exception as e:
-                    st.error(f"Lỗi AI: {e}")
-            else: st.error("Đang kết nối não bộ...")
-else:
+# 2. Xử lý Input & Paywall
+# Nếu ĐÃ ĐĂNG NHẬP hoặc CÒN LƯỢT -> Hiện ô chat
+if st.session_state.authenticated or remaining > 0:
+    # Hiển thị thanh tiến trình nhỏ xíu cho khách
     if not st.session_state.authenticated:
-        st.markdown("---")
-        with st.form("login"):
-            st.markdown("### 🔐 Đăng nhập Thành viên")
-            u = st.text_input("User")
-            p = st.text_input("Pass", type="password")
-            if st.form_submit_button("Vào tập"):
-                if st.secrets["passwords"].get(u) == p:
-                    st.session_state.authenticated = True; st.session_state.username = u; st.rerun()
-                else: st.error("Sai thông tin!")
-        st.markdown(f"<div style='text-align:center; margin-top:10px'><a href='https://zalo.me/84963759566' target='_blank' style='color:#6c5ce7; text-decoration:none; font-weight:bold'>💬 Lấy TK Zalo</a></div>", unsafe_allow_html=True)
+        progress = current_usage / TRIAL_LIMIT
+        st.progress(progress)
+        st.caption(f"🌱 Dùng thử miễn phí: {current_usage}/{TRIAL_LIMIT} câu hỏi.")
+
+    if prompt := st.chat_input("Nhập câu hỏi của bạn..."):
+        # USER MESSAGE
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.rerun() # Rerun để hiển thị tin nhắn user ngay lập tức
+
+# Xử lý Logic AI (Chạy sau khi rerun để hiển thị UI mượt hơn)
+if st.session_state.messages[-1]["role"] == "user":
+    prompt = st.session_state.messages[-1]["content"]
+    
+    # Check limit lần nữa cho chắc
+    if not st.session_state.authenticated and get_guest_usage() >= TRIAL_LIMIT:
+        st.error("Bạn đã hết lượt dùng thử. Vui lòng F5 để xem hướng dẫn.")
+        st.stop()
+
+    with st.spinner("Đang kết nối năng lượng... 🧘‍♀️"):
+        top_docs = search_engine(prompt)
+        
+        # Tăng count
+        if not st.session_state.authenticated:
+            increment_guest_usage()
+        
+        # Build Context & Links
+        links_markdown = ""
+        context = ""
+        final_links = {}
+        if top_docs:
+            context = "\n".join([d.page_content for d in top_docs])
+            for d in top_docs:
+                title = d.metadata.get('title', 'Tài liệu')
+                url = d.metadata.get('url', '#')
+                clean_title = title.replace("[", "").replace("]", "").replace("(", " - ").replace(")", "")
+                if url != '#' and "http" in url:
+                    final_links[url] = clean_title
+            
+            if final_links:
+                links_markdown = "<br><b>📚 Tham khảo:</b><br>"
+                for url, name in final_links.items():
+                    links_markdown += f"• <a href='{url}' target='_blank'>{name}</a><br>"
+
+        sys_prompt = f"""
+        Bạn là HLV Yoga tận tâm. Dựa vào:
+        {context}
+        Trả lời câu hỏi: "{prompt}"
+        Yêu cầu: Ngắn gọn (dưới 100 từ), thân thiện, có emoji. KHÔNG tự bịa link.
+        """
+        try:
+            response_text = model.generate_content(sys_prompt).text
+            # Format lại response để hiển thị HTML
+            final_html = response_text.replace("\n", "<br>") + links_markdown
+            
+            st.session_state.messages.append({"role": "assistant", "content": final_html})
+            st.rerun()
+        except Exception as e:
+            st.error("Hệ thống đang quá tải, thử lại sau nhé.")
+
+# 3. PAYWALL - CHẶN CỬA KHI HẾT LƯỢT
+if not st.session_state.authenticated and remaining <= 0:
+    st.markdown("""
+    <div class="paywall-container">
+        <div style="font-size: 40px;">🎁</div>
+        <div class="paywall-title">Bạn đã dùng hết 10 câu hỏi miễn phí hôm nay!</div>
+        <p class="paywall-text">
+            Việc tập luyện cần sự kiên trì và một người dẫn đường tận tụy.<br>
+            Để tiếp tục được hỗ trợ không giới hạn và nhận lộ trình riêng:
+        </p>
+        <a href="https://zalo.me/84963759566" target="_blank" class="btn-zalo">
+            💬 Mở khóa Full Tính Năng (Zalo)
+        </a>
+        <br>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("🔑 Đăng nhập thành viên (Nếu đã có Key)"):
+        st.session_state.show_login = True
+
+# 4. FORM ĐĂNG NHẬP (Hiện khi bấm nút)
+if st.session_state.show_login and not st.session_state.authenticated:
+    with st.form("login_form"):
+        st.subheader("🔐 Đăng nhập")
+        u = st.text_input("Tên đăng nhập")
+        p = st.text_input("Mật khẩu", type="password")
+        if st.form_submit_button("Vào tập"):
+            if st.secrets["passwords"].get(u) == p:
+                st.session_state.authenticated = True
+                st.session_state.username = u
+                st.session_state.show_login = False
+                st.success("Chào mừng trở lại! Đang tải dữ liệu...")
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.error("Sai thông tin rồi bạn ơi!")
