@@ -45,12 +45,7 @@ st.markdown("""
     }
     .stLinkButton a:hover {
         background-color: #0056d6 !important;
-    }
-    /* Ẩn hoàn toàn Header và Hamburger Menu (3 gạch) */
-    header[data-testid="stHeader"] {
-        display: none;
-    }
-    
+   
     /* Ẩn nút "Deploy" và các nút quản lý khác */
     .stAppDeployButton {
         display: none;
