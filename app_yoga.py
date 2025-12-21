@@ -105,8 +105,8 @@ CURRENT_DIR = os.getcwd()
 VECTOR_DB_PATH = os.path.join(CURRENT_DIR, "bo_nao_vector")
 TRIAL_LIMIT = 10 # Giới hạn 10 câu
 
-# --- HÀM COOKIE MANAGER (XỬ LÝ LƯỢT DÙNG) ---
-@st.cache_resource(experimental_allow_widgets=True)
+# Đoạn mới (Bỏ tham số experimental):
+@st.cache_resource
 def get_manager():
     return stx.CookieManager()
 
