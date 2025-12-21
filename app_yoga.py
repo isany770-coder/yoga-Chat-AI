@@ -104,7 +104,7 @@ except: st.stop()
 CURRENT_DIR = os.getcwd()
 VECTOR_DB_PATH = os.path.join(CURRENT_DIR, "bo_nao_vector")
 TRIAL_LIMIT = 10 # Giới hạn 10 câu
-cookie_manager = get_manager()
+cookie_manager = stx.CookieManager()
 
 def get_guest_usage():
     # Lấy cookie hiện tại
