@@ -299,19 +299,47 @@ else:
     # Nếu hết lượt thì ẩn khung chat input bằng cách không gọi st.chat_input
     pass
 
+# --- THAY THẾ ĐOẠN FORM ĐĂNG NHẬP BẰNG CODE NÀY ---
 if not st.session_state.authenticated and can_chat: 
-    # Thay vì hiện tơ hơ, ta giấu nó vào nút bấm (Expander)
-    st.markdown("<br>", unsafe_allow_html=True) # Tạo khoảng cách nhỏ
+    st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("🔐 Đăng nhập Thành viên (Bấm để mở)"):
         with st.form("login"):
             st.markdown("### Đăng nhập hệ thống")
             u = st.text_input("Tên đăng nhập")
             p = st.text_input("Mật khẩu", type="password")
-            if st.form_submit_button("Đăng nhập ngay"):
+            
+            # Chia cột cho 2 nút bấm nằm ngang hàng
+            col_btn1, col_btn2 = st.columns([1, 1])
+            
+            with col_btn1:
+                submit = st.form_submit_button("Đăng nhập ngay", use_container_width=True)
+            
+            with col_btn2:
+                # Nút liên hệ giả lập bằng HTML để giống style nút bấm của Streamlit
+                st.markdown(f"""
+                    <a href="https://zalo.me/84963759566" target="_blank" style="text-decoration: none;">
+                        <div style="
+                            background-color: white; 
+                            color: #6c5ce7; 
+                            border: 1px solid #6c5ce7;
+                            padding: 8px 16px; 
+                            border-radius: 8px; 
+                            text-align: center; 
+                            font-weight: 500;
+                            font-size: 14px;
+                            line-height: 1.6;
+                            height: 38px;
+                            transition: all 0.3s;
+                        " onmouseover="this.style.background='#f3f0ff'" onmouseout="this.style.background='white'">
+                            💬 Lấy tài khoản
+                        </div>
+                    </a>
+                """, unsafe_allow_html=True)
+
+            if submit:
                 if st.secrets["passwords"].get(u) == p:
                     st.session_state.authenticated = True
                     st.session_state.username = u
                     st.rerun()
                 else: 
                     st.error("Sai thông tin rồi!")
-        st.markdown(f"<div style='text-align:center; margin-top:10px'><a href='https://zalo.me/84963759566' target='_blank' style='color:#6c5ce7; text-decoration:none; font-weight:bold'>💬 Liên hệ lấy tài khoản</a></div>", unsafe_allow_html=True)
