@@ -8,13 +8,19 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
 # --- CẤU HÌNH TRANG ---
-st.set_page_config(page_title="Yoga Guru", page_icon="🧘", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="Trợ lý AI", 
+    page_icon="🧘", 
+    layout="wide", 
+    initial_sidebar_state="collapsed",
+    menu_items=None
+)
 
-# --- CSS ẨN THANH CÔNG CỤ TRÊN (TOP BAR) ---
+# --- CSS ẨN THANH CÔNG CỤ & FOOTER ---
 st.markdown("""
 <style>
-    /* 1. Ẩn menu 3 chấm và Header ở trên cùng */
-    [data-testid="stToolbar"], header, .stAppDeployButton {
+    /* 1. Ẩn menu 3 chấm, Header, Footer, Toolbar */
+    [data-testid="stToolbar"], header, footer, .stAppDeployButton {
         display: none !important;
         visibility: hidden !important;
     }
@@ -27,7 +33,7 @@ st.markdown("""
     /* 3. Bong bóng chat đẹp */
     .stApp {background-color: white;}
     div[data-testid="stChatMessage"] {
-        background-color: #f8f9fa; border-radius: 15px; padding: 12px; margin-top: 50px;
+        background-color: #f8f9fa; border-radius: 15px; padding: 12px; margin-top: 30px;
         border: 1px solid #eee;
     }
     div[data-testid="stChatMessage"][data-test-role="user"] {
@@ -43,7 +49,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- KHỞI TẠO API (GIỮ NGUYÊN) ---
+# --- KHỞI TẠO API ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
@@ -121,7 +127,7 @@ def search_engine(query, db):
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
 if "guest_usage" not in st.session_state: st.session_state.guest_usage = 0
-if "messages" not in st.session_state: st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Guru đây."}]
+if "messages" not in st.session_state: st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Chúng ta nên bắt đầu từ đâu nhỉ?"}]
 
 can_chat = False
 if st.session_state.authenticated:
@@ -156,21 +162,26 @@ if can_chat:
                         url = d.metadata.get('url', '#')
                         if url != '#': ref_html += f"<a href='{url}' target='_blank' class='ref-link'>🔗 {title}</a>"
                 
-                system_prompt = f"""
-                        Bạn là chuyên gia Yoga.
-                        DỮ LIỆU BÀI VIẾT:
-                        {context_text}
-                        CÂU HỎI: "{prompt}"
-                        YÊU CẦU:
-                        1. **Trung thực:** Chỉ trả lời dựa trên thông tin có trong tài liệu.
+                # --- SỬA LỖI TÊN BIẾN Ở ĐÂY ---
+                sys_prompt = f"""
+                Bạn là chuyên gia Yoga.
+                DỮ LIỆU BÀI VIẾT:
+                {context}
+                CÂU HỎI: "{prompt}"
+                YÊU CẦU:
+                 1. **Trung thực:** Chỉ trả lời dựa trên thông tin có trong tài liệu.
             2. **Chuyên môn:** Nếu là câu hỏi kỹ thuật, hãy hướng dẫn từng bước rõ ràng, chú ý đến hơi thở và định tuyến an toàn.
             3. **Cấu trúc:** Trả lời ngắn gọn, súc tích, sử dụng gạch đầu dòng để dễ đọc.
             4. **Lưu ý:** KHÔNG tự ý chèn đường link vào nội dung trả lời (Hệ thống sẽ tự động thêm danh sách tham khảo ở cuối).
             """
-                response_text = model.generate_content(sys_prompt).text
-                final_content = response_text + ref_html
-                st.markdown(final_content, unsafe_allow_html=True)
-                st.session_state.messages.append({"role": "assistant", "content": final_content})
+                
+                try:
+                    response_text = model.generate_content(sys_prompt).text
+                    final_content = response_text + ref_html
+                    st.markdown(final_content, unsafe_allow_html=True)
+                    st.session_state.messages.append({"role": "assistant", "content": final_content})
+                except Exception as e:
+                    st.error(f"Lỗi AI: {e}")
             else: st.error("Đang kết nối não bộ...")
 else:
     if not st.session_state.authenticated:
