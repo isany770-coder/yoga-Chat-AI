@@ -301,3 +301,6 @@ if not st.session_state.authenticated:
                     st.session_state.username = u
                     st.rerun()
                 else: st.error("Thông tin không chính xác")
+                    st.session_state.username = u
+                    st.rerun()
+                else: st.error("Thông tin không chính xác")
