@@ -252,9 +252,17 @@ if st.session_state.messages[-1]["role"] == "user":
         try:
             response_text = model.generate_content(sys_prompt).text
             final_html = response_text.replace("\n", "<br>") + links_markdown
+            
+            # Cập nhật lượt dùng
+            if not st.session_state.authenticated:
+                increment_guest_usage()
+            
             st.session_state.messages.append({"role": "assistant", "content": final_html})
+            
+            # Thêm một chút delay trước khi rerun để Cookie kịp ghi
+            time.sleep(0.5) 
             st.rerun()
-        except:
+        except Exception as e:
             st.error("Hệ thống đang quá tải, thử lại sau nhé.")
 
 # 3. PAYWALL - CHẶN CỬA KHI HẾT LƯỢT
