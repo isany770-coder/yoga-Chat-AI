@@ -41,7 +41,7 @@ st.markdown("""
     /* 4. Tùy chỉnh Bong bóng Chat */
     .stApp {background-color: white;}
     div[data-testid="stChatMessage"] {
-        background-color: #f8f9fa; border-radius: 15px; padding: 12px; margin-top: 100px;
+        background-color: #f8f9fa; border-radius: 15px; padding: 12px; margin-top: 50px;
         border: 1px solid #eee;
     }
     div[data-testid="stChatMessage"][data-test-role="user"] {
