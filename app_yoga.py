@@ -299,14 +299,19 @@ else:
     # Nếu hết lượt thì ẩn khung chat input bằng cách không gọi st.chat_input
     pass
 
-if not st.session_state.authenticated and can_chat: # Chỉ hiện form login nếu chưa hết lượt
-    st.markdown("---")
-    with st.form("login"):
-        st.markdown("### 🔐 Đăng nhập Thành viên")
-        u = st.text_input("User")
-        p = st.text_input("Pass", type="password")
-        if st.form_submit_button("Vào tập"):
-            if st.secrets["passwords"].get(u) == p:
-                st.session_state.authenticated = True; st.session_state.username = u; st.rerun()
-            else: st.error("Sai thông tin!")
-    st.markdown(f"<div style='text-align:center; margin-top:10px'><a href='https://zalo.me/84963759566' target='_blank' style='color:#6c5ce7; text-decoration:none; font-weight:bold'>💬 Lấy TK Zalo</a></div>", unsafe_allow_html=True)
+if not st.session_state.authenticated and can_chat: 
+    # Thay vì hiện tơ hơ, ta giấu nó vào nút bấm (Expander)
+    st.markdown("<br>", unsafe_allow_html=True) # Tạo khoảng cách nhỏ
+    with st.expander("🔐 Đăng nhập Thành viên (Bấm để mở)"):
+        with st.form("login"):
+            st.markdown("### Đăng nhập hệ thống")
+            u = st.text_input("Tên đăng nhập")
+            p = st.text_input("Mật khẩu", type="password")
+            if st.form_submit_button("Đăng nhập ngay"):
+                if st.secrets["passwords"].get(u) == p:
+                    st.session_state.authenticated = True
+                    st.session_state.username = u
+                    st.rerun()
+                else: 
+                    st.error("Sai thông tin rồi!")
+        st.markdown(f"<div style='text-align:center; margin-top:10px'><a href='https://zalo.me/84963759566' target='_blank' style='color:#6c5ce7; text-decoration:none; font-weight:bold'>💬 Liên hệ lấy tài khoản</a></div>", unsafe_allow_html=True)
