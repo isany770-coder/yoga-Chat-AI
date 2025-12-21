@@ -82,15 +82,6 @@ st.markdown("""
         transition: transform 0.2s;
     }
     .btn-zalo:hover {transform: scale(1.05);}
-    
-    .btn-login-trigger {
-        display: inline-block;
-        margin-top: 15px;
-        color: #636e72 !important;
-        font-size: 14px;
-        text-decoration: underline;
-        cursor: pointer;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -107,14 +98,14 @@ TRIAL_LIMIT = 10 # Giới hạn 10 câu
 cookie_manager = stx.CookieManager()
 
 def get_guest_usage():
-    # Lấy cookie hiện tại
+    # CHỖ SỬA QUAN TRỌNG: Đợi 0.2s để trình duyệt kịp gửi cookie lên
+    time.sleep(0.2)
     cookie_data = cookie_manager.get("yoga_guest_usage")
     today = str(datetime.date.today())
     
     if cookie_data:
         try:
             data = json.loads(cookie_data)
-            # Nếu khác ngày -> Reset về 0
             if data.get("date") != today:
                 new_data = {"date": today, "count": 0}
                 cookie_manager.set("yoga_guest_usage", json.dumps(new_data), key="set_reset")
@@ -128,9 +119,7 @@ def increment_guest_usage():
     current = get_guest_usage()
     today = str(datetime.date.today())
     new_data = {"date": today, "count": current + 1}
-    # Lưu cookie (hết hạn sau 1 ngày)
     cookie_manager.set("yoga_guest_usage", json.dumps(new_data), expires_at=datetime.datetime.now() + datetime.timedelta(days=1), key="set_inc")
-    # Cần sleep xíu để cookie kịp ghi
     time.sleep(0.1)
 
 # --- LOAD BRAIN (CACHE) ---
@@ -146,7 +135,7 @@ def load_brain():
 
 db, model = load_brain()
 
-# --- HÀM TÌM KIẾM & XỬ LÝ TEXT ---
+# --- HÀM TÌM KIẾM ---
 SPECIAL_MAPPING = {"trồng chuối": ["sirsasana"], "con quạ": ["bakasana"], "cái cày": ["halasana"]}
 STOPWORDS = {'là', 'của', 'như', 'thế', 'nào', 'tập', 'bài', 'cách', 'tôi', 'bạn', 'muốn', 'hỏi', 'gì', 'cho', 'em', 'mình'}
 
@@ -155,7 +144,6 @@ def clean_and_extract_keywords(text):
     text = re.sub(r'[^\w\s]', ' ', text)
     return set([w for w in text.split() if w not in STOPWORDS and len(w) > 1])
 
-# Dùng cache_data cho search để tiết kiệm tài nguyên
 @st.cache_data(ttl=3600) 
 def search_engine(query):
     if not db: return []
@@ -165,7 +153,7 @@ def search_engine(query):
         if key in query.lower(): injected_keywords.update(values)
     
     search_query = f"{query} {' '.join(injected_keywords)}"
-    raw_docs = db.similarity_search(search_query, k=50) # Tìm rộng hơn rồi lọc
+    raw_docs = db.similarity_search(search_query, k=50)
     
     if not user_keywords: user_keywords = set(query.lower().split())
     
@@ -191,11 +179,10 @@ if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Thở sâu và hỏi mình bất cứ điều gì về Yoga nhé."}]
 if "show_login" not in st.session_state: st.session_state.show_login = False
 
-# Lấy số lần đã dùng từ Cookie (nếu chưa login)
+# Lấy số lần đã dùng từ Cookie
 current_usage = 0
 remaining = 0
 if st.session_state.authenticated:
-    # Logic thành viên (giữ nguyên logic json của bạn hoặc tối ưu sau)
     current_usage = 0 
     remaining = 999 
 else:
@@ -203,40 +190,26 @@ else:
     remaining = TRIAL_LIMIT - current_usage
 
 # --- GIAO DIỆN CHAT ---
-# 1. Render lịch sử chat
 for msg in st.session_state.messages:
     if msg["role"] == "user":
-        st.markdown(f"""
-        <div class="chat-row user-row">
-            <div class="chat-bubble user-bubble">{msg["content"]}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="chat-row user-row"><div class="chat-bubble user-bubble">{msg["content"]}</div></div>', unsafe_allow_html=True)
     else:
-        st.markdown(f"""
-        <div class="chat-row bot-row">
-            <div class="chat-bubble bot-bubble">{msg["content"]}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="chat-row bot-row"><div class="chat-bubble bot-bubble">{msg["content"]}</div></div>', unsafe_allow_html=True)
 
 # 2. Xử lý Input & Paywall
-# Nếu ĐÃ ĐĂNG NHẬP hoặc CÒN LƯỢT -> Hiện ô chat
 if st.session_state.authenticated or remaining > 0:
-    # Hiển thị thanh tiến trình nhỏ xíu cho khách
     if not st.session_state.authenticated:
         progress = current_usage / TRIAL_LIMIT
         st.progress(progress)
         st.caption(f"🌱 Dùng thử miễn phí: {current_usage}/{TRIAL_LIMIT} câu hỏi.")
 
     if prompt := st.chat_input("Nhập câu hỏi của bạn..."):
-        # USER MESSAGE
         st.session_state.messages.append({"role": "user", "content": prompt})
-        st.rerun() # Rerun để hiển thị tin nhắn user ngay lập tức
+        st.rerun()
 
-# Xử lý Logic AI (Chạy sau khi rerun để hiển thị UI mượt hơn)
 if st.session_state.messages[-1]["role"] == "user":
     prompt = st.session_state.messages[-1]["content"]
     
-    # Check limit lần nữa cho chắc
     if not st.session_state.authenticated and get_guest_usage() >= TRIAL_LIMIT:
         st.error("Bạn đã hết lượt dùng thử. Vui lòng F5 để xem hướng dẫn.")
         st.stop()
@@ -244,42 +217,44 @@ if st.session_state.messages[-1]["role"] == "user":
     with st.spinner("Đang kết nối năng lượng... 🧘‍♀️"):
         top_docs = search_engine(prompt)
         
-        # Tăng count
         if not st.session_state.authenticated:
             increment_guest_usage()
         
-        # Build Context & Links
         links_markdown = ""
         context = ""
         final_links = {}
         if top_docs:
             context = "\n".join([d.page_content for d in top_docs])
             for d in top_docs:
-                title = d.metadata.get('title', 'Tài liệu')
+                title = d.metadata.get('title', 'Tài liệu tham khảo')
                 url = d.metadata.get('url', '#')
                 clean_title = title.replace("[", "").replace("]", "").replace("(", " - ").replace(")", "")
                 if url != '#' and "http" in url:
                     final_links[url] = clean_title
-            
+
             if final_links:
                 links_markdown = "<br><b>📚 Tham khảo:</b><br>"
                 for url, name in final_links.items():
                     links_markdown += f"• <a href='{url}' target='_blank'>{name}</a><br>"
-
+        
         sys_prompt = f"""
-        Bạn là HLV Yoga tận tâm. Dựa vào:
+        Bạn là chuyên gia Yoga.
+        DỮ LIỆU BÀI VIẾT:
         {context}
-        Trả lời câu hỏi: "{prompt}"
-        Yêu cầu: Ngắn gọn (dưới 100 từ), thân thiện, có emoji. KHÔNG tự bịa link.
+        CÂU HỎI: "{prompt}"
+        YÊU CẦU TRẢ LỜI:
+        1. Trả lời CỰC KỲ NGẮN GỌN (Tối đa 5-6 gạch đầu dòng).
+        2. Tổng độ dài KHÔNG QUÁ 100 TỪ.
+        3. Đi thẳng vào trọng tâm, bỏ qua lời dẫn dắt vô nghĩa.
+        4. Giọng văn thân thiện, dứt khoát.
+        5. KHÔNG tự chèn link (Hệ thống sẽ tự làm).
         """
         try:
             response_text = model.generate_content(sys_prompt).text
-            # Format lại response để hiển thị HTML
             final_html = response_text.replace("\n", "<br>") + links_markdown
-            
             st.session_state.messages.append({"role": "assistant", "content": final_html})
             st.rerun()
-        except Exception as e:
+        except:
             st.error("Hệ thống đang quá tải, thử lại sau nhé.")
 
 # 3. PAYWALL - CHẶN CỬA KHI HẾT LƯỢT
@@ -288,21 +263,13 @@ if not st.session_state.authenticated and remaining <= 0:
     <div class="paywall-container">
         <div style="font-size: 40px;">🎁</div>
         <div class="paywall-title">Bạn đã dùng hết 10 câu hỏi miễn phí hôm nay!</div>
-        <p class="paywall-text">
-            Việc tập luyện cần sự kiên trì và một người dẫn đường tận tụy.<br>
-            Để tiếp tục được hỗ trợ không giới hạn và nhận lộ trình riêng:
-        </p>
-        <a href="https://zalo.me/84963759566" target="_blank" class="btn-zalo">
-            💬 Mở khóa Full Tính Năng (Zalo)
-        </a>
-        <br>
+        <p class="paywall-text">Việc tập luyện cần sự kiên trì và một người dẫn đường tận tụy.<br>Để tiếp tục được hỗ trợ không giới hạn và nhận lộ trình riêng:</p>
+        <a href="https://zalo.me/84963759566" target="_blank" class="btn-zalo">💬 Mở khóa Full Tính Năng (Zalo)</a>
     </div>
     """, unsafe_allow_html=True)
-    
     if st.button("🔑 Đăng nhập thành viên (Nếu đã có Key)"):
         st.session_state.show_login = True
 
-# 4. FORM ĐĂNG NHẬP (Hiện khi bấm nút)
 if st.session_state.show_login and not st.session_state.authenticated:
     with st.form("login_form"):
         st.subheader("🔐 Đăng nhập")
@@ -310,11 +277,6 @@ if st.session_state.show_login and not st.session_state.authenticated:
         p = st.text_input("Mật khẩu", type="password")
         if st.form_submit_button("Vào tập"):
             if st.secrets["passwords"].get(u) == p:
-                st.session_state.authenticated = True
-                st.session_state.username = u
-                st.session_state.show_login = False
-                st.success("Chào mừng trở lại! Đang tải dữ liệu...")
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.error("Sai thông tin rồi bạn ơi!")
+                st.session_state.authenticated = True; st.session_state.username = u; st.session_state.show_login = False
+                st.success("Chào mừng trở lại!"); time.sleep(1); st.rerun()
+            else: st.error("Sai thông tin rồi!")
