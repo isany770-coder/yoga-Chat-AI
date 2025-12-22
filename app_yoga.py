@@ -346,10 +346,8 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                 context_parts.append(d.page_content)
                 source_map[u] = t
             
-            # 1. PHẢI CÓ DÒNG NÀY ĐỂ TẠO DỮ LIỆU NGUỒN
             context_string = "\n\n".join(context_parts)
             
-            # 2. CĂN THẲNG HÀNG TỪ ĐẦU ĐẾN CUỐI
             sys_prompt = (
                 f"Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
                 f"1. Trả lời NGẮN GỌN (tối đa 6-7 gạch đầu dòng, dưới 100 từ).\n"
@@ -361,7 +359,6 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
             )
             
             try:
-                # Thêm vòng xoay chờ ở đây
                 with st.spinner("🧘 Chuyên gia đang suy ngẫm..."):
                     response = model.generate_content(sys_prompt)
                     res_text = response.text
@@ -378,14 +375,16 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                             count += 1
                     links_html += "</ul>"
                 
+                # Hợp nhất câu trả lời và link vào một biến duy nhất
                 final_res = res_text + links_html
                 st.markdown(final_res, unsafe_allow_html=True)
                 
+                # Lưu vào lịch sử
                 db_data[user_key]["history"].append({"role": "assistant", "content": final_res})
                 save_data(db_data)
                 
-            except:
-                st.error(f"AI đang hồi sức do có quá nhiều câu hỏi...: {e}")
+            except Exception as error:  # Đổi e thành error ở đây để tránh lỗi
+                st.error(f"AI đang hồi sức do có quá nhiều câu hỏi: {error}")
 
 # =====================================================
 # 6. LOGIN FORM
