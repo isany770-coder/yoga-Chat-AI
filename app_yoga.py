@@ -328,22 +328,25 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
             except Exception as e:
                 st.error("AI đang thở gấp, thử lại sau nhé!")
                 
-# FORM ĐĂNG NHẬP SONG SONG - ĐÃ FIX LỆCH NÚT
+# =====================================================
+# 7. FORM ĐĂNG NHẬP & KHOẢNG TRỐNG ĐỆM (FIX DÍNH INPUT)
+# =====================================================
 if not st.session_state.authenticated:
+    # Spacer trên để tách khỏi nội dung chat
     st.markdown("<br>", unsafe_allow_html=True)
+    
     with st.expander("🔐 Đăng nhập / Lấy thêm lượt (Dành cho Member)", expanded=not can_chat):
         with st.form("login_form"):
             u = st.text_input("Tên đăng nhập", placeholder="Username")
             p = st.text_input("Mật khẩu", type="password", placeholder="Password")
             
-            # Tạo khoảng trống nhẹ để nút không dính vào ô Password
-            st.write("") 
+            st.write("") # Khoảng cách nhỏ
             
             c1, c2 = st.columns(2)
             with c1:
                 submit = st.form_submit_button("Đăng nhập", use_container_width=True)
             with c2:
-                # Bọc trong div để kiểm soát margin tuyệt đối
+                # Nút Zalo
                 st.markdown(f"""
                     <div style="margin-top: 0px;">
                         <a href="https://zalo.me/84963759566" target="_blank" style="text-decoration: none;">
@@ -359,3 +362,7 @@ if not st.session_state.authenticated:
                     st.rerun()
                 else: 
                     st.error("Sai rồi bác ơi!")
+
+    # ⚠️ QUAN TRỌNG: KÊ CAO DƯỚI CÙNG ĐỂ KHÔNG BỊ THANH CHAT CHE
+    # Thêm một khoảng trống vô hình 150px
+    st.markdown("<div style='height: 150px; display: block;'></div>", unsafe_allow_html=True)
