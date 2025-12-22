@@ -235,76 +235,62 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 6. HIỂN THỊ CHAT & XỬ LÝ TRẢ LỜI (FULL LOGIC)
+# 6. HIỂN THỊ CHAT & XỬ LÝ TRẢ LỜI (TỐI ƯU GIAO DIỆN)
 # =====================================================
 
-# --- 1. Hiển thị lịch sử chat ---
+# --- Hiển thị lịch sử chat ---
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# --- 2. KIỂM TRA GIỚI HẠN - CHẶN NẾU HẾT LƯỢT ---
-# Đây là phần quan trọng để hiện Modal và chặn Hack
-if used >= limit:
-    st.markdown(f"""
-    <div class="limit-modal">
-        <div class="limit-box">
-            <div class="limit-icon">🧘‍♀️</div>
-            <div class="limit-title">Đã hết năng lượng!</div>
-            <div class="limit-desc">
-                Bạn đã dùng hết <b>{limit} câu hỏi</b> miễn phí hôm nay.<br>
-                Hãy đăng nhập hoặc liên hệ Admin để mở khóa không giới hạn nhé!
-            </div>
-            <a href="https://zalo.me/84963759566" target="_blank" class="limit-btn">💬 Liên hệ Admin ngay</a>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    st.stop() # Dừng chương trình ngay lập tức, không hiện ô chat bên dưới
+# --- Kiểm tra lượt dùng ---
+can_chat = used < limit
 
-# --- 3. XỬ LÝ CHAT (NẾU CÒN LƯỢT) ---
-if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
-    # A. TĂNG LƯỢT DÙNG NGAY LẬP TỨC (Trừ tiền trước, nói chuyện sau)
-    usage_db[user_key]["count"] += 1
-    save_usage_data(usage_db)
-    
-    # B. Hiển thị tin nhắn người dùng
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+if can_chat:
+    if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
+        # 1. Thêm tin nhắn người dùng vào session
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        # 2. TĂNG LƯỢT DÙNG NGAY LẬP TỨC
+        usage_db[user_key]["count"] += 1
+        save_usage_data(usage_db)
+        
+        # 3. Hiển thị tin nhắn người dùng lên màn hình
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        # 4. Xử lý trả lời từ AI
+        with st.chat_message("assistant"):
+            if db:
+                # Tìm kiếm tài liệu (k=5)
+                docs = db.similarity_search(prompt, k=5)
+                
+                context_parts = []
+                source_map = {} # Lọc link trùng
+                
+                for i, d in enumerate(docs):
+                    t = d.metadata.get('title', 'Tài liệu Yoga')
+                    u = d.metadata.get('url', '#')
+                    context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nURL: {u}\nNỘI DUNG: {d.page_content}")
+                    source_map[u] = t 
 
-    # C. AI Trả lời
-    with st.chat_message("assistant"):
-        if db:
-            # Tìm kiếm tài liệu (k=5)
-            docs = db.similarity_search(prompt, k=5)
-            
-            context_parts = []
-            source_map = {} # Lọc link trùng
-            
-            for i, d in enumerate(docs):
-                t = d.metadata.get('title', 'Tài liệu Yoga')
-                u = d.metadata.get('url', '#')
-                context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nURL: {u}\nNỘI DUNG: {d.page_content}")
-                source_map[u] = t 
+                context_string = "\n\n".join(context_parts)
+                
+                # System Prompt: Giữ nguyên phong cách bạn đã chọn
+                sys_prompt = (
+                    f"Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
+                    f"1. Trả lời NGẮN GỌN (tối đa 6-7 gạch đầu dòng, dưới 100 từ).\n"
+                    f"2. Đi thẳng vào trọng tâm chuyên môn.\n"
+                    f"3. Chỉ dùng thông tin có trong NGUỒN bên dưới.\n"
+                    f"4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.\n\n"
+                    f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
+                    f"CÂU HỎI: {prompt}"
+                )
 
-            context_string = "\n\n".join(context_parts)
-            
-            # System Prompt: (Giữ nguyên theo ý bác)
-            sys_prompt = (
-                f"Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
-                f"1. Trả lời NGẮN GỌN (tối đa 6-7 gạch đầu dòng, dưới 100 từ).\n"
-                f"2. Đi thẳng vào trọng tâm chuyên môn.\n"
-                f"3. Chỉ dùng thông tin có trong NGUỒN bên dưới.\n"
-                f"4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.\n\n"
-                f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
-                f"CÂU HỎI: {prompt}"
-            )
-
-            # Gọi Gemini Flash
-            try:
+                # Gọi Gemini Flash
                 res_text = model.generate_content(sys_prompt).text
                 
-                # Tạo phần Tài liệu tham khảo (Giữ nguyên logic của bác)
+                # 5. Tạo phần Tài liệu tham khảo (Unique links)
                 links_html = "\n\n---\n**📚 Tài liệu tham khảo:**\n"
                 seen_urls = set()
                 count = 0
@@ -317,14 +303,11 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                 final_res = res_text + links_html
                 st.markdown(final_res)
                 
-                # Lưu vào bộ nhớ
+                # 6. Lưu câu trả lời của AI vào bộ nhớ
                 st.session_state.messages.append({"role": "assistant", "content": final_res})
                 
-                # Rerun để cập nhật thanh Progress Bar trên cùng ngay lập tức
+                # Rerun để cập nhật UI (thanh progress bar, số lượt dùng...)
                 st.rerun()
-                
-            except Exception as e:
-                st.error("AI đang thở gấp, thử lại sau nhé!")
                 
 # FORM ĐĂNG NHẬP SONG SONG - ĐÃ FIX LỆCH NÚT
 if not st.session_state.authenticated:
