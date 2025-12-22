@@ -15,118 +15,103 @@ st.set_page_config(
 # =====================================================
 st.markdown("""
 <style>
-    /* =============================================
-       1. CẤU HÌNH CƠ BẢN (NỀN TRẮNG, ẨN HEADER)
-       ============================================= */
+    /* 1. CẤU HÌNH RESET (ÉP MÀU CHỮ ĐEN TUYỆT ĐỐI) */
     [data-testid="stAppViewContainer"], .stApp, html, body {
         background-color: white !important;
-        color: #212121 !important;
+        color: #31333F !important; /* Màu đen xám chuẩn dễ đọc */
     }
     
+    /* Ép tất cả văn bản, tiêu đề về màu đen */
+    p, h1, h2, h3, h4, h5, h6, span, div, label {
+        color: #31333F !important;
+    }
+
+    /* Ẩn header/footer */
     [data-testid="stToolbar"], header, footer, .stAppDeployButton {
         display: none !important;
     }
 
-    /* =============================================
-       2. THANH TIẾN TRÌNH (PROGRESS BAR)
-       ============================================= */
+    /* 2. CHAT INPUT "NỔI" - FIX MÀU NỀN & MÀU CHỮ */
+    div[data-testid="stChatInput"] {
+        position: fixed !important;
+        bottom: calc(20px + env(safe-area-inset-bottom)) !important;
+        left: 10px !important; right: 10px !important;
+        width: auto !important;
+        z-index: 999999;
+        background-color: white !important; /* Nền trắng tuyệt đối */
+        border-radius: 25px !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        padding: 5px !important;
+        border: 1px solid #e0e0e0;
+    }
+
+    /* Xử lý ô nhập liệu: Chữ đen, Nền xám nhạt */
+    textarea[data-testid="stChatInputTextArea"] {
+        font-size: 16px !important;
+        color: #333333 !important; /* CHỮ MÀU ĐEN ĐẬM */
+        -webkit-text-fill-color: #333333 !important; /* Fix lỗi trên iPhone */
+        background-color: #f0f2f6 !important; /* Nền xám nhẹ để nổi bật */
+        border-radius: 20px !important;
+        caret-color: #0f988b !important; /* Con trỏ chuột màu xanh */
+    }
+    
+    /* Placeholder (chữ gợi ý) màu xám rõ ràng */
+    textarea[data-testid="stChatInputTextArea"]::placeholder {
+        color: #888 !important;
+        opacity: 1 !important;
+    }
+
+    /* Nút Gửi */
+    button[data-testid="stChatInputSubmit"] {
+        background-color: #0f988b !important;
+        color: white !important;
+        border-radius: 50% !important;
+        right: 10px !important; bottom: 8px !important;
+    }
+    button[data-testid="stChatInputSubmit"] svg {
+        fill: white !important; /* Mũi tên màu trắng */
+    }
+
+    /* 3. TIN NHẮN CHAT */
+    div[data-testid="stChatMessage"] {
+        background-color: #f8f9fa !important; 
+        border: 1px solid #eee;
+    }
+    /* Bong bóng chat của người dùng */
+    div[data-testid="stChatMessage"][data-test-role="user"] {
+        background-color: #e3f2fd !important;
+    }
+
+    /* 4. CÁC THÀNH PHẦN KHÁC (THANH BAR, BUTTON) */
     .usage-bar-container {
         position: fixed; top: 0; left: 0; width: 100%; height: 5px;
         background-color: #f0f0f0; z-index: 1000000;
     }
     .usage-bar-fill {
-        height: 100%; 
-        background: linear-gradient(90deg, #0f988b 0%, #14b8a6 100%);
-        transition: width 0.5s ease-in-out;
+        height: 100%; background: linear-gradient(90deg, #0f988b 0%, #14b8a6 100%);
     }
     .usage-text {
         position: fixed; top: 10px; right: 15px; 
-        background: rgba(15, 152, 139, 0.1); padding: 4px 12px; border-radius: 20px;
-        font-size: 11px; color: #0f988b; font-weight: bold;
+        background: rgba(255,255,255,0.9); padding: 4px 12px; border-radius: 20px;
+        font-size: 11px; color: #0f988b !important; font-weight: bold;
         border: 1px solid #0f988b; z-index: 1000001;
     }
-
-    /* =============================================
-       3. CHAT INPUT "NỔI" (FIX MOBILE CỰC MƯỢT)
-       ============================================= */
-    /* Khung chứa Input: Nổi lên, bo tròn, đổ bóng */
-    div[data-testid="stChatInput"] {
-        position: fixed !important;
-        bottom: calc(35px + env(safe-area-inset-bottom)) !important; /* Né thanh vuốt iPhone */
-        left: 10px !important;
-        right: 10px !important;
-        width: auto !important;
-        z-index: 999999;
-        background-color: white !important;
-        border-radius: 25px !important;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        padding: 5px !important;
-        border: 1px solid #f0f0f0;
-    }
-
-    /* Ô nhập liệu: Font to chống zoom, nền xám nhạt */
-    textarea[data-testid="stChatInputTextArea"] {
-        font-size: 16px !important; /* Quan trọng: Chống iPhone tự zoom */
-        padding: 10px 15px !important;
-        background-color: #f8f9fa !important;
-        border-radius: 20px !important;
-        min-height: 45px !important; /* Đủ to để bấm */
-    }
-
-    /* Nút Gửi (Mũi tên): Xanh Teal, Tròn */
-    button[data-testid="stChatInputSubmit"] {
-        background-color: #0f988b !important;
-        border: none !important;
-        color: white !important;
-        border-radius: 50% !important;
-        padding: 5px !important;
-        right: 10px !important;
-        bottom: 8px !important;
-        pointer-events: auto !important; /* Fix lỗi phải ấn 2 lần */
-    }
-
-    /* =============================================
-       4. BỐ CỤC NỘI DUNG (TRÁNH BỊ CHE)
-       ============================================= */
-     .main .block-container {
+    
+    .main .block-container {
         padding-top: 3rem !important;
-        padding-bottom: 180px !important; /* Khoảng trống lớn ở đáy để không bị ô chat che */
+        padding-bottom: 180px !important;
     }
 
-    /* Ẩn header/footer */
-    [data-testid="stToolbar"], header, footer { display: none !important; }
-
-    /* =============================================
-       5. NÚT ZALO & LOGIN (ĐỒNG BỘ 45PX)
-       ============================================= */
-    /* Nút Zalo */
+    /* Nút Zalo & Login */
     .zalo-btn {
-        display: flex !important;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        background-color: white;
-        color: #0f988b !important;
-        border: 1px solid #dcdfe3;
-        border-radius: 8px;
-        font-weight: 500;
-        font-size: 14px;
-        height: 45px !important; /* Chiều cao chuẩn dễ bấm */
-        text-decoration: none !important;
-        box-sizing: border-box !important;
-        margin: 0 !important;
-        transition: all 0.2s;
+        display: flex !important; align-items: center; justify-content: center;
+        width: 100%; background-color: white; color: #0f988b !important;
+        border: 1px solid #dcdfe3; border-radius: 8px; font-weight: 500; font-size: 14px;
+        height: 45px !important; text-decoration: none !important; box-sizing: border-box !important; margin: 0 !important;
     }
-    .zalo-btn:hover {
-        background-color: #f0f9f8;
-        border-color: #0f988b;
-    }
-
-    /* Nút Login của Streamlit (Ép cao bằng nút Zalo) */
     div[data-testid="stForm"] button {
-        height: 45px !important;
-        border-radius: 8px !important;
-        font-weight: 500 !important;
+        height: 45px !important; border-radius: 8px !important; font-weight: 500 !important;
+        color: #31333F !important; /* Chữ nút đen */
     }
 </style>
 """, unsafe_allow_html=True)
