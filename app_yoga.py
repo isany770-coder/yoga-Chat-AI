@@ -1,82 +1,120 @@
 import streamlit as st
-import gdown, zipfile, os, re, json, datetime
+import gdown
+import zipfile
+import os
+import json
+import datetime
 import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
 # =====================================================
-# 1. PAGE CONFIG
+# 1. CẤU HÌNH TRANG (PHẢI Ở DÒNG ĐẦU TIÊN)
 # =====================================================
-st.set_page_config(page_title="Yoga Assistant Pro", page_icon="🧘", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="Yoga Assistant Pro",
+    page_icon="🧘",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
 # =====================================================
-# 2. CSS - (GIỮ NGUYÊN CŨ + THÊM QUẢNG CÁO & FIX PHÍM)
+# 2. CSS GIAO DIỆN (INPUT NỔI + QUẢNG CÁO + FIX LỖI)
 # =====================================================
 st.markdown("""
 <style>
-    /* --- CSS CŨ CỦA BÁC (GIỮ NGUYÊN) --- */
-    [data-testid="stAppViewContainer"], .stApp, html, body { background-color: white !important; color: #31333F !important; }
-    p, h1, h2, h3, h4, h5, h6, span, div, label, li { color: #31333F !important; }
-    [data-testid="stToolbar"], header, footer, .stAppDeployButton { display: none !important; }
+    /* Reset nền trắng & chữ đen */
+    [data-testid="stAppViewContainer"], .stApp, html, body {
+        background-color: white !important;
+        color: #31333F !important;
+    }
+    p, h1, h2, h3, h4, h5, h6, span, div, label, li {
+        color: #31333F !important;
+    }
+    [data-testid="stToolbar"], header, footer, .stAppDeployButton {
+        display: none !important;
+    }
 
-    /* CHAT INPUT */
+    /* THANH CHAT INPUT (NỔI) */
     div[data-testid="stChatInput"] {
-        position: fixed !important; bottom: 20px !important; left: 10px !important; right: 10px !important;
-        width: auto !important; z-index: 999999; background-color: white !important;
-        border-radius: 25px !important; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); padding: 5px !important; border: 1px solid #e0e0e0;
+        position: fixed !important;
+        bottom: 20px !important;
+        left: 10px !important;
+        right: 10px !important;
+        width: auto !important;
+        z-index: 999999;
+        background-color: white !important;
+        border-radius: 25px !important;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        padding: 5px !important;
+        border: 1px solid #e0e0e0;
         transition: bottom 0.3s ease;
     }
-    /* FIX: Khi bàn phím điện thoại bật lên (màn hình thấp đi), ép input dính đáy */
-    @media (max-height: 500px) {
-        div[data-testid="stChatInput"] { bottom: 0px !important; border-radius: 0 !important; border-bottom: none !important; }
-        .ad-banner { display: none !important; } /* Ẩn quảng cáo khi gõ phím */
-        .usage-bar-container, .usage-text { display: none !important; } /* Ẩn thanh top */
-    }
-
+    
+    /* Input Text Area */
     textarea[data-testid="stChatInputTextArea"] {
-        font-size: 16px !important; color: #333333 !important; -webkit-text-fill-color: #333333 !important;
-        background-color: #f0f2f6 !important; border-radius: 20px !important; caret-color: #0f988b !important;
+        font-size: 16px !important;
+        color: #333333 !important;
+        background-color: #f0f2f6 !important;
+        border-radius: 20px !important;
     }
-    textarea[data-testid="stChatInputTextArea"]::placeholder { color: #888 !important; opacity: 1 !important; }
-    button[data-testid="stChatInputSubmit"] { background-color: #0f988b !important; color: white !important; border-radius: 50% !important; right: 10px !important; bottom: 8px !important; }
-    button[data-testid="stChatInputSubmit"] svg { fill: white !important; }
 
+    /* FIX LỖI BÀN PHÍM CHE INPUT */
+    @media (max-height: 500px) {
+        div[data-testid="stChatInput"] {
+            bottom: 0px !important;
+            border-radius: 0 !important;
+            border-bottom: none !important;
+        }
+        .ad-banner { display: none !important; }
+        .usage-bar-container, .usage-text { display: none !important; }
+    }
+
+    /* QUẢNG CÁO NỔI (BANNER) */
+    .ad-banner {
+        position: fixed;
+        bottom: 85px;
+        left: 15px;
+        right: 15px;
+        background: linear-gradient(90deg, #fff3e0 0%, #ffe0b2 100%);
+        border: 1px solid #ffcc80;
+        border-radius: 12px;
+        padding: 10px;
+        z-index: 999990;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        animation: slideUp 0.5s ease-out;
+    }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    
+    .ad-content { font-size: 13px; font-weight: 600; color: #e65100 !important; display: flex; align-items: center; gap: 8px; }
+    .ad-btn { background: #e65100; color: white !important; padding: 5px 12px; border-radius: 20px; font-size: 11px; text-decoration: none; font-weight: bold; white-space: nowrap; }
+
+    /* CÁC THÀNH PHẦN KHÁC */
+    .main .block-container { padding-top: 3rem !important; padding-bottom: 250px !important; }
     div[data-testid="stChatMessage"] { background-color: #f8f9fa !important; border: 1px solid #eee; }
     div[data-testid="stChatMessage"][data-test-role="user"] { background-color: #e3f2fd !important; }
-
+    
     .usage-bar-container { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background-color: #f0f0f0; z-index: 1000000; }
     .usage-bar-fill { height: 100%; background: linear-gradient(90deg, #0f988b 0%, #14b8a6 100%); }
     .usage-text { position: fixed; top: 10px; right: 15px; background: rgba(255,255,255,0.9); padding: 4px 12px; border-radius: 20px; font-size: 11px; color: #0f988b !important; font-weight: bold; border: 1px solid #0f988b; z-index: 1000001; }
-    
-    .main .block-container { padding-top: 3rem !important; padding-bottom: 220px !important; }
 
     .zalo-btn { display: flex !important; align-items: center; justify-content: center; width: 100%; background-color: white; color: #0f988b !important; border: 1px solid #dcdfe3; border-radius: 8px; font-weight: 500; font-size: 14px; height: 45px !important; text-decoration: none !important; margin: 0 !important; }
     div[data-testid="stForm"] button { height: 45px !important; border-radius: 8px !important; font-weight: 500 !important; color: #31333F !important; }
 
-    /* Modal Hết Lượt */
+    /* MODAL HẾT LƯỢT */
     .limit-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); z-index: 2147483647 !important; display: flex; align-items: center; justify-content: center; flex-direction: column; }
-    .limit-box { background: white; padding: 40px; border-radius: 25px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; max-width: 90%; width: 400px; border: 2px solid #0f988b; animation: popup 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55); }
-    @keyframes popup { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-    .limit-btn { background: linear-gradient(135deg, #0f988b, #14b8a6); color: white !important; padding: 12px 35px; border-radius: 50px; text-decoration: none; font-weight: bold; display: inline-block; box-shadow: 0 5px 15px rgba(15, 152, 139, 0.4); margin-top: 15px; }
-
-    /* --- 🆕 CSS CHO QUẢNG CÁO (BANNER NỔI) --- */
-    .ad-banner {
-        position: fixed; bottom: 85px; left: 15px; right: 15px;
-        background: linear-gradient(90deg, #fff3e0 0%, #ffe0b2 100%);
-        border: 1px solid #ffcc80; border-radius: 12px; padding: 10px;
-        z-index: 999990; display: flex; align-items: center; justify-content: space-between;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.05); animation: slideUp 0.5s ease-out;
-    }
-    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    .ad-content { font-size: 13px; font-weight: 600; color: #e65100 !important; display: flex; align-items: center; gap: 8px; }
-    .ad-btn { background: #e65100; color: white !important; padding: 5px 12px; border-radius: 20px; font-size: 11px; text-decoration: none; font-weight: bold; white-space: nowrap; }
+    .limit-box { background: white; padding: 40px; border-radius: 25px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; max-width: 90%; width: 400px; border: 2px solid #0f988b; }
+    .limit-btn { background: linear-gradient(135deg, #0f988b, #14b8a6); color: white !important; padding: 12px 35px; border-radius: 50px; text-decoration: none; font-weight: bold; display: inline-block; margin-top: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 3. LOAD NÃO & API (GIỮ NGUYÊN)
+# 3. KẾT NỐI API & GOOGLE DRIVE
 # =====================================================
-FILE_ID_DRIVE = "1vOvvanNvDaLwP8Xs4nn1UhkciRvTxzyA" 
+FILE_ID_DRIVE = "1vOvvanNvDaLwP8Xs4nn1UhkciRvTxzyA"
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
 OUTPUT_ZIP = "/tmp/bo_nao_vector.zip"
 EXTRACT_PATH = "/tmp/bo_nao_vector"
@@ -90,70 +128,85 @@ except:
 
 @st.cache_resource
 def load_brain():
+    # Tải file từ Drive nếu chưa có
     if not os.path.exists(EXTRACT_PATH):
         try:
             gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=True)
-            with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zip_ref: zip_ref.extractall("/tmp/")
-        except: return None, None
+            with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zip_ref:
+                zip_ref.extractall("/tmp/")
+            if os.path.exists(OUTPUT_ZIP):
+                os.remove(OUTPUT_ZIP)
+        except:
+            return None, None
+    
+    # Load Vector DB
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         db = FAISS.load_local(EXTRACT_PATH, embeddings, allow_dangerous_deserialization=True)
         model = genai.GenerativeModel('gemini-flash-latest')
         return db, model
-    except: return None, None
+    except:
+        return None, None
+
 db, model = load_brain()
 
 # =====================================================
-# 4. QUẢN LÝ DATA: LƯỢT DÙNG + LỊCH SỬ CHAT (ĐÃ NÂNG CẤP)
+# 4. QUẢN LÝ DATABASE (LƯỢT DÙNG + LỊCH SỬ CHAT)
 # =====================================================
-USAGE_DB_FILE = "/tmp/usage_history_db.json" # File mới chứa cả lịch sử
+USAGE_DB_FILE = "/tmp/usage_history_db.json"
 DAILY_LIMIT = 25
 TRIAL_LIMIT = 10
 
 def get_data():
-    if not os.path.exists(USAGE_DB_FILE): return {}
-    try: with open(USAGE_DB_FILE, "r") as f: return json.load(f)
-    except: return {}
+    if not os.path.exists(USAGE_DB_FILE):
+        return {}
+    try:
+        with open(USAGE_DB_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {}
 
 def save_data(data):
-    with open(USAGE_DB_FILE, "w") as f: json.dump(data, f)
+    with open(USAGE_DB_FILE, "w") as f:
+        json.dump(data, f)
 
-if "authenticated" not in st.session_state: st.session_state.authenticated = False
-if "username" not in st.session_state: st.session_state.username = ""
+# Khởi tạo Session
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
 
-# Xác định User
 user_key = st.session_state.username if st.session_state.authenticated else "anonymous_guest"
 today = str(datetime.date.today())
 db_data = get_data()
 
-# Reset hoặc tạo mới user
+# Reset hoặc tạo mới user nếu sang ngày mới
 if user_key not in db_data or db_data[user_key].get("date") != today:
-    # Reset count về 0, tạo mới history
     db_data[user_key] = {
-        "date": today, 
-        "count": 0, 
+        "date": today,
+        "count": 0,
         "history": [{"role":"assistant","content":"Namaste! 🙏 Thật vui được gặp bạn. Hôm nay chúng ta sẽ bắt đầu từ đâu?"}]
     }
     save_data(db_data)
 
-# ĐỒNG BỘ SESSION TỪ FILE (CỐT LÕI ĐỂ KHÔNG MẤT CHAT)
+# Đồng bộ dữ liệu vào Session State
 st.session_state.messages = db_data[user_key]["history"]
 used = db_data[user_key]["count"]
 limit = DAILY_LIMIT if st.session_state.authenticated else TRIAL_LIMIT
 percent = min(100, int((used / limit) * 100))
 
-# Thanh tiến trình
+# Hiển thị thanh tiến trình
 st.markdown(f"""
     <div class="usage-bar-container"><div class="usage-bar-fill" style="width: {percent}%;"></div></div>
     <div class="usage-text">⚡ Lượt dùng: {used}/{limit}</div>
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 5. HIỂN THỊ CHAT & CÁC TÍNH NĂNG MỚI
+# 5. HIỂN THỊ CHAT VÀ TÍNH NĂNG ADMIN
 # =====================================================
 can_chat = used < limit
 
-# --- 🆕 QUẢNG CÁO "VỢT KHÁCH" (Chỉ hiện khi chưa đăng nhập) ---
+# --- QUẢNG CÁO (HIỆN NẾU CHƯA LOGIN) ---
 if not st.session_state.authenticated:
     st.markdown("""
     <div class="ad-banner" id="promo-banner">
@@ -165,19 +218,23 @@ if not st.session_state.authenticated:
     </div>
     """, unsafe_allow_html=True)
 
-# --- 🆕 ADMIN VIEW (SOI LOG CHAT) ---
+# --- ADMIN VIEW (SOI LOG) ---
 if st.session_state.authenticated and st.session_state.username == "admin":
     st.info("🕵️ **CHẾ ĐỘ ADMIN: SOI LOG CHAT**")
-    if st.button("🔄 Tải lại Log"): st.rerun()
+    if st.button("🔄 Cập nhật Log"):
+        st.rerun()
+    
     if "anonymous_guest" in db_data:
         anon_hist = db_data["anonymous_guest"]["history"]
         with st.expander(f"👥 Khách vãng lai ({len(anon_hist)} tin nhắn)", expanded=True):
-            for msg in reversed(anon_hist): 
-                if msg['role'] == 'user': st.write(f"👤 **Khách:** {msg['content']}")
-                else: st.caption(f"🤖 AI: {msg['content'][:50]}...")
+            for msg in reversed(anon_hist):
+                if msg['role'] == 'user':
+                    st.write(f"👤 **Khách:** {msg['content']}")
+                else:
+                    st.caption(f"🤖 AI: {msg['content'][:50]}...")
                 st.divider()
 
-# --- HIỂN THỊ LỊCH SỬ CHAT ---
+# --- RENDER LỊCH SỬ CHAT ---
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"], unsafe_allow_html=True)
@@ -192,28 +249,33 @@ if not can_chat:
     """, unsafe_allow_html=True)
     st.stop()
 
-# --- XỬ LÝ CHAT MỚI (CÓ LƯU VÀO FILE DB) ---
+# --- XỬ LÝ CHAT MỚI ---
 if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
-    # 1. Lưu User Message vào DB
+    # 1. Lưu tin nhắn User vào DB
     db_data[user_key]["count"] += 1
     db_data[user_key]["history"].append({"role": "user", "content": prompt})
     save_data(db_data)
     
-    # 2. Hiển thị User Message
+    # 2. Hiển thị User Message ngay lập tức
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"): st.markdown(prompt)
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
     # 3. AI Trả lời
     with st.chat_message("assistant"):
         if db:
             docs = db.similarity_search(prompt, k=4)
-            source_map = {}; context_parts = []
+            source_map = {}
+            context_parts = []
+            
             for i, d in enumerate(docs):
-                u = d.metadata.get('url', '#'); t = d.metadata.get('title', 'Tài liệu')
-                context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nURL: {u}\nNỘI DUNG: {d.page_content}")
-                source_map[u] = t 
-
-            sys_prompt = f"Bạn là chuyên gia Yoga. Dựa vào nguồn: {context_parts}. Trả lời câu hỏi: {prompt}. Ngắn gọn dưới 100 từ. Không bịa link."
+                u = d.metadata.get('url', '#')
+                t = d.metadata.get('title', 'Tài liệu')
+                context_parts.append(d.page_content)
+                source_map[u] = t
+            
+            # Tạo Prompt
+            sys_prompt = f"Bạn là chuyên gia Yoga. Dựa vào nguồn: {' '.join(context_parts)}. Trả lời câu hỏi: {prompt}. Ngắn gọn dưới 100 từ. Không bịa link."
             
             try:
                 res_text = model.generate_content(sys_prompt).text
@@ -222,11 +284,13 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                 links_html = ""
                 if source_map:
                     links_html += "<br><hr><b>📚 Tài liệu tham khảo:</b><ul style='list-style:none;padding:0'>"
-                    seen = set(); c = 0
+                    seen_urls = set()
+                    count = 0
                     for url, title in source_map.items():
-                        if url != "#" and url not in seen and c < 3:
+                        if url != "#" and url not in seen_urls and count < 3:
                             links_html += f"<li style='margin-bottom:5px'>🔗 <a href='{url}' target='_blank' style='color:#0f988b;text-decoration:none;font-weight:500'>{title}</a></li>"
-                            seen.add(url); c += 1
+                            seen_urls.add(url)
+                            count += 1
                     links_html += "</ul>"
                 
                 final_res = res_text + links_html
@@ -237,10 +301,11 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                 save_data(db_data)
                 
                 st.rerun()
-            except: st.error("AI đang thở gấp...")
+            except:
+                st.error("AI đang thở gấp...")
 
 # =====================================================
-# 6. LOGIN FORM & SPACER (ĐỆM CAO HƠN CHO QUẢNG CÁO)
+# 6. LOGIN FORM & SPACER
 # =====================================================
 if not st.session_state.authenticated:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -248,18 +313,32 @@ if not st.session_state.authenticated:
         with st.form("login_form"):
             u = st.text_input("Tên đăng nhập", placeholder="Username")
             p = st.text_input("Mật khẩu", type="password", placeholder="Password")
+            
             st.write("")
             c1, c2 = st.columns(2)
-            with c1: submit = st.form_submit_button("Đăng nhập", use_container_width=True)
-            with c2: st.markdown(f"""<div style="margin-top:0px;"><a href="https://zalo.me/84963759566" target="_blank" style="text-decoration:none;"><div class="zalo-btn">💬 Lấy TK Zalo</div></a></div>""", unsafe_allow_html=True)
+            with c1:
+                submit = st.form_submit_button("Đăng nhập", use_container_width=True)
+            with c2:
+                st.markdown(f"""<div style="margin-top:0px;"><a href="https://zalo.me/84963759566" target="_blank" style="text-decoration:none;"><div class="zalo-btn">💬 Lấy TK Zalo</div></a></div>""", unsafe_allow_html=True)
 
             if submit:
-                # CHECK ADMIN & USER
-                if u == "admin" and p == "yoga888": # Admin Login
-                    st.session_state.authenticated = True; st.session_state.username = u; st.rerun()
-                elif st.secrets["passwords"].get(u) == p: # User thường
-                    st.session_state.authenticated = True; st.session_state.username = u; st.rerun()
-                else: st.error("Sai rồi bác ơi!")
+                # 1. Check Admin cứng
+                if u == "admin" and p == "yoga888":
+                    st.session_state.authenticated = True
+                    st.session_state.username = u
+                    st.rerun()
+                
+                # 2. Check User thường (Dùng Try-Except để tránh lỗi nếu chưa cài secrets)
+                else:
+                    try:
+                        if st.secrets["passwords"].get(u) == p:
+                            st.session_state.authenticated = True
+                            st.session_state.username = u
+                            st.rerun()
+                        else:
+                            st.error("Sai mật khẩu rồi bác ơi!")
+                    except:
+                        st.error("Chưa cấu hình mật khẩu user!")
 
-    # Spacer siêu dày để nội dung không bị Input + Quảng cáo che
+    # Spacer cao 250px để không bị Input + Quảng cáo che
     st.markdown("<div style='height: 250px; display: block;'></div>", unsafe_allow_html=True)
