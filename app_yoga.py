@@ -225,7 +225,8 @@ if "authenticated" not in st.session_state: st.session_state.authenticated = Fal
 if "username" not in st.session_state: st.session_state.username = ""
 
 # Nếu chưa đăng nhập, dùng IP làm định danh để chặn lách luật bằng tab ẩn danh
-user_key = st.session_state.username if st.session_state.authenticated else get_remote_ip()today = str(datetime.date.today())
+user_key = st.session_state.username if st.session_state.authenticated else get_remote_ip()
+today = str(datetime.date.today())
 db_data = get_data()
 
 if user_key not in db_data or db_data[user_key].get("date") != today:
