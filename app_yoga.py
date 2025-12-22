@@ -135,7 +135,12 @@ STOPWORDS = {'là','của','như','thế','nào','tập','bài','cách','tôi','
 def clean_and_extract_keywords(text):
     text = re.sub(r'[^\w\s]', ' ', text.lower())
     return {w for w in text.split() if w not in STOPWORDS and len(w) > 1}
-
+    
+# Thay ID file của bác vào đây
+FILE_ID_DRIVE = "1vOvvanNvDaLwP8Xs4nn1UhkciRvTxzyA" 
+URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
+OUTPUT_ZIP = "/tmp/bo_nao_vector.zip"
+EXTRACT_PATH = "/tmp/bo_nao_vector"
 @st.cache_resource
 def load_brain():
     # 1. Nếu chưa có não bộ ở /tmp/ thì tải về
