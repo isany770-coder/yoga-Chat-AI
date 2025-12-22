@@ -218,15 +218,27 @@ st.markdown(f"""
 # =====================================================
 can_chat = used < limit
 
-# --- QUẢNG CÁO (HIỆN NẾU CHƯA LOGIN) ---
+# --- QUẢNG CÁO (SỬ DỤNG INLINE STYLE ĐỂ ÉP HIỆN CHỮ) ---
 if not st.session_state.authenticated:
-    st.markdown("""
-    <div class="ad-banner" id="promo-banner">
-        <div class="ad-content">
-            <span>🎁</span>
-            <span>Combo Thảm + Gạch Yoga giảm 30%!</span>
+    st.markdown(f"""
+    <div style="position: fixed; bottom: 85px; left: 15px; right: 15px; 
+                background: linear-gradient(90deg, #fff3e0 0%, #ffe0b2 100%); 
+                border: 2px solid #ffcc80; border-radius: 12px; 
+                padding: 12px 15px; z-index: 99999; 
+                display: flex; align-items: center; justify-content: space-between;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 20px;">🎁</span>
+            <b style="color: #e65100 !important; font-family: sans-serif; font-size: 15px;">
+                Combo Thảm + Gạch Yoga giảm 30%!
+            </b>
         </div>
-        <a href="https://yogaismylife.vn/khuyen-mai" target="_blank" class="ad-btn">Xem ngay 👉</a>
+        <a href="https://yogaismylife.vn/khuyen-mai" target="_blank" 
+           style="background-color: #e65100; color: white !important; 
+                  padding: 8px 15px; border-radius: 20px; 
+                  text-decoration: none; font-weight: bold; font-size: 13px;">
+            Xem ngay 👉
+        </a>
     </div>
     """, unsafe_allow_html=True)
 
