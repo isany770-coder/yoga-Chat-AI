@@ -186,17 +186,50 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
             st.rerun()
 
 # =====================================================
-# 7. FORM ĐĂNG NHẬP (NẾU HẾT LƯỢT HOẶC CHƯA LOGIN)
+# 7. FORM ĐĂNG NHẬP (NẰM NGANG HÀNG)
 # =====================================================
 if not can_chat or not st.session_state.authenticated:
-    with st.expander("🔐 Đăng nhập Thành viên / Lấy thêm lượt"):
+    st.markdown("---")
+    with st.expander("🔐 Đăng nhập Thành viên / Lấy thêm lượt", expanded=not can_chat):
         with st.form("login_form"):
             u = st.text_input("Tên đăng nhập")
             p = st.text_input("Mật khẩu", type="password")
-            if st.form_submit_button("Vào tập ngay"):
-                if st.secrets["passwords"].get(u) == p:
-                    st.session_state.authenticated = True
-                    st.session_state.username = u
-                    st.rerun()
-                else: st.error("Sai thông tin rồi bác ơi!")
-        st.markdown("[💬 Nhắn Zalo lấy tài khoản](https://zalo.me/84963759566)")
+            
+            # Tạo 2 cột để đưa 2 nút nằm ngang hàng
+            col_btn1, col_btn2 = st.columns([1, 1])
+            
+            with col_btn1:
+                # Nút Submit mặc định của Streamlit
+                if st.form_submit_button("Vào tập ngay", use_container_width=True):
+                    if st.secrets["passwords"].get(u) == p:
+                        st.session_state.authenticated = True
+                        st.session_state.username = u
+                        st.rerun()
+                    else:
+                        st.error("Sai thông tin rồi bác ơi!")
+            
+            with col_btn2:
+                # Nút Zalo giả lập giao diện nút Streamlit để nằm ngang hàng hoàn hảo
+                st.markdown(f"""
+                    <a href="https://zalo.me/84963759566" target="_blank" style="text-decoration: none;">
+                        <div style="
+                            background-color: white; 
+                            color: #0f988b; 
+                            border: 1px solid #0f988b;
+                            padding: 8px 16px; 
+                            border-radius: 8px; 
+                            text-align: center; 
+                            font-weight: 500;
+                            font-size: 14px;
+                            line-height: 1.6;
+                            height: 38px;
+                            transition: all 0.3s;
+                        " onmouseover="this.style.background='#f0f9f8'" onmouseout="this.style.background='white'">
+                            💬 Lấy TK Zalo
+                        </div>
+                    </a>
+                """, unsafe_allow_html=True)
+
+    # Hiển thị thêm thông báo nhỏ bên dưới nếu hết lượt
+    if not can_chat and not st.session_state.authenticated:
+        st.warning("⚡ Bạn đã dùng hết lượt dùng thử. Đăng nhập để tiếp tục hành trình Yoga nhé!")
