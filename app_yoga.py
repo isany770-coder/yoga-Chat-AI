@@ -142,76 +142,109 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 6. HIỂN THỊ CHAT & XỬ LÝ TRẢ LỜI (ĐÃ TỐI ƯU)
+# 6. HIỂN THỊ CHAT & XỬ LÝ (BẢN TỐI ƯU TỔNG LỰC)
 # =====================================================
+# Khởi tạo can_chat để tránh lỗi biến
+can_chat = used < limit
+
 # Hiển thị lịch sử chat
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# Kiểm tra lượt dùng
-can_chat = used < limit
-
 if can_chat:
     if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
-        # 1. Thêm tin nhắn người dùng vào bộ nhớ và hiển thị ngay
+        # 1. Hiển thị tin nhắn người dùng ngay lập tức
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # 2. Xử lý trả lời từ AI
+        # 2. Xử lý logic AI
         with st.chat_message("assistant"):
             if db:
-                # Tăng k=5 để AI có nhiều lựa chọn bài viết chính xác hơn
-                docs = db.similarity_search(prompt, k=5)
+                # Tăng k=20 để lục tung 15 triệu từ tìm bài Nghiên cứu/Giải mã
+                docs = db.similarity_search(prompt, k=20)
                 
-                # Cấu trúc lại Context để AI thấy rõ Tiêu đề và Link của từng đoạn
+                # Tạo trí nhớ ngắn hạn (lấy 3 câu hội thoại gần nhất)
+                history = ""
+                for m in st.session_state.messages[-4:-1]:
+                    role = "Người dùng" if m["role"] == "user" else "Chuyên gia"
+                    history += f"{role}: {m['content'][:150]}\n"
+
+                # Phân loại tài liệu: Ưu tiên Nghiên cứu/Giải mã
+                study_docs = []
+                general_docs = []
+                study_keywords = ["nghiên cứu", "giải mã", "rct", "meta", "khoa học", "chứng minh", "cơ chế"]
+
+                for d in docs:
+                    title = d.metadata.get('title', '').lower()
+                    if any(kw in title for kw in study_keywords):
+                        study_docs.append(d)
+                    else:
+                        general_docs.append(d)
+
+                # Ép AI đọc tối đa 10 đoạn dữ liệu (ưu tiên bài nghiên cứu lên trước)
+                final_docs = (study_docs + general_docs)[:10]
+                
                 context_parts = []
-                source_map = {} # Dùng để lọc link trùng
-                
-                for i, d in enumerate(docs):
+                source_map = {} 
+                for d in final_docs:
                     t = d.metadata.get('title', 'Tài liệu Yoga')
                     u = d.metadata.get('url', '#')
-                    context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nURL: {u}\nNỘI DUNG: {d.page_content}")
-                    source_map[u] = t # Lưu lại để hiện link ở cuối
+                    # Xóa sạch số thứ tự nguồn trong context để AI không bắt chước
+                    context_parts.append(f"TIÊU ĐỀ: {t}\nNỘI DUNG: {d.page_content}")
+                    source_map[u] = t
 
                 context_string = "\n\n".join(context_parts)
                 
-                # Prompt mới: Ép AI tập trung vào thông tin từ nguồn được cung cấp
-                sys_prompt = f"""Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.
-                1. Trả lời NGẮN GỌN (tối đa 5-6 gạch đầu dòng, dưới 100 từ).
-                2. Đi thẳng vào trọng tâm chuyên môn.
-                3. Chỉ dùng thông tin có trong NGUỒN bên dưới.
-                4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.
+                # PROMPT TỐI ƯU: Có trí nhớ, cực sạch, ưu tiên khoa học
+                sys_prompt = f"""Bạn là chuyên gia Yoga khoa học. Hãy trả lời dựa trên LỊCH SỬ và NGUỒN DỮ LIỆU.
                 
-                DỮ LIỆU NGUỒN:
+                [LỊCH SỬ TRÒ CHUYỆN]:
+                {history}
+                
+                [DỮ LIỆU NGUỒN]:
                 {context_string}
                 
-                CÂU HỎI: {prompt}"""
+                QUY TẮC:
+                1. Trả lời NGẮN GỌN (dưới 100 từ) sử dụng các gạch đầu dòng. Tuyệt đối KHÔNG ghi 'Nguồn 1' hay '(1, 2)'.
+                2. Dựa vào Lịch sử để hiểu các câu hỏi ngắn (ví dụ: 'Cần bằng cấp gì?').
+                3. Nếu nguồn có bài 'Giải mã' hoặc 'Nghiên cứu', hãy dùng thông tin đó làm trọng tâm.
+                4. Giọng văn dứt khoát, chuyên môn, không chào hỏi rườm rà.
+                
+                CÂU HỎI HIỆN TẠI: {prompt}"""
 
-                # Gọi Gemini Flash
+                # Gọi Gemini
                 res_text = model.generate_content(sys_prompt).text
                 
-                # 3. Tạo phần Tài liệu tham khảo (Chỉ hiện các link DUY NHẤT)
-                links_html = "\n\n---\n**📚 Tài liệu tham khảo:**\n"
+                # 3. Tạo phần Link tham khảo thông minh
+                study_list = []
+                normal_list = []
                 seen_urls = set()
-                count = 0
+
                 for url, title in source_map.items():
-                    if url != "#" and url not in seen_urls and count < 3:
-                        links_html += f"- 🔗 [{title}]({url})\n"
+                    if url != "#" and url not in seen_urls:
+                        link_md = f"- 🔗 [{title}]({url})"
+                        if any(kw in title.lower() for kw in study_keywords):
+                            study_list.append(link_md)
+                        else:
+                            normal_list.append(link_md)
                         seen_urls.add(url)
-                        count += 1
+
+                # Hiển thị tiêu đề link tùy theo loại dữ liệu tìm được
+                header = "\n\n---\n**🔬 BẰNG CHỨNG KHOA HỌC & NGHIÊN CỨU:**\n" if study_list else "\n\n---\n**📚 TÀI LIỆU THAM KHẢO:**\n"
                 
-                final_res = res_text + links_html
+                # Lấy 2 link nghiên cứu + 2 link thường cho gọn
+                final_links = study_list[:2] + normal_list[:2]
+                final_res = res_text + header + "\n".join(final_links)
+                
                 st.markdown(final_res)
                 
-                # 4. Lưu vào bộ nhớ và cập nhật lượt dùng
+                # 4. Lưu vào bộ nhớ và cập nhật
                 st.session_state.messages.append({"role": "assistant", "content": final_res})
-                
                 usage_db[user_key]["count"] += 1
                 save_usage_data(usage_db)
                 
-                # Rerun cuối cùng để cập nhật thanh Progress bar ở trên đầu
                 st.rerun()
                 
 # FORM ĐĂNG NHẬP SONG SONG (BÁC CẦN CÁI NÀY)
