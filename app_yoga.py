@@ -142,15 +142,13 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 6. HIỂN THỊ CHAT & XỬ LÝ TRẢ LỜI (BẢN FIX TRIỆT ĐỂ)
+# 6. HIỂN THỊ CHAT & XỬ LÝ (CHIÊU CUỐI: ÉP TRÍCH XUẤT NGHIÊN CỨU)
 # =====================================================
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-can_chat = used < limit
-
-if can_chat:
+if used < limit:
     if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -158,13 +156,28 @@ if can_chat:
 
         with st.chat_message("assistant"):
             if db:
-                # Tăng lên k=15 để quét rộng nhất có thể trong 15 triệu từ
-                docs = db.similarity_search(prompt, k=15)
+                # BƯỚC 1: Tìm kiếm rộng (k=20) để đảm bảo không sót bài nghiên cứu
+                docs = db.similarity_search(prompt, k=20)
+                
+                # BƯỚC 2: Phân loại dữ liệu ngay từ đầu
+                study_docs = []
+                general_docs = []
+                keywords = ["nghiên cứu", "giải mã", "rct", "meta", "khoa học", "chứng minh"]
+
+                for d in docs:
+                    title = d.metadata.get('title', '').lower()
+                    if any(kw in title for kw in keywords):
+                        study_docs.append(d)
+                    else:
+                        general_docs.append(d)
+
+                # BƯỚC 3: Ưu tiên đưa bài nghiên cứu vào Context trước
+                # Chỉ lấy tối đa 8 đoạn tốt nhất để tránh AI bị "loạn"
+                final_docs = (study_docs + general_docs)[:8]
                 
                 context_parts = []
                 source_map = {} 
-                
-                for i, d in enumerate(docs):
+                for i, d in enumerate(final_docs):
                     t = d.metadata.get('title', 'Tài liệu Yoga')
                     u = d.metadata.get('url', '#')
                     context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nURL: {u}\nNỘI DUNG: {d.page_content}")
@@ -172,9 +185,10 @@ if can_chat:
 
                 context_string = "\n\n".join(context_parts)
                 
-                sys_prompt = f"""Bạn là chuyên gia Yoga khoa học. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.
-                1. Trả lời NGẮN GỌN, súc tích (dưới 100 từ).
-                2. Nếu trong nguồn có bài 'Giải mã', 'Nghiên cứu', 'RCT' hãy ƯU TIÊN lấy thông tin từ đó.
+                sys_prompt = f"""Bạn là một giáo sư Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.
+                QUY TẮC CỨNG:
+                1. Nếu trong nguồn có các bài 'Giải mã nghiên cứu' hoặc 'Nghiên cứu', bạn PHẢI trích dẫn dữ liệu từ đó.
+                2. Trả lời ngắn gọn, chuyên sâu.
                 3. Tuyệt đối không tự bịa link.
                 
                 DỮ LIỆU NGUỒN:
@@ -184,36 +198,28 @@ if can_chat:
 
                 res_text = model.generate_content(sys_prompt).text
                 
-                # --- PHẦN FIX: ÉP THỨ TỰ HIỂN THỊ LINK ---
-                study_links = []
-                normal_links = []
+                # BƯỚC 4: Hiển thị Link thông minh (Phân tách rõ ràng)
+                study_list = []
+                normal_list = []
                 seen_urls = set()
-                
-                # Từ khóa để nhận diện bài nghiên cứu của bác
-                keywords = ["nghiên cứu", "giải mã", "rct", "meta", "khoa học", "bằng chứng"]
 
                 for url, title in source_map.items():
                     if url != "#" and url not in seen_urls:
-                        link_markdown = f"- 🔗 [{title}]({url})"
-                        
-                        # Kiểm tra xem tiêu đề bài viết có chứa từ khóa nghiên cứu không
-                        is_study = any(kw in title.lower() for kw in keywords)
-                        
-                        if is_study:
-                            study_links.append(link_markdown)
+                        link_md = f"- 🔗 [{title}]({url})"
+                        if any(kw in title.lower() for kw in keywords):
+                            study_list.append(link_md)
                         else:
-                            normal_links.append(link_markdown)
+                            normal_list.append(link_md)
                         seen_urls.add(url)
 
-                # Chỉ lấy tối đa 5 link để tránh rối (Ưu tiên bài nghiên cứu lên trước)
-                top_links = (study_links + normal_links)[:5]
-                
-                header_text = "\n\n---\n**📚 Tài liệu tham khảo chuyên sâu:**\n" if study_links else "\n\n---\n**📚 Tài liệu tham khảo:**\n"
-                links_html = header_text + "\n".join(top_links)
+                # Trình bày kết quả
+                header = "\n\n---\n**🔬 BẰNG CHỨNG KHOA HỌC & NGHIÊN CỨU:**\n" if study_list else "\n\n---\n**📚 TÀI LIỆU THAM KHẢO:**\n"
+                links_html = header + "\n".join(study_list + normal_list[:3])
                 
                 final_res = res_text + links_html
                 st.markdown(final_res)
                 
+                # Lưu và cập nhật
                 st.session_state.messages.append({"role": "assistant", "content": final_res})
                 usage_db[user_key]["count"] += 1
                 save_usage_data(usage_db)
