@@ -275,7 +275,15 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                 source_map[u] = t
             
             # Tạo Prompt
-            sys_prompt = f"Bạn là chuyên gia Yoga. Dựa vào nguồn: {' '.join(context_parts)}. Trả lời câu hỏi: {prompt}. Ngắn gọn dưới 100 từ. Không bịa link."
+            sys_prompt = (
+                f"Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
+                f"1. Trả lời NGẮN GỌN (tối đa 6-7 gạch đầu dòng, dưới 100 từ).\n"
+                f"2. Đi thẳng vào trọng tâm chuyên môn.\n"
+                f"3. Chỉ dùng thông tin có trong NGUỒN bên dưới.\n"
+                f"4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.\n\n"
+                f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
+                f"CÂU HỎI: {prompt}"
+            )
             
             try:
                 res_text = model.generate_content(sys_prompt).text
