@@ -336,56 +336,60 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
 
     with st.chat_message("assistant"):
         if db:
-            docs = db.similarity_search(prompt, k=4)
+            # Tăng k=5 để AI có nhiều lựa chọn hơn
+            docs = db.similarity_search(prompt, k=5)
             source_map = {}
             context_parts = []
             
             for i, d in enumerate(docs):
                 u = d.metadata.get('url', '#')
                 t = d.metadata.get('title', 'Tài liệu')
-                context_parts.append(d.page_content)
+                # CHIÊU NÀY: Dán chặt Link vào Nội dung để AI không nhầm bài A sang bài B
+                context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nLINK: {u}\nNỘI DUNG: {d.page_content}")
                 source_map[u] = t
             
-            # 1. PHẢI CÓ DÒNG NÀY ĐỂ TẠO DỮ LIỆU NGUỒN
             context_string = "\n\n".join(context_parts)
             
-            # 2. CĂN THẲNG HÀNG TỪ ĐẦU ĐẾN CUỐI
             sys_prompt = (
-                f"Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
-                f"1. Trả lời NGẮN GỌN (tối đa 6-7 gạch đầu dòng, dưới 100 từ).\n"
-                f"2. Đi thẳng vào trọng tâm chuyên môn.\n"
-                f"3. Chỉ dùng thông tin có trong NGUỒN bên dưới.\n"
-                f"4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.\n\n"
+                f"Bạn là chuyên gia Yoga cao cấp. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
+                f"1. Trả lời NGẮN GỌN, đi thẳng vào trọng tâm chuyên môn.\n"
+                f"2. Bạn PHẢI đối chiếu chính xác: Nội dung bạn lấy ở NGUỒN nào thì chỉ được dẫn LINK của NGUỒN đó.\n"
+                f"3. Cuối bài trả lời, hãy liệt kê đúng link bạn đã dùng theo cấu trúc: 'NGUỒN_DÙNG: [Link URL]'.\n\n"
                 f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
                 f"CÂU HỎI: {prompt}"
             )
             
             try:
-                # Thêm vòng xoay chờ ở đây
                 with st.spinner("🧘 Chuyên gia đang suy ngẫm..."):
                     response = model.generate_content(sys_prompt)
                     res_text = response.text
                 
+                # Dùng Regex để bốc đúng cái link mà AI báo là đã dùng
+                import re
+                used_links = re.findall(r'NGUỒN_DÙNG:\s*(https?://[^\s\n]+)', res_text)
+                # Xóa cái dòng "NGUỒN_DÙNG" thô kệch trong câu trả lời trước khi hiện cho khách
+                clean_res = re.sub(r'NGUỒN_DÙNG:.*', '', res_text).strip()
+
                 links_html = ""
-                if source_map:
-                    links_html += "<br><hr><b>📚 Tài liệu tham khảo:</b><ul style='list-style:none;padding:0'>"
-                    seen_urls = set()
-                    count = 0
-                    for url, title in source_map.items():
-                        if url != "#" and url not in seen_urls and count < 3:
+                # Nếu AI chỉ ra được link nó dùng thì lấy link đó, nếu không thì mới lấy từ source_map
+                final_links = list(set(used_links)) if used_links else list(source_map.keys())[:2]
+
+                if final_links:
+                    links_html += "<br><hr><b>📚 Tài liệu tham khảo chuẩn:</b><ul style='list-style:none;padding:0'>"
+                    for url in final_links:
+                        if url != "#":
+                            title = source_map.get(url, "Xem bài viết chi tiết")
                             links_html += f"<li style='margin-bottom:5px'>🔗 <a href='{url}' target='_blank' style='color:#0f988b;text-decoration:none;font-weight:500'>{title}</a></li>"
-                            seen_urls.add(url)
-                            count += 1
                     links_html += "</ul>"
                 
-                final_res = res_text + links_html
+                final_res = clean_res + links_html
                 st.markdown(final_res, unsafe_allow_html=True)
                 
                 db_data[user_key]["history"].append({"role": "assistant", "content": final_res})
                 save_data(db_data)
                 
-            except:
-                st.error(f"AI đang hồi sức do có quá nhiều câu hỏi: {e}")
+            except Exception as e:
+                st.error(f"AI đang bận một chút, bác đợi tí nhé: {e}")
 
 # =====================================================
 # 6. LOGIN FORM
