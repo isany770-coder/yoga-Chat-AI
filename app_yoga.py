@@ -334,7 +334,7 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
     with st.chat_message("user"):
         st.markdown(prompt)
 
-     with st.chat_message("assistant"):
+    with st.chat_message("assistant"): # Đã fix thụt đầu dòng ở đây
         if db:
             docs = db.similarity_search(prompt, k=4)
             source_map = {}
@@ -375,15 +375,13 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                             count += 1
                     links_html += "</ul>"
                 
-                # Hợp nhất câu trả lời và link vào một biến duy nhất
                 final_res = res_text + links_html
                 st.markdown(final_res, unsafe_allow_html=True)
                 
-                # Lưu vào lịch sử
                 db_data[user_key]["history"].append({"role": "assistant", "content": final_res})
                 save_data(db_data)
                 
-            except Exception as error:  # Đổi e thành error ở đây để tránh lỗi
+            except Exception as error:
                 st.error(f"AI đang hồi sức do có quá nhiều câu hỏi: {error}")
 
 # =====================================================
