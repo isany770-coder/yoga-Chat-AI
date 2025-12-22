@@ -9,7 +9,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
 # =====================================================
-# 1. CẤU HÌNH TRANG (PHẢI Ở DÒNG ĐẦU TIÊN)
+# 1. CẤU HÌNH TRANG
 # =====================================================
 st.set_page_config(
     page_title="Yoga Assistant Pro",
@@ -19,7 +19,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# 2. CSS GIAO DIỆN (INPUT NỔI + QUẢNG CÁO + FIX LỖI)
+# 2. CSS GIAO DIỆN (ĐÃ FIX LỖI MẤT CHỮ QUẢNG CÁO)
 # =====================================================
 st.markdown("""
 <style>
@@ -28,9 +28,12 @@ st.markdown("""
         background-color: white !important;
         color: #31333F !important;
     }
-    p, h1, h2, h3, h4, h5, h6, span, div, label, li {
+    /* Ép màu chung (nhưng chừa thằng quảng cáo ra) */
+    p, h1, h2, h3, h4, h5, h6, label, li {
         color: #31333F !important;
     }
+    
+    /* Ẩn header mặc định */
     [data-testid="stToolbar"], header, footer, .stAppDeployButton {
         display: none !important;
     }
@@ -51,7 +54,6 @@ st.markdown("""
         transition: bottom 0.3s ease;
     }
     
-    /* Input Text Area */
     textarea[data-testid="stChatInputTextArea"] {
         font-size: 16px !important;
         color: #333333 !important;
@@ -66,11 +68,11 @@ st.markdown("""
             border-radius: 0 !important;
             border-bottom: none !important;
         }
-        .ad-banner { display: none !important; }
+        .ad-banner { display: none !important; } /* Ẩn quảng cáo khi gõ phím */
         .usage-bar-container, .usage-text { display: none !important; }
     }
 
-    /* QUẢNG CÁO NỔI (BANNER) */
+    /* --- CSS QUẢNG CÁO (FIX MẠNH MẼ) --- */
     .ad-banner {
         position: fixed;
         bottom: 85px;
@@ -79,7 +81,7 @@ st.markdown("""
         background: linear-gradient(90deg, #fff3e0 0%, #ffe0b2 100%);
         border: 1px solid #ffcc80;
         border-radius: 12px;
-        padding: 10px;
+        padding: 10px 15px;
         z-index: 999990;
         display: flex;
         align-items: center;
@@ -87,10 +89,31 @@ st.markdown("""
         box-shadow: 0 5px 15px rgba(0,0,0,0.05);
         animation: slideUp 0.5s ease-out;
     }
-    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     
-    .ad-content { font-size: 13px; font-weight: 600; color: #e65100 !important; display: flex; align-items: center; gap: 8px; }
-    .ad-btn { background: #e65100; color: white !important; padding: 5px 12px; border-radius: 20px; font-size: 11px; text-decoration: none; font-weight: bold; white-space: nowrap; }
+    /* Ép màu chữ cam đậm cho nội dung quảng cáo */
+    .ad-content, .ad-content span {
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        color: #e65100 !important; /* Màu cam đậm */
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .ad-btn {
+        background: #e65100;
+        color: white !important;
+        padding: 6px 15px;
+        border-radius: 20px;
+        font-size: 12px;
+        text-decoration: none;
+        font-weight: bold;
+        white-space: nowrap;
+        box-shadow: 0 2px 5px rgba(230, 81, 0, 0.3);
+    }
+
+    /* Animation */
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
     /* CÁC THÀNH PHẦN KHÁC */
     .main .block-container { padding-top: 3rem !important; padding-bottom: 250px !important; }
@@ -128,7 +151,6 @@ except:
 
 @st.cache_resource
 def load_brain():
-    # Tải file từ Drive nếu chưa có
     if not os.path.exists(EXTRACT_PATH):
         try:
             gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=True)
@@ -139,7 +161,6 @@ def load_brain():
         except:
             return None, None
     
-    # Load Vector DB
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         db = FAISS.load_local(EXTRACT_PATH, embeddings, allow_dangerous_deserialization=True)
@@ -151,36 +172,28 @@ def load_brain():
 db, model = load_brain()
 
 # =====================================================
-# 4. QUẢN LÝ DATABASE (LƯỢT DÙNG + LỊCH SỬ CHAT)
+# 4. QUẢN LÝ DATABASE
 # =====================================================
 USAGE_DB_FILE = "/tmp/usage_history_db.json"
 DAILY_LIMIT = 25
 TRIAL_LIMIT = 10
 
 def get_data():
-    if not os.path.exists(USAGE_DB_FILE):
-        return {}
+    if not os.path.exists(USAGE_DB_FILE): return {}
     try:
-        with open(USAGE_DB_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return {}
+        with open(USAGE_DB_FILE, "r") as f: return json.load(f)
+    except: return {}
 
 def save_data(data):
-    with open(USAGE_DB_FILE, "w") as f:
-        json.dump(data, f)
+    with open(USAGE_DB_FILE, "w") as f: json.dump(data, f)
 
-# Khởi tạo Session
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-if "username" not in st.session_state:
-    st.session_state.username = ""
+if "authenticated" not in st.session_state: st.session_state.authenticated = False
+if "username" not in st.session_state: st.session_state.username = ""
 
 user_key = st.session_state.username if st.session_state.authenticated else "anonymous_guest"
 today = str(datetime.date.today())
 db_data = get_data()
 
-# Reset hoặc tạo mới user nếu sang ngày mới
 if user_key not in db_data or db_data[user_key].get("date") != today:
     db_data[user_key] = {
         "date": today,
@@ -189,20 +202,19 @@ if user_key not in db_data or db_data[user_key].get("date") != today:
     }
     save_data(db_data)
 
-# Đồng bộ dữ liệu vào Session State
 st.session_state.messages = db_data[user_key]["history"]
 used = db_data[user_key]["count"]
 limit = DAILY_LIMIT if st.session_state.authenticated else TRIAL_LIMIT
 percent = min(100, int((used / limit) * 100))
 
-# Hiển thị thanh tiến trình
+# Thanh tiến trình
 st.markdown(f"""
     <div class="usage-bar-container"><div class="usage-bar-fill" style="width: {percent}%;"></div></div>
     <div class="usage-text">⚡ Lượt dùng: {used}/{limit}</div>
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 5. HIỂN THỊ CHAT VÀ TÍNH NĂNG ADMIN
+# 5. HIỂN THỊ CHAT, QUẢNG CÁO & ADMIN
 # =====================================================
 can_chat = used < limit
 
@@ -214,16 +226,15 @@ if not st.session_state.authenticated:
             <span>🎁</span>
             <span>Combo Thảm + Gạch Yoga giảm 30%!</span>
         </div>
-        <a href="https://yogaismylife.vn/khuyen-mai" target="_blank" class="ad-btn">Xem ngay 👉</a>
+        <a href="https://yogaismylife.vn/cua-hang/" target="_blank" class="ad-btn">Xem ngay 👉</a>
     </div>
     """, unsafe_allow_html=True)
 
-# --- ADMIN VIEW (SOI LOG) ---
+# --- ADMIN VIEW ---
 if st.session_state.authenticated and st.session_state.username == "admin":
     st.info("🕵️ **CHẾ ĐỘ ADMIN: SOI LOG CHAT**")
     if st.button("🔄 Cập nhật Log"):
         st.rerun()
-    
     if "anonymous_guest" in db_data:
         anon_hist = db_data["anonymous_guest"]["history"]
         with st.expander(f"👥 Khách vãng lai ({len(anon_hist)} tin nhắn)", expanded=True):
@@ -234,7 +245,7 @@ if st.session_state.authenticated and st.session_state.username == "admin":
                     st.caption(f"🤖 AI: {msg['content'][:50]}...")
                 st.divider()
 
-# --- RENDER LỊCH SỬ CHAT ---
+# --- CHAT HISTORY ---
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"], unsafe_allow_html=True)
@@ -249,19 +260,16 @@ if not can_chat:
     """, unsafe_allow_html=True)
     st.stop()
 
-# --- XỬ LÝ CHAT MỚI ---
+# --- INPUT & XỬ LÝ ---
 if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
-    # 1. Lưu tin nhắn User vào DB
     db_data[user_key]["count"] += 1
     db_data[user_key]["history"].append({"role": "user", "content": prompt})
     save_data(db_data)
     
-    # 2. Hiển thị User Message ngay lập tức
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 3. AI Trả lời
     with st.chat_message("assistant"):
         if db:
             docs = db.similarity_search(prompt, k=4)
@@ -274,7 +282,7 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                 context_parts.append(d.page_content)
                 source_map[u] = t
             
-            # Tạo Prompt
+            # System Prompt: (Giữ nguyên theo ý bác)
             sys_prompt = (
                 f"Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
                 f"1. Trả lời NGẮN GỌN (tối đa 6-7 gạch đầu dòng, dưới 100 từ).\n"
@@ -288,7 +296,6 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
             try:
                 res_text = model.generate_content(sys_prompt).text
                 
-                # Tạo Link HTML (Mở tab mới)
                 links_html = ""
                 if source_map:
                     links_html += "<br><hr><b>📚 Tài liệu tham khảo:</b><ul style='list-style:none;padding:0'>"
@@ -304,16 +311,14 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                 final_res = res_text + links_html
                 st.markdown(final_res, unsafe_allow_html=True)
                 
-                # 4. Lưu AI Message vào DB
                 db_data[user_key]["history"].append({"role": "assistant", "content": final_res})
                 save_data(db_data)
-                
                 st.rerun()
             except:
                 st.error("AI đang thở gấp...")
 
 # =====================================================
-# 6. LOGIN FORM & SPACER
+# 6. LOGIN FORM
 # =====================================================
 if not st.session_state.authenticated:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -330,13 +335,10 @@ if not st.session_state.authenticated:
                 st.markdown(f"""<div style="margin-top:0px;"><a href="https://zalo.me/84963759566" target="_blank" style="text-decoration:none;"><div class="zalo-btn">💬 Lấy TK Zalo</div></a></div>""", unsafe_allow_html=True)
 
             if submit:
-                # 1. Check Admin cứng
                 if u == "admin" and p == "yoga888":
                     st.session_state.authenticated = True
                     st.session_state.username = u
                     st.rerun()
-                
-                # 2. Check User thường (Dùng Try-Except để tránh lỗi nếu chưa cài secrets)
                 else:
                     try:
                         if st.secrets["passwords"].get(u) == p:
@@ -348,5 +350,4 @@ if not st.session_state.authenticated:
                     except:
                         st.error("Chưa cấu hình mật khẩu user!")
 
-    # Spacer cao 250px để không bị Input + Quảng cáo che
     st.markdown("<div style='height: 250px; display: block;'></div>", unsafe_allow_html=True)
