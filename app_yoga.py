@@ -142,13 +142,17 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 6. HIỂN THỊ CHAT & XỬ LÝ (CHIÊU CUỐI: ÉP TRÍCH XUẤT NGHIÊN CỨU)
+# 6. HIỂN THỊ CHAT & XỬ LÝ (BẢN FIX LỖI BIẾN CAN_CHAT)
 # =====================================================
+# Định nghĩa lại biến can_chat để tránh lỗi NameError
+can_chat = used < limit
+
+# Hiển thị lịch sử chat
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-if used < limit:
+if can_chat:
     if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -156,10 +160,10 @@ if used < limit:
 
         with st.chat_message("assistant"):
             if db:
-                # BƯỚC 1: Tìm kiếm rộng (k=20) để đảm bảo không sót bài nghiên cứu
+                # Tìm kiếm rộng để không sót bài chuyên sâu
                 docs = db.similarity_search(prompt, k=20)
                 
-                # BƯỚC 2: Phân loại dữ liệu ngay từ đầu
+                # Phân loại và ưu tiên các bài có tiêu đề Nghiên cứu/Giải mã
                 study_docs = []
                 general_docs = []
                 keywords = ["nghiên cứu", "giải mã", "rct", "meta", "khoa học", "chứng minh"]
@@ -171,8 +175,7 @@ if used < limit:
                     else:
                         general_docs.append(d)
 
-                # BƯỚC 3: Ưu tiên đưa bài nghiên cứu vào Context trước
-                # Chỉ lấy tối đa 8 đoạn tốt nhất để tránh AI bị "loạn"
+                # Ép AI đọc các bài nghiên cứu trước
                 final_docs = (study_docs + general_docs)[:8]
                 
                 context_parts = []
@@ -186,10 +189,11 @@ if used < limit:
                 context_string = "\n\n".join(context_parts)
                 
                 sys_prompt = f"""Bạn là một giáo sư Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.
-                QUY TẮC CỨNG:
-                1. Nếu trong nguồn có các bài 'Giải mã nghiên cứu' hoặc 'Nghiên cứu', bạn PHẢI trích dẫn dữ liệu từ đó.
-                2. Trả lời ngắn gọn, chuyên sâu.
-                3. Tuyệt đối không tự bịa link.
+                QUY TẮC:
+                1. Nếu nguồn có bài 'Giải mã' hoặc 'Nghiên cứu', bạn PHẢI trích dẫn từ đó.
+                2. Trả lời CỰC KỲ NGẮN GỌN (Tối đa 5-6 gạch đầu dòng), không quá 100 từ.
+                3. Đi thẳng vào trọng tâm, bỏ qua lời dẫn dắt vô nghĩa.
+                4. Tuyệt đối không tự bịa link.
                 
                 DỮ LIỆU NGUỒN:
                 {context_string}
@@ -198,7 +202,7 @@ if used < limit:
 
                 res_text = model.generate_content(sys_prompt).text
                 
-                # BƯỚC 4: Hiển thị Link thông minh (Phân tách rõ ràng)
+                # Hiển thị Link tham khảo thông minh
                 study_list = []
                 normal_list = []
                 seen_urls = set()
@@ -212,14 +216,13 @@ if used < limit:
                             normal_list.append(link_md)
                         seen_urls.add(url)
 
-                # Trình bày kết quả
+                # Trình bày: Nghiên cứu lên đầu, sau đó đến tối đa 3 link bài thường
                 header = "\n\n---\n**🔬 BẰNG CHỨNG KHOA HỌC & NGHIÊN CỨU:**\n" if study_list else "\n\n---\n**📚 TÀI LIỆU THAM KHẢO:**\n"
                 links_html = header + "\n".join(study_list + normal_list[:3])
                 
                 final_res = res_text + links_html
                 st.markdown(final_res)
                 
-                # Lưu và cập nhật
                 st.session_state.messages.append({"role": "assistant", "content": final_res})
                 usage_db[user_key]["count"] += 1
                 save_usage_data(usage_db)
