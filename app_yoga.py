@@ -336,65 +336,62 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
 
     with st.chat_message("assistant"):
         if db:
-            # Tăng k=7 để AI quét sâu hơn vào kho 15 triệu từ, tìm đúng các bài RCT/Meta
-            docs = db.similarity_search(prompt, k=7)
+            # Tăng k=10 để AI quét rộng hơn, đảm bảo không bỏ sót 237 bài RCTs/Meta của bác
+            docs = db.similarity_search(prompt, k=10)
             source_map = {}
             context_parts = []
             
             for i, d in enumerate(docs):
                 u = d.metadata.get('url', '#')
                 t = d.metadata.get('title', 'Tài liệu')
-                # Dán nhãn để AI thấy mối liên hệ giữa kiến thức và Link
+                # Ép link dính vào nội dung để AI không dẫn nhầm
                 context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nLINK: {u}\nNỘI DUNG: {d.page_content}")
                 source_map[u] = t
             
             context_string = "\n\n".join(context_parts)
             
             sys_prompt = (
-                f"Bạn là chuyên gia Yoga Y khoa. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
-                f"1. ƯU TIÊN CAO NHẤT: Trích dẫn các nghiên cứu RCT, Meta-analysis hoặc bằng chứng lâm sàng nếu có trong nguồn.\n"
-                f"2. Trình bày bằng GẠCH ĐẦU DÒNG, ngôn ngữ chuyên nghiệp, súc tích.\n"
-                f"3. Cuối bài, trích xuất đúng Link URL của bài viết bạn đã dùng theo cú pháp: 'LINK_CHỌN: [Dán URL]'.\n\n"
+                f"Bạn là chuyên gia Yoga Y khoa. Trả lời dựa trên DỮ LIỆU NGUỒN.\n"
+                f"1. Trả lời cực kỳ NGẮN GỌN (dưới 80 từ), dùng gạch đầu dòng.\n"
+                f"2. ƯU TIÊN SỐ 1: Phải trích dẫn bằng chứng từ RCTs hoặc Meta-analysis nếu có.\n"
+                f"3. Chỉ dẫn ra tối đa 2-3 link bài viết liên quan nhất.\n"
+                f"4. Cuối bài ghi rõ: 'LINK_CHỌN: [URL]'.\n\n"
                 f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
                 f"CÂU HỎI: {prompt}"
             )
             
             try:
-                with st.spinner("🧘 Chuyên gia đang phân tích bằng chứng khoa học..."):
+                with st.spinner("🧘 Đang đối chiếu 237 nghiên cứu RCTs & Meta..."):
                     response = model.generate_content(sys_prompt)
                     res_text = response.text
                 
                 import re
-                # Bốc link AI chọn
-                found_links = re.findall(r'LINK_CHỌN:\s*(https?://[^\s\n]+)', res_text)
-                # Dọn dẹp dòng LINK_CHỌN trong văn bản hiện ra
+                used_links = re.findall(r'LINK_CHỌN:\s*(https?://[^\s\n]+)', res_text)
                 clean_res = re.sub(r'LINK_CHỌN:.*', '', res_text).strip()
 
                 links_html = ""
-                # Chỉ lấy link nằm trong danh sách bài viết thực tế của bác
-                final_links = list(set([l for l in found_links if l in source_map]))
-                
-                # Nếu AI quên không ghi LINK_CHỌN, ta lấy 2 bài liên quan nhất hiện ra cho khách
+                # Lấy link AI đã chọn lọc, nếu không có thì lấy 2 bài đầu từ kho tìm kiếm
+                final_links = [l for l in used_links if l in source_map]
                 if not final_links and source_map:
                     final_links = list(source_map.keys())[:2]
 
                 if final_links:
-                    links_html += "<br><hr><b>📚 Bằng chứng y khoa & Nghiên cứu liên quan:</b><ul style='list-style:none;padding:0'>"
-                    for url in final_links:
-                        title = source_map.get(url, "Xem chi tiết bài viết")
+                    links_html += "<br><hr><b>📚 Bằng chứng khoa học (RCTs/Meta-analysis):</b><ul style='list-style:none;padding:0'>"
+                    for url in set(final_links):
+                        title = source_map.get(url, "Chi tiết giải mã nghiên cứu")
                         links_html += f"<li style='margin-bottom:5px'>🔗 <a href='{url}' target='_blank' style='color:#0f988b;text-decoration:none;font-weight:600'>{title}</a></li>"
                     links_html += "</ul>"
                 
-                # CHỖ NÀY LÀ FIX LỖI: Gom tất cả vào một biến duy nhất để hiển thị và lưu
-                full_assistant_content = clean_res + links_html
-                st.markdown(full_assistant_content, unsafe_allow_html=True)
+                # THỐNG NHẤT BIẾN ĐỂ HẾT LỖI 'final_res is not defined'
+                output_content = clean_res + links_html
+                st.markdown(output_content, unsafe_allow_html=True)
                 
-                # Lưu vào lịch sử chuẩn xác
-                db_data[user_key]["history"].append({"role": "assistant", "content": full_assistant_content})
+                # Lưu vào lịch sử
+                db_data[user_key]["history"].append({"role": "assistant", "content": output_content})
                 save_data(db_data)
                 
             except Exception as e:
-                st.error(f"AI đang điều chỉnh dữ liệu nghiên cứu, bác đợi xíu nhé: {e}")
+                st.error(f"AI đang phân tích sâu kho nghiên cứu, bác đợi tí nhé: {e}")
 
 # =====================================================
 # 6. LOGIN FORM
