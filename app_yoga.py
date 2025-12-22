@@ -270,23 +270,20 @@ if not st.session_state.authenticated:
     st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("🔐 Đăng nhập / Lấy thêm lượt (Dành cho Member)", expanded=not can_chat):
         with st.form("login_form"):
-            u = st.text_input("Tên đăng nhập", placeholder="Nhập username")
-            p = st.text_input("Mật khẩu", type="password", placeholder="Nhập mật mã")
+            u = st.text_input("Tên đăng nhập")
+            p = st.text_input("Mật khẩu", type="password")
             
-            # Sử dụng columns để chia đôi không gian
+            # Tạo khoảng cách giữa input và nút
+            st.markdown('<div style="margin-bottom: 10px;"></div>', unsafe_allow_html=True)
+            
             c1, c2 = st.columns(2)
-            
             with c1:
-                # Nút Đăng nhập của Streamlit
                 submit = st.form_submit_button("Đăng nhập", use_container_width=True)
-                
             with c2:
-                # Nút Zalo tự chế - Ép Margin-top để bù đắp khoảng lệch của Streamlit Form
+                # Ép nút Zalo nằm trong một div có chiều cao cố định để không dính lề
                 st.markdown(f"""
-                    <a href="https://zalo.me/84963759566" target="_blank" style="text-decoration: none;">
-                        <div class="zalo-btn" style="margin-top: 1px;">
-                            💬 Lấy TK Zalo
-                        </div>
+                    <a href="https://zalo.me/84963759566" target="_blank" style="text-decoration: none; display: block;">
+                        <div class="zalo-btn">💬 Lấy TK Zalo</div>
                     </a>
                 """, unsafe_allow_html=True)
 
