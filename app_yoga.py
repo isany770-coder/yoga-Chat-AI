@@ -161,11 +161,7 @@ if st.session_state.messages[-1]["role"] == "user":
         if db:
             docs = db.similarity_search(last_prompt, k=3)
             context = "\n".join([d.page_content for d in docs])
-            sys_prompt = f"Bạn là chuyên gia Yoga. Dựa vào: {context}\n1. Trả lời CỰC KỲ NGẮN GỌN (Tối đa 5-6 gạch đầu dòng).
-                2. Tổng độ dài KHÔNG QUÁ 100 TỪ.
-                3. Đi thẳng vào trọng tâm, bỏ qua lời dẫn dắt vô nghĩa.
-                4. Giọng văn thân thiện, dứt khoát.
-                5. KHÔNG tự chèn link (Hệ thống sẽ tự làm).: {last_prompt}"
+            sys_prompt = f"Bạn là chuyên gia Yoga. Dựa vào: {context}\n1. Trả lời CỰC KỲ NGẮN GỌN (Tối đa 5-6 gạch đầu dòng).Tổng độ dài KHÔNG QUÁ 100 TỪ.Đi thẳng vào trọng tâm, bỏ qua lời dẫn dắt vô nghĩa.Giọng văn thân thiện, dứt khoát. KHÔNG tự chèn link (Hệ thống sẽ tự làm).: {last_prompt}"
             
             res = model.generate_content(sys_prompt).text
             
@@ -173,7 +169,7 @@ if st.session_state.messages[-1]["role"] == "user":
             usage_db[user_key]["count"] += 1
             save_usage_data(usage_db)
             
-            links = "\n\n---\n**📚 Tham khảo:**\n"
+            links = "\n\n---\n**📚 Tài liệu tham khảo:**\n"
             for d in docs:
                 if "url" in d.metadata: links += f"- 🔗 [{d.metadata.get('title','Tài liệu')}]({d.metadata['url']})\n"
             
