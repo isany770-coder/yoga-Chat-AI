@@ -95,6 +95,7 @@ TRIAL_LIMIT = 10
 # =====================================================
 # 6. USAGE DATABASE
 # =====================================================
+
 def load_usage_db():
     if not os.path.exists(USAGE_DB_FILE):
         return {}
@@ -137,20 +138,27 @@ def clean_and_extract_keywords(text):
 
 @st.cache_resource
 def load_brain():
-    if not os.path.exists(VECTOR_DB_PATH):
+    # 1. Nếu chưa có não bộ ở /tmp/ thì tải về
+    if not os.path.exists(EXTRACT_PATH):
+        with st.spinner("🚀 Đang tải bộ não Yoga từ Cloud... Đợi em tí nhé!"):
+            gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=False)
+            with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zip_ref:
+                zip_ref.extractall("/tmp/")
+    
+    # 2. Load não bộ từ đường dẫn mới
+    if not os.path.exists(EXTRACT_PATH):
         return None, None
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
-        google_api_key=api_key
-    )
-    db = FAISS.load_local(
-        VECTOR_DB_PATH,
-        embeddings,
-        allow_dangerous_deserialization=True
-    )
-    model = genai.GenerativeModel("gemini-flash-latest")
-    return db, model
+        
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
+    try:
+        db = FAISS.load_local(EXTRACT_PATH, embeddings, allow_dangerous_deserialization=True)
+        model = genai.GenerativeModel('gemini-flash-latest')
+        return db, model
+    except Exception as e:
+        st.error(f"Lỗi load não: {e}")
+        return None, None
 
+# Lúc gọi dùng biến db, model bình thường
 db, model = load_brain()
 
 def search_engine(query, db):
