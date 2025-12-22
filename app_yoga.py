@@ -352,9 +352,11 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
             
             sys_prompt = (
                 f"Bạn là chuyên gia Yoga cao cấp. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
-                f"1. Trả lời NGẮN GỌN, đi thẳng vào trọng tâm chuyên môn.\n"
-                f"2. Bạn PHẢI đối chiếu chính xác: Nội dung bạn lấy ở NGUỒN nào thì chỉ được dẫn LINK của NGUỒN đó.\n"
-                f"3. Cuối bài trả lời, hãy liệt kê đúng link bạn đã dùng theo cấu trúc: 'NGUỒN_DÙNG: [Link URL]'.\n\n"
+                f"1. Trình bày bằng các GẠCH ĐẦU DÒNG (bullets) ngắn gọn, dễ đọc.\n"
+                f"2. Đi thẳng vào trọng tâm, ngôn ngữ chuyên nghiệp từ bác sĩ.\n"
+                f"3. TUYỆT ĐỐI không dùng cụm từ 'NGUỒN 1, 2...'.\n"
+                f"4. Cuối bài, hãy liệt kê chính xác LINK của bài viết bạn dùng để trả lời.\n"
+                f"Cú pháp bắt buộc ở dòng cuối: 'LINK_CHỌN: [Dán URL ở đây]'\n\n"
                 f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
                 f"CÂU HỎI: {prompt}"
             )
@@ -364,26 +366,27 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                     response = model.generate_content(sys_prompt)
                     res_text = response.text
                 
-                # Dùng Regex để bốc đúng cái link mà AI báo là đã dùng
+                # Bốc link AI đã chọn
                 import re
-                used_links = re.findall(r'NGUỒN_DÙNG:\s*(https?://[^\s\n]+)', res_text)
-                # Xóa cái dòng "NGUỒN_DÙNG" thô kệch trong câu trả lời trước khi hiện cho khách
-                clean_res = re.sub(r'NGUỒN_DÙNG:.*', '', res_text).strip()
+                found_links = re.findall(r'LINK_CHỌN:\s*(https?://[^\s\n]+)', res_text)
+                
+                # Dọn dẹp văn bản: Xóa dòng LINK_CHỌN và các chữ "Nguồn 1, 2..." nếu AI lỡ viết
+                clean_res = re.sub(r'LINK_CHỌN:.*', '', res_text)
+                clean_res = re.sub(r'\(Dựa trên dữ liệu từ NGUỒN \d+\)', '', clean_res).strip()
 
                 links_html = ""
-                # Nếu AI chỉ ra được link nó dùng thì lấy link đó, nếu không thì mới lấy từ source_map
-                final_links = list(set(used_links)) if used_links else list(source_map.keys())[:2]
-
+                # Chỉ hiện link nếu AI chọn đúng link có trong danh sách gốc của bác
+                final_links = [l for l in found_links if l in source_map]
+                
                 if final_links:
-                    links_html += "<br><hr><b>📚 Tài liệu tham khảo chuẩn:</b><ul style='list-style:none;padding:0'>"
-                    for url in final_links:
-                        if url != "#":
-                            title = source_map.get(url, "Xem bài viết chi tiết")
-                            links_html += f"<li style='margin-bottom:5px'>🔗 <a href='{url}' target='_blank' style='color:#0f988b;text-decoration:none;font-weight:500'>{title}</a></li>"
+                    links_html += "<br><hr><b>📚 Bài viết chi tiết bác sĩ khuyên đọc:</b><ul style='list-style:none;padding:0'>"
+                    for url in set(final_links):
+                        title = source_map.get(url, "Xem thêm tại đây")
+                        links_html += f"<li style='margin-bottom:5px'>🔗 <a href='{url}' target='_blank' style='color:#0f988b;text-decoration:none;font-weight:600'>{title}</a></li>"
                     links_html += "</ul>"
                 
-                final_res = clean_res + links_html
-                st.markdown(final_res, unsafe_allow_html=True)
+                # Hiển thị kết quả cuối cùng
+                st.markdown(clean_res + links_html, unsafe_allow_html=True)
                 
                 db_data[user_key]["history"].append({"role": "assistant", "content": final_res})
                 save_data(db_data)
