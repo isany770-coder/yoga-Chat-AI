@@ -4,4 +4,4 @@ langchain-google-genai
 langchain-community
 faiss-cpu
 extra-streamlit-components
-https://drive.google.com/drive/folders/1wnSCe87CDGYbU-7DEDB94jF-gZWOVvAW?usp=sharing
+gdown
