@@ -142,7 +142,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 6. HIỂN THỊ CHAT & XỬ LÝ TRẢ LỜI (ĐÃ TỐI ƯU)
+# 6. HIỂN THỊ CHAT & XỬ LÝ TRẢ LỜI (NÂNG CẤP KHOA HỌC)
 # =====================================================
 # Hiển thị lịch sử chat
 for m in st.session_state.messages:
@@ -162,27 +162,26 @@ if can_chat:
         # 2. Xử lý trả lời từ AI
         with st.chat_message("assistant"):
             if db:
-                # Tăng k=5 để AI có nhiều lựa chọn bài viết chính xác hơn
-                docs = db.similarity_search(prompt, k=5)
+                # TĂNG k=10: Để lục tìm sâu hơn các bài nghiên cứu (RCT, Meta-analysis)
+                docs = db.similarity_search(prompt, k=10)
                 
-                # Cấu trúc lại Context để AI thấy rõ Tiêu đề và Link của từng đoạn
                 context_parts = []
-                source_map = {} # Dùng để lọc link trùng
+                source_map = {} 
                 
                 for i, d in enumerate(docs):
                     t = d.metadata.get('title', 'Tài liệu Yoga')
                     u = d.metadata.get('url', '#')
                     context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nURL: {u}\nNỘI DUNG: {d.page_content}")
-                    source_map[u] = t # Lưu lại để hiện link ở cuối
+                    source_map[u] = t
 
                 context_string = "\n\n".join(context_parts)
                 
-                # Prompt mới: Ép AI tập trung vào thông tin từ nguồn được cung cấp
-                sys_prompt = f"""Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.
-                1. Trả lời NGẮN GỌN (tối đa 5-6 gạch đầu dòng, dưới 100 từ).
-                2. Đi thẳng vào trọng tâm chuyên môn.
-                3. Chỉ dùng thông tin có trong NGUỒN bên dưới.
-                4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.
+                # PROMPT: Ép AI ưu tiên các bằng chứng nghiên cứu khoa học
+                sys_prompt = f"""Bạn là chuyên gia Yoga kiêm nhà nghiên cứu. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.
+                QUY TẮC:
+                1. Trả lời NGẮN GỌN (tối đa 5-6 gạch đầu dòng).
+                2. ƯU TIÊN dẫn chứng từ các bài 'Nghiên cứu', 'RCT', 'Meta-analysis' hoặc 'Giải mã' nếu có trong nguồn.
+                3. Chỉ dùng thông tin có trong NGUỒN. Tuyệt đối không tự bịa link.
                 
                 DỮ LIỆU NGUỒN:
                 {context_string}
@@ -192,17 +191,28 @@ if can_chat:
                 # Gọi Gemini Flash
                 res_text = model.generate_content(sys_prompt).text
                 
-                # 3. Tạo phần Tài liệu tham khảo (Chỉ hiện các link DUY NHẤT)
-                links_html = "\n\n---\n**📚 Tài liệu tham khảo:**\n"
+                # 3. Tạo phần Tài liệu tham khảo (Ưu tiên đẩy bài nghiên cứu lên đầu)
+                study_links = ""
+                normal_links = ""
                 seen_urls = set()
                 count = 0
+                
+                # Phân loại link để hiển thị thông minh
                 for url, title in source_map.items():
-                    if url != "#" and url not in seen_urls and count < 3:
-                        links_html += f"- 🔗 [{title}]({url})\n"
+                    if url != "#" and url not in seen_urls and count < 5:
+                        link_item = f"- 🔗 [{title}]({url})\n"
+                        # Kiểm tra nếu tiêu đề có từ khóa nghiên cứu
+                        if any(kw in title.lower() for kw in ["nghiên cứu", "giải mã", "rct", "meta", "khoa học"]):
+                            study_links += link_item
+                        else:
+                            normal_links += link_item
                         seen_urls.add(url)
                         count += 1
                 
-                final_res = res_text + links_html
+                # Gộp lại: Nghiên cứu hiện trước, bài thường hiện sau
+                header_links = "\n\n---\n**📚 Tài liệu tham khảo chuyên sâu:**\n"
+                final_res = res_text + header_links + study_links + normal_links
+                
                 st.markdown(final_res)
                 
                 # 4. Lưu vào bộ nhớ và cập nhật lượt dùng
@@ -211,7 +221,6 @@ if can_chat:
                 usage_db[user_key]["count"] += 1
                 save_usage_data(usage_db)
                 
-                # Rerun cuối cùng để cập nhật thanh Progress bar ở trên đầu
                 st.rerun()
 
 # FORM ĐĂNG NHẬP SONG SONG (BÁC CẦN CÁI NÀY)
