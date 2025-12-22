@@ -113,6 +113,39 @@ st.markdown("""
         height: 45px !important; border-radius: 8px !important; font-weight: 500 !important;
         color: #31333F !important; /* Chữ nút đen */
     }
+    /* =============================================
+       6. MODAL HẾT LƯỢT (Z-INDEX CAO NHẤT VŨ TRỤ)
+       ============================================= */
+    .limit-modal {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: rgba(255, 255, 255, 0.95); /* Nền trắng mờ che hết nội dung */
+        backdrop-filter: blur(10px);
+        z-index: 2147483647 !important; /* Cao hơn cả thanh chat */
+        display: flex; align-items: center; justify-content: center;
+        flex-direction: column;
+    }
+    .limit-box {
+        background: white; padding: 40px; border-radius: 25px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        text-align: center; max-width: 90%; width: 400px;
+        border: 2px solid #0f988b;
+        animation: popup 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    }
+    @keyframes popup { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    
+    .limit-icon { font-size: 60px; margin-bottom: 20px; }
+    .limit-title { font-size: 24px; font-weight: 800; color: #ff6b6b; margin-bottom: 10px; }
+    .limit-desc { color: #333; margin-bottom: 25px; line-height: 1.6; font-size: 16px; }
+    
+    /* Nút liên hệ Admin */
+    .limit-btn {
+        background: linear-gradient(135deg, #0f988b, #14b8a6);
+        color: white !important; padding: 12px 35px; border-radius: 50px;
+        text-decoration: none; font-weight: bold; display: inline-block;
+        box-shadow: 0 5px 15px rgba(15, 152, 139, 0.4);
+        transition: transform 0.2s;
+    }
+    .limit-btn:hover { transform: translateY(-3px); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -202,65 +235,76 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 6. HIỂN THỊ CHAT & XỬ LÝ TRẢ LỜI (TỐI ƯU GIAO DIỆN)
+# 6. HIỂN THỊ CHAT & XỬ LÝ TRẢ LỜI (FULL LOGIC)
 # =====================================================
 
-# --- Hiển thị lịch sử chat ---
+# --- 1. Hiển thị lịch sử chat ---
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# --- Kiểm tra lượt dùng ---
-can_chat = used < limit
+# --- 2. KIỂM TRA GIỚI HẠN - CHẶN NẾU HẾT LƯỢT ---
+# Đây là phần quan trọng để hiện Modal và chặn Hack
+if used >= limit:
+    st.markdown(f"""
+    <div class="limit-modal">
+        <div class="limit-box">
+            <div class="limit-icon">🧘‍♀️</div>
+            <div class="limit-title">Đã hết năng lượng!</div>
+            <div class="limit-desc">
+                Bạn đã dùng hết <b>{limit} câu hỏi</b> miễn phí hôm nay.<br>
+                Hãy đăng nhập hoặc liên hệ Admin để mở khóa không giới hạn nhé!
+            </div>
+            <a href="https://zalo.me/84963759566" target="_blank" class="limit-btn">💬 Liên hệ Admin ngay</a>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.stop() # Dừng chương trình ngay lập tức, không hiện ô chat bên dưới
 
-if can_chat:
-   if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
-    # 1. Thêm tin nhắn người dùng
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    
-    # 2. TĂNG LƯỢT DÙNG NGAY LẬP TỨC (Đưa lên đây)
+# --- 3. XỬ LÝ CHAT (NẾU CÒN LƯỢT) ---
+if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
+    # A. TĂNG LƯỢT DÙNG NGAY LẬP TỨC (Trừ tiền trước, nói chuyện sau)
     usage_db[user_key]["count"] += 1
     save_usage_data(usage_db)
     
-    # 3. Hiển thị tin nhắn và chạy AI
+    # B. Hiển thị tin nhắn người dùng
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
-    
-    # Ở đây không cần st.rerun() ngay vì Streamlit sẽ vẽ lại các thành phần 
-    # khi script chạy tiếp xuống dưới, thanh bar sẽ nhận giá trị 'used' mới.
 
-        # 2. Xử lý trả lời từ AI
-        with st.chat_message("assistant"):
-            if db:
-                # Tìm kiếm tài liệu (k=5)
-                docs = db.similarity_search(prompt, k=5)
-                
-                context_parts = []
-                source_map = {} # Lọc link trùng
-                
-                for i, d in enumerate(docs):
-                    t = d.metadata.get('title', 'Tài liệu Yoga')
-                    u = d.metadata.get('url', '#')
-                    context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nURL: {u}\nNỘI DUNG: {d.page_content}")
-                    source_map[u] = t 
+    # C. AI Trả lời
+    with st.chat_message("assistant"):
+        if db:
+            # Tìm kiếm tài liệu (k=5)
+            docs = db.similarity_search(prompt, k=5)
+            
+            context_parts = []
+            source_map = {} # Lọc link trùng
+            
+            for i, d in enumerate(docs):
+                t = d.metadata.get('title', 'Tài liệu Yoga')
+                u = d.metadata.get('url', '#')
+                context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nURL: {u}\nNỘI DUNG: {d.page_content}")
+                source_map[u] = t 
 
-                context_string = "\n\n".join(context_parts)
-                
-                # System Prompt: Ép AI tập trung vào nguồn
-                sys_prompt = (
-                    f"Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
-                    f"1. Trả lời NGẮN GỌN (tối đa 6-7 gạch đầu dòng, dưới 100 từ).\n"
-                    f"2. Đi thẳng vào trọng tâm chuyên môn.\n"
-                    f"3. Chỉ dùng thông tin có trong NGUỒN bên dưới.\n"
-                    f"4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.\n\n"
-                    f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
-                    f"CÂU HỎI: {prompt}"
-                )
+            context_string = "\n\n".join(context_parts)
+            
+            # System Prompt: (Giữ nguyên theo ý bác)
+            sys_prompt = (
+                f"Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
+                f"1. Trả lời NGẮN GỌN (tối đa 6-7 gạch đầu dòng, dưới 100 từ).\n"
+                f"2. Đi thẳng vào trọng tâm chuyên môn.\n"
+                f"3. Chỉ dùng thông tin có trong NGUỒN bên dưới.\n"
+                f"4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.\n\n"
+                f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
+                f"CÂU HỎI: {prompt}"
+            )
 
-                # Gọi Gemini Flash
+            # Gọi Gemini Flash
+            try:
                 res_text = model.generate_content(sys_prompt).text
                 
-                # 3. Tạo phần Tài liệu tham khảo (Unique links)
+                # Tạo phần Tài liệu tham khảo (Giữ nguyên logic của bác)
                 links_html = "\n\n---\n**📚 Tài liệu tham khảo:**\n"
                 seen_urls = set()
                 count = 0
@@ -273,14 +317,14 @@ if can_chat:
                 final_res = res_text + links_html
                 st.markdown(final_res)
                 
-                # 4. Lưu vào bộ nhớ và cập nhật lượt dùng
+                # Lưu vào bộ nhớ
                 st.session_state.messages.append({"role": "assistant", "content": final_res})
                 
-                usage_db[user_key]["count"] += 1
-                save_usage_data(usage_db)
-                
-                # Rerun để cập nhật UI
+                # Rerun để cập nhật thanh Progress Bar trên cùng ngay lập tức
                 st.rerun()
+                
+            except Exception as e:
+                st.error("AI đang thở gấp, thử lại sau nhé!")
                 
 # FORM ĐĂNG NHẬP SONG SONG - ĐÃ FIX LỆCH NÚT
 if not st.session_state.authenticated:
