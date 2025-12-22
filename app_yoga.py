@@ -284,8 +284,8 @@ for i, d in enumerate(docs):
     context_parts.append(d.page_content) # Lưu nội dung vào list
     source_map[u] = t
 
-# THÊM DÒNG NÀY ĐỂ GỘP NỘI DUNG:
-context_string = "\n\n".join(context_parts)
+            # THÊM DÒNG NÀY ĐỂ GỘP NỘI DUNG:
+            context_string = "\n\n".join(context_parts)
             
             # System Prompt: (Giữ nguyên theo ý bác)
             sys_prompt = (
