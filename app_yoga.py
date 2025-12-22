@@ -67,25 +67,34 @@ st.markdown("""
         padding: 8px !important; margin-bottom: 10px !important;
     }
     .zalo-btn {
-        display: flex; 
+        display: flex !important; 
         align-items: center; 
         justify-content: center;
         width: 100%; 
         background-color: white; 
         color: #0f988b !important; 
-        border: 1px solid #dcdfe3; /* Màu border nhẹ giống nút gốc */
+        border: 1px solid #dcdfe3; 
         border-radius: 8px; 
-        text-align: center; 
-        font-weight: 400; 
+        font-weight: 500; 
         font-size: 14px; 
-        height: 38.4px; /* Chiều cao chuẩn của nút Streamlit */
+        height: 40px; /* Tăng lên 40px cho chuẩn khớp với nút Streamlit mới */
         text-decoration: none !important; 
-        transition: all 0.2s;
-        box-sizing: border-box;
+        margin: 0 !important; /* Xóa mọi margin thừa */
+        box-sizing: border-box !important;
     }
     .zalo-btn:hover { 
         background-color: #f0f9f8; 
         border-color: #0f988b;
+    }
+    /* Fix lỗi bàn phím mobile che khuất và bắt ấn 2 lần */
+    input[data-testid="stChatInputTextArea"] {
+        -webkit-user-select: text !important;
+        padding-bottom: 10px !important;
+    }
+    
+    /* Ép khung chứa input không bị dịch chuyển khi mất focus */
+    div[data-testid="stChatInput"] {
+        transition: none !important; 
     }
 </style>
 """, unsafe_allow_html=True)
