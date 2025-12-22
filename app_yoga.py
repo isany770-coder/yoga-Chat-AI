@@ -52,7 +52,7 @@ st.markdown("""
     /* Khung chứa Input: Nổi lên, bo tròn, đổ bóng */
     div[data-testid="stChatInput"] {
         position: fixed !important;
-        bottom: calc(20px + env(safe-area-inset-bottom)) !important; /* Né thanh vuốt iPhone */
+        bottom: calc(35px + env(safe-area-inset-bottom)) !important; /* Né thanh vuốt iPhone */
         left: 10px !important;
         right: 10px !important;
         width: auto !important;
