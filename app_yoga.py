@@ -29,13 +29,13 @@ st.markdown("""
         color: #31333F !important;
     }
 
-    /* CHỈ ép màu chữ đen cho nội dung CHAT để không ảnh hưởng quảng cáo */
+    /* CHỈ ép màu chữ đen cho nội dung tin nhắn Chat */
     div[data-testid="stChatMessage"] p, 
     div[data-testid="stChatMessage"] span {
         color: #31333F !important;
     }
 
-    /* CSS QUẢNG CÁO - Ép màu riêng biệt */
+    /* CSS QUẢNG CÁO - ÉP MÀU CAM RIÊNG BIỆT */
     .ad-banner {
         position: fixed; bottom: 85px; left: 15px; right: 15px;
         background: linear-gradient(90deg, #fff3e0 0%, #ffe0b2 100%) !important;
@@ -45,17 +45,17 @@ st.markdown("""
     }
 
     .ad-content {
-        /* Dùng màu cam đậm và chặn CSS hệ thống đè lên */
-        color: #e65100 !important; 
+        color: #e65100 !important; /* Màu cam đậm */
         font-weight: bold !important;
         font-size: 14px !important;
+        display: flex; align-items: center; gap: 8px;
     }
 
     .ad-btn {
         background-color: #e65100 !important;
         color: white !important;
         padding: 6px 12px; border-radius: 20px;
-        text-decoration: none !important; font-size: 12px;
+        text-decoration: none !important; font-size: 12px; font-weight: bold;
     }
     
     /* Ẩn header mặc định */
