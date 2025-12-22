@@ -151,25 +151,46 @@ except:
 
 @st.cache_resource
 def load_brain():
+    # 1. Kiểm tra folder não bộ đã có chưa để tránh tải lại vô ích trên Mobile
     if not os.path.exists(EXTRACT_PATH):
         try:
             gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=True)
             with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zip_ref:
                 zip_ref.extractall("/tmp/")
+            # Xóa file zip ngay để nhẹ máy Mobile
             if os.path.exists(OUTPUT_ZIP):
                 os.remove(OUTPUT_ZIP)
-        except:
+        except Exception as e:
+            # Nếu lỗi, hiện thông báo thay vì để trắng trang
+            st.error(f"⚠️ Lỗi tải dữ liệu: {e}")
             return None, None
     
+    # 2. Khởi tạo AI với đúng bản của bác
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
-        db = FAISS.load_local(EXTRACT_PATH, embeddings, allow_dangerous_deserialization=True)
+        embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/text-embedding-004", 
+            google_api_key=api_key
+        )
+        db = FAISS.load_local(
+            EXTRACT_PATH, 
+            embeddings, 
+            allow_dangerous_deserialization=True
+        )
+        # GIỮ NGUYÊN BẢN AI CỦA BÁC
         model = genai.GenerativeModel('gemini-flash-latest')
+        
         return db, model
-    except:
+    except Exception as e:
+        st.error(f"⚠️ Lỗi AI: {e}")
         return None, None
 
+# Gọi hàm
 db, model = load_brain()
+
+# 3. CHỐNG TRẮNG TRANG: Nếu db hoặc model lỗi, dừng app và báo khách F5
+if db is None or model is None:
+    st.warning("🧘‍♂️ Hệ thống đang khởi động, bác vui lòng vuốt xuống để tải lại (F5) nhé!")
+    st.stop()
 
 # =====================================================
 # 4. QUẢN LÝ DATABASE
