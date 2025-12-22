@@ -306,13 +306,21 @@ for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"], unsafe_allow_html=True)
 
-# --- MODAL HẾT LƯỢT ---
+# --- MODAL HẾT LƯỢT (BẢN NÂNG CẤP BÁN HÀNG) ---
 if not can_chat:
     st.markdown(f"""
-    <div class="limit-modal"><div class="limit-box"><div style="font-size:50px;margin-bottom:10px">🧘‍♀️</div>
-    <div style="font-size:20px;font-weight:bold;color:#ff6b6b">Đã hết năng lượng!</div>
-    <p style="color:#555;margin:15px 0">Bạn đã dùng hết {limit} câu hỏi miễn phí hôm nay.</p>
-    <a href="https://zalo.me/84963759566" target="_blank" class="limit-btn">💬 Liên hệ Admin ngay</a></div></div>
+    <div class="limit-modal">
+        <div class="limit-box">
+            <div style="font-size:50px;margin-bottom:10px">🧘‍♀️</div>
+            <div style="font-size:20px;font-weight:bold;color:#0f988b">Đã đạt giới hạn tra cứu miễn phí!</div>
+            <p style="color:#555;margin:15px 0">
+                Hệ thống nhận thấy bạn đã sử dụng hết lượt dùng thử cho kết nối này.<br><br>
+                Để tiếp tục tra cứu <b>Kho dữ liệu 15 triệu từ</b> được bác sĩ kiểm duyệt và nhận ưu đãi <b>Mua Thảm tặng Tài khoản Member</b>, mời bạn liên hệ Admin:
+            </p>
+            <a href="https://zalo.me/84963759566" target="_blank" class="limit-btn">💬 Nhận mã kích hoạt qua Zalo</a>
+            <p style="font-size:11px; color:#999; margin-top:10px;">(Hoặc đăng nhập nếu bạn đã là Member ở phía dưới)</p>
+        </div>
+    </div>
     """, unsafe_allow_html=True)
     st.stop()
 
