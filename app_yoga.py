@@ -142,40 +142,77 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 6. HIỂN THỊ CHAT & FORM ĐĂNG NHẬP SONG SONG
+# 6. HIỂN THỊ CHAT & XỬ LÝ TRẢ LỜI (ĐÃ TỐI ƯU)
 # =====================================================
-can_chat = used < limit
-
+# Hiển thị lịch sử chat
 for m in st.session_state.messages:
-    with st.chat_message(m["role"]): st.markdown(m["content"])
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
+
+# Kiểm tra lượt dùng
+can_chat = used < limit
 
 if can_chat:
     if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
-        st.session_state.messages.append({"role":"user","content":prompt})
-        st.rerun()
+        # 1. Thêm tin nhắn người dùng vào bộ nhớ và hiển thị ngay
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-# Xử lý trả lời AI
-if st.session_state.messages[-1]["role"] == "user":
-    last_prompt = st.session_state.messages[-1]["content"]
-    with st.chat_message("assistant"):
-        if db:
-            docs = db.similarity_search(last_prompt, k=3)
-            context = "\n".join([d.page_content for d in docs])
-            sys_prompt = f"Bạn là chuyên gia Yoga. Dựa vào: {context}\n1. Trả lời CỰC KỲ NGẮN GỌN (Tối đa 5-6 gạch đầu dòng).Tổng độ dài KHÔNG QUÁ 100 TỪ.Đi thẳng vào trọng tâm, bỏ qua lời dẫn dắt vô nghĩa.Giọng văn thân thiện, dứt khoát. KHÔNG tự chèn link (Hệ thống sẽ tự làm).: {last_prompt}"
-            
-            res = model.generate_content(sys_prompt).text
-            
-            # Lưu lượt dùng
-            usage_db[user_key]["count"] += 1
-            save_usage_data(usage_db)
-            
-            links = "\n\n---\n**📚 Tài liệu tham khảo:**\n"
-            for d in docs:
-                if "url" in d.metadata: links += f"- 🔗 [{d.metadata.get('title','Tài liệu')}]({d.metadata['url']})\n"
-            
-            st.markdown(final_res := res + links)
-            st.session_state.messages.append({"role":"assistant","content":final_res})
-            st.rerun()
+        # 2. Xử lý trả lời từ AI
+        with st.chat_message("assistant"):
+            if db:
+                # Tăng k=5 để AI có nhiều lựa chọn bài viết chính xác hơn
+                docs = db.similarity_search(prompt, k=5)
+                
+                # Cấu trúc lại Context để AI thấy rõ Tiêu đề và Link của từng đoạn
+                context_parts = []
+                source_map = {} # Dùng để lọc link trùng
+                
+                for i, d in enumerate(docs):
+                    t = d.metadata.get('title', 'Tài liệu Yoga')
+                    u = d.metadata.get('url', '#')
+                    context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nURL: {u}\nNỘI DUNG: {d.page_content}")
+                    source_map[u] = t # Lưu lại để hiện link ở cuối
+
+                context_string = "\n\n".join(context_parts)
+                
+                # Prompt mới: Ép AI tập trung vào thông tin từ nguồn được cung cấp
+                sys_prompt = f"""Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.
+                1. Trả lời NGẮN GỌN (tối đa 5-6 gạch đầu dòng, dưới 100 từ).
+                2. Đi thẳng vào trọng tâm chuyên môn.
+                3. Chỉ dùng thông tin có trong NGUỒN bên dưới.
+                4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.
+                
+                DỮ LIỆU NGUỒN:
+                {context_string}
+                
+                CÂU HỎI: {prompt}"""
+
+                # Gọi Gemini Flash
+                res_text = model.generate_content(sys_prompt).text
+                
+                # 3. Tạo phần Tài liệu tham khảo (Chỉ hiện các link DUY NHẤT)
+                links_html = "\n\n---\n**📚 Tài liệu tham khảo:**\n"
+                seen_urls = set()
+                count = 0
+                for url, title in source_map.items():
+                    if url != "#" and url not in seen_urls and count < 3:
+                        links_html += f"- 🔗 [{title}]({url})\n"
+                        seen_urls.add(url)
+                        count += 1
+                
+                final_res = res_text + links_html
+                st.markdown(final_res)
+                
+                # 4. Lưu vào bộ nhớ và cập nhật lượt dùng
+                st.session_state.messages.append({"role": "assistant", "content": final_res})
+                
+                usage_db[user_key]["count"] += 1
+                save_usage_data(usage_db)
+                
+                # Rerun cuối cùng để cập nhật thanh Progress bar ở trên đầu
+                st.rerun()
 
 # FORM ĐĂNG NHẬP SONG SONG (BÁC CẦN CÁI NÀY)
 if not st.session_state.authenticated:
