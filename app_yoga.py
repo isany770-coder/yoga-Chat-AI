@@ -234,7 +234,7 @@ if not st.session_state.authenticated:
             </div>
             <div>
                 <div style="color: #bf360c !important; font-size: 13px; font-weight: bold; font-family: sans-serif;">
-                    Sở hữu ngay một tấm thảm ưng ý!!
+                    Combo Thảm & Freeship!!
                 </div>
                 <div style="color: #ff7043 !important; font-size: 11px; font-family: sans-serif;">
                     Giảm ngay 30% hôm nay!
