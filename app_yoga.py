@@ -187,7 +187,7 @@ if not st.session_state.authenticated:
             
             c1, c2 = st.columns(2)
             with c1:
-                if st.form_submit_button("Vào tập ngay", use_container_width=True):
+                if st.form_submit_button("Đăng nhập", use_container_width=True):
                     if st.secrets["passwords"].get(u) == p:
                         st.session_state.authenticated = True
                         st.session_state.username = u
