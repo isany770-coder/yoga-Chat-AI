@@ -99,7 +99,7 @@ def load_brain():
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         db = FAISS.load_local(EXTRACT_PATH, embeddings, allow_dangerous_deserialization=True)
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        model = genai.GenerativeModel('gemini-flash-latest')
         return db, model
     except Exception as e:
         st.error(f"Lỗi khởi tạo AI: {e}")
@@ -167,7 +167,7 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
             docs = db.similarity_search(last_prompt, k=3)
             context = "\n".join([d.page_content for d in docs])
             
-            sys_prompt = f"Bạn là chuyên gia Yoga. Dựa vào: {context}\nHãy trả lời câu hỏi: {last_prompt}\nYêu cầu: Ngắn gọn, dưới 100 từ, giọng thân thiện."
+            sys_prompt = f"Bạn là chuyên gia Yoga. Dựa vào: {context}\nHãy trả lời câu hỏi: {last_prompt}\nYêu cầu: 1. Trả lời CỰC KỲ NGẮN GỌN (Tối đa 5-6 gạch đầu dòng).2. Tổng độ dài KHÔNG QUÁ 100 TỪ.3. Đi thẳng vào trọng tâm, bỏ qua lời dẫn dắt vô nghĩa.4. Giọng văn thân thiện, dứt khoát.5. KHÔNG tự chèn link (Hệ thống sẽ tự làm)."
             
             res = model.generate_content(sys_prompt).text
             
@@ -176,7 +176,7 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
             save_usage(db_usage)
             
             # Gắn link tham khảo
-            links = "\n\n---\n**📚 Tham khảo:**\n"
+            links = "\n\n---\n**📚 Tìm hiểu chuyên sâu tại:**\n"
             for d in docs:
                 if "url" in d.metadata: links += f"- 🔗 [{d.metadata.get('title','Tài liệu')}]({d.metadata['url']})\n"
             
