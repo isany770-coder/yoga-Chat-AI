@@ -23,18 +23,39 @@ st.set_page_config(
 # =====================================================
 st.markdown("""
 <style>
-    /* Reset nền trắng & chữ đen */
+  /* Reset nền trắng & chữ đen toàn trang */
     [data-testid="stAppViewContainer"], .stApp, html, body {
         background-color: white !important;
         color: #31333F !important;
     }
-    /* CHỈ ép màu chữ cho nội dung chat, tránh ép màu lên banner quảng cáo */
-    .stChatMessage p, .stChatMessage span, .stChatMessage div {
+
+    /* CHỈ ép màu chữ đen cho nội dung CHAT để không ảnh hưởng quảng cáo */
+    div[data-testid="stChatMessage"] p, 
+    div[data-testid="stChatMessage"] span {
         color: #31333F !important;
     }
-    /* Ép màu chung (nhưng chừa thằng quảng cáo ra) */
-    p, h1, h2, h3, h4, h5, h6, label, li {
-        color: #31333F !important;
+
+    /* CSS QUẢNG CÁO - Ép màu riêng biệt */
+    .ad-banner {
+        position: fixed; bottom: 85px; left: 15px; right: 15px;
+        background: linear-gradient(90deg, #fff3e0 0%, #ffe0b2 100%) !important;
+        border: 1px solid #ffcc80 !important;
+        border-radius: 12px; padding: 10px 15px; z-index: 9999;
+        display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .ad-content {
+        /* Dùng màu cam đậm và chặn CSS hệ thống đè lên */
+        color: #e65100 !important; 
+        font-weight: bold !important;
+        font-size: 14px !important;
+    }
+
+    .ad-btn {
+        background-color: #e65100 !important;
+        color: white !important;
+        padding: 6px 12px; border-radius: 20px;
+        text-decoration: none !important; font-size: 12px;
     }
     
     /* Ẩn header mặc định */
