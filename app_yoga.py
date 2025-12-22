@@ -336,63 +336,61 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
 
     with st.chat_message("assistant"):
         if db:
-            # Tăng k=5 để AI có nhiều lựa chọn hơn
-            docs = db.similarity_search(prompt, k=5)
+            # Tăng k=7 để quét rộng hơn, dễ tìm thấy các bài RCT/Meta nằm sâu
+            docs = db.similarity_search(prompt, k=7)
             source_map = {}
             context_parts = []
             
             for i, d in enumerate(docs):
                 u = d.metadata.get('url', '#')
                 t = d.metadata.get('title', 'Tài liệu')
-                # CHIÊU NÀY: Dán chặt Link vào Nội dung để AI không nhầm bài A sang bài B
+                # Dán nhãn để AI biết bài nào là nghiên cứu
                 context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nLINK: {u}\nNỘI DUNG: {d.page_content}")
                 source_map[u] = t
             
             context_string = "\n\n".join(context_parts)
             
             sys_prompt = (
-                f"Bạn là chuyên gia Yoga cao cấp. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
-                f"1. Trình bày bằng các GẠCH ĐẦU DÒNG (bullets) ngắn gọn, dễ đọc.\n"
-                f"2. Đi thẳng vào trọng tâm, ngôn ngữ chuyên nghiệp từ bác sĩ.\n"
-                f"3. TUYỆT ĐỐI không dùng cụm từ 'NGUỒN 1, 2...'.\n"
-                f"4. Cuối bài, hãy liệt kê chính xác LINK của bài viết bạn dùng để trả lời.\n"
-                f"Cú pháp bắt buộc ở dòng cuối: 'LINK_CHỌN: [Dán URL ở đây]'\n\n"
+                f"Bạn là chuyên gia Yoga Y khoa. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
+                f"1. ƯU TIÊN CAO NHẤT: Nếu trong nguồn có các nghiên cứu RCT, Meta-analysis hoặc bằng chứng lâm sàng, hãy trình bày chúng lên đầu.\n"
+                f"2. Trình bày bằng GẠCH ĐẦU DÒNG, rõ ràng, dễ đọc.\n"
+                f"3. Cuối bài, trích xuất đúng Link URL của bài viết bạn đã dùng theo cú pháp: 'LINK_CHỌN: [Dán URL]'.\n\n"
                 f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
                 f"CÂU HỎI: {prompt}"
             )
             
             try:
-                with st.spinner("🧘 Chuyên gia đang suy ngẫm..."):
+                with st.spinner("🧘 Chuyên gia đang phân tích dữ liệu nghiên cứu..."):
                     response = model.generate_content(sys_prompt)
                     res_text = response.text
                 
-                # Bốc link AI đã chọn
                 import re
                 found_links = re.findall(r'LINK_CHỌN:\s*(https?://[^\s\n]+)', res_text)
-                
-                # Dọn dẹp văn bản: Xóa dòng LINK_CHỌN và các chữ "Nguồn 1, 2..." nếu AI lỡ viết
-                clean_res = re.sub(r'LINK_CHỌN:.*', '', res_text)
-                clean_res = re.sub(r'\(Dựa trên dữ liệu từ NGUỒN \d+\)', '', clean_res).strip()
+                clean_res = re.sub(r'LINK_CHỌN:.*', '', res_text).strip()
 
                 links_html = ""
-                # Chỉ hiện link nếu AI chọn đúng link có trong danh sách gốc của bác
-                final_links = [l for l in found_links if l in source_map]
-                
+                # Lấy link AI chọn, nếu không thấy thì lấy 2 link đầu từ kết quả tìm kiếm cho chắc
+                final_links = list(set([l for l in found_links if l in source_map]))
+                if not final_links and source_map:
+                    final_links = list(source_map.keys())[:2]
+
                 if final_links:
-                    links_html += "<br><hr><b>📚 Bài viết chi tiết bác sĩ khuyên đọc:</b><ul style='list-style:none;padding:0'>"
-                    for url in set(final_links):
-                        title = source_map.get(url, "Xem thêm tại đây")
+                    links_html += "<br><hr><b>📚 Bằng chứng khoa học liên quan:</b><ul style='list-style:none;padding:0'>"
+                    for url in final_links:
+                        title = source_map.get(url, "Xem chi tiết nghiên cứu")
                         links_html += f"<li style='margin-bottom:5px'>🔗 <a href='{url}' target='_blank' style='color:#0f988b;text-decoration:none;font-weight:600'>{title}</a></li>"
                     links_html += "</ul>"
                 
-                # Hiển thị kết quả cuối cùng
-                st.markdown(clean_res + links_html, unsafe_allow_html=True)
+                # FIX LỖI: Tạo biến final_res ở đây
+                final_res_to_display = clean_res + links_html
+                st.markdown(final_res_to_display, unsafe_allow_html=True)
                 
-                db_data[user_key]["history"].append({"role": "assistant", "content": final_res})
+                # Lưu vào lịch sử
+                db_data[user_key]["history"].append({"role": "assistant", "content": final_res_to_display})
                 save_data(db_data)
                 
             except Exception as e:
-                st.error(f"AI đang bận một chút, bác đợi tí nhé: {e}")
+                st.error(f"Lỗi hệ thống: {e}")
 
 # =====================================================
 # 6. LOGIN FORM
