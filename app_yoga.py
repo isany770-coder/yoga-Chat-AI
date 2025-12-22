@@ -142,9 +142,9 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 6. HIỂN THỊ CHAT & XỬ LÝ (BẢN FIX LỖI BIẾN CAN_CHAT)
+# 6. HIỂN THỊ CHAT & XỬ LÝ (BẢN SẠCH 100% - ƯU TIÊN NGHIÊN CỨU)
 # =====================================================
-# Định nghĩa lại biến can_chat để tránh lỗi NameError
+# Định nghĩa lại biến can_chat để fix lỗi đỏ
 can_chat = used < limit
 
 # Hiển thị lịch sử chat
@@ -160,40 +160,47 @@ if can_chat:
 
         with st.chat_message("assistant"):
             if db:
-                # Tìm kiếm rộng để không sót bài chuyên sâu
-                docs = db.similarity_search(prompt, k=20)
+                # 1. Tăng k=25 để quét sâu nhất trong 3.000 bài
+                docs = db.similarity_search(prompt, k=25)
                 
-                # Phân loại và ưu tiên các bài có tiêu đề Nghiên cứu/Giải mã
+                # 2. BỘ LỌC THÔNG MINH: Tách riêng bài nghiên cứu và bài thường
                 study_docs = []
                 general_docs = []
-                keywords = ["nghiên cứu", "giải mã", "rct", "meta", "khoa học", "chứng minh"]
+                keywords = ["nghiên cứu", "giải mã", "rct", "meta", "khoa học", "chứng minh", "cơ chế"]
 
                 for d in docs:
                     title = d.metadata.get('title', '').lower()
+                    # Nếu tiêu đề chứa từ khóa nghiên cứu, cho vào "Vip list"
                     if any(kw in title for kw in keywords):
                         study_docs.append(d)
                     else:
                         general_docs.append(d)
 
-                # Ép AI đọc các bài nghiên cứu trước
-                final_docs = (study_docs + general_docs)[:8]
+                # Ưu tiên đưa bài nghiên cứu lên hàng đầu cho AI đọc
+                final_docs = (study_docs + general_docs)[:10]
                 
                 context_parts = []
                 source_map = {} 
-                for i, d in enumerate(final_docs):
+                for d in final_docs:
                     t = d.metadata.get('title', 'Tài liệu Yoga')
                     u = d.metadata.get('url', '#')
-                    context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nURL: {u}\nNỘI DUNG: {d.page_content}")
+                    # Gộp nội dung và xóa bỏ mọi gợi ý về số thứ tự
+                    context_parts.append(f"TIÊU ĐỀ: {t}\nNỘI DUNG: {d.page_content}")
                     source_map[u] = t
 
                 context_string = "\n\n".join(context_parts)
                 
-                sys_prompt = f"""Bạn là một giáo sư Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.
-                QUY TẮC:
-                1. Nếu nguồn có bài 'Giải mã' hoặc 'Nghiên cứu', bạn PHẢI trích dẫn từ đó.
-                2. Trả lời CỰC KỲ NGẮN GỌN (Tối đa 5-6 gạch đầu dòng), không quá 100 từ.
+                # 3. PROMPT "SẠCH": Tuyệt đối không trích dẫn số
+                sys_prompt = f"""Bạn là một chuyên gia Yoga cấp cao. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.
+                QUY TẮC TRÌNH BÀY:
+                1. Trả lời CỰC KỲ NGẮN GỌN (Tối đa 5-6 gạch đầu dòng).
+                2. Tổng độ dài KHÔNG QUÁ 100 TỪ.
                 3. Đi thẳng vào trọng tâm, bỏ qua lời dẫn dắt vô nghĩa.
-                4. Tuyệt đối không tự bịa link.
+                4. Giọng văn thân thiện, dứt khoát.
+                5. KHÔNG tự chèn link (Hệ thống sẽ tự làm).
+                6. Trả lời trôi chảy, chuyên nghiệp, KHÔNG được ghi (Nguồn 1) hay [1, 2] vào bài viết.
+                7. Nếu có dữ liệu từ các bài 'Giải mã' hoặc 'Nghiên cứu', hãy ưu tiên đưa thông tin đó vào câu trả lời.
+                
                 
                 DỮ LIỆU NGUỒN:
                 {context_string}
@@ -202,7 +209,7 @@ if can_chat:
 
                 res_text = model.generate_content(sys_prompt).text
                 
-                # Hiển thị Link tham khảo thông minh
+                # 4. TRÌNH BÀY LINK THAM KHẢO (Đẹp và Phân loại)
                 study_list = []
                 normal_list = []
                 seen_urls = set()
@@ -216,18 +223,18 @@ if can_chat:
                             normal_list.append(link_md)
                         seen_urls.add(url)
 
-                # Trình bày: Nghiên cứu lên đầu, sau đó đến tối đa 3 link bài thường
+                # Chỉ hiện 2 link nghiên cứu tốt nhất và 2 link bài viết liên quan
                 header = "\n\n---\n**🔬 BẰNG CHỨNG KHOA HỌC & NGHIÊN CỨU:**\n" if study_list else "\n\n---\n**📚 TÀI LIỆU THAM KHẢO:**\n"
-                links_html = header + "\n".join(study_list + normal_list[:3])
+                final_links = study_list[:3] + normal_list[:2]
                 
-                final_res = res_text + links_html
+                final_res = res_text + header + "\n".join(final_links)
                 st.markdown(final_res)
                 
+                # Lưu và cập nhật
                 st.session_state.messages.append({"role": "assistant", "content": final_res})
                 usage_db[user_key]["count"] += 1
                 save_usage_data(usage_db)
                 st.rerun()
-
 # FORM ĐĂNG NHẬP SONG SONG (BÁC CẦN CÁI NÀY)
 if not st.session_state.authenticated:
     st.markdown("<br>", unsafe_allow_html=True)
