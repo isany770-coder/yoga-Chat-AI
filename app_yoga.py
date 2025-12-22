@@ -275,13 +275,16 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
         if db:
             docs = db.similarity_search(prompt, k=4)
             source_map = {}
-            context_parts = []
-            
-            for i, d in enumerate(docs):
-                u = d.metadata.get('url', '#')
-                t = d.metadata.get('title', 'Tài liệu')
-                context_parts.append(d.page_content)
-                source_map[u] = t
+           # Tìm đoạn này trong code và thay thế:
+context_parts = []
+for i, d in enumerate(docs):
+    u = d.metadata.get('url', '#')
+    t = d.metadata.get('title', 'Tài liệu')
+    context_parts.append(d.page_content) # Lưu nội dung vào list
+    source_map[u] = t
+
+# THÊM DÒNG NÀY ĐỂ GỘP NỘI DUNG:
+context_string = "\n\n".join(context_parts)
             
             # System Prompt: (Giữ nguyên theo ý bác)
             sys_prompt = (
