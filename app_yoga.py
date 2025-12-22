@@ -341,6 +341,12 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
             try:
                 # 3. KHỐI TRY/EXCEPT CŨNG PHẢI THẲNG HÀNG VỚI SYS_PROMPT
                 res_text = model.generate_content(sys_prompt).text
+
+                try:
+                # Thêm vòng xoay chờ ở đây
+                with st.spinner("🧘 Chuyên gia đang suy ngẫm..."):
+                    response = model.generate_content(sys_prompt)
+                    res_text = response.text
                 
                 links_html = ""
                 if source_map:
@@ -359,9 +365,9 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                 
                 db_data[user_key]["history"].append({"role": "assistant", "content": final_res})
                 save_data(db_data)
-                st.rerun()
+                
             except:
-                st.error("AI đang thở gấp...")
+                st.error(f"AI đang hồi sức do có quá nhiều câu hỏi: {e}")
 
 # =====================================================
 # 6. LOGIN FORM
