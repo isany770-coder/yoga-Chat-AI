@@ -234,7 +234,7 @@ if not st.session_state.authenticated:
             </div>
             <div>
                 <div style="color: #bf360c !important; font-size: 13px; font-weight: bold; font-family: sans-serif;">
-                    Combo Thảm + Gạch Yoga
+                    Sở hữu ngay một tấm thảm ưng ý!!
                 </div>
                 <div style="color: #ff7043 !important; font-size: 11px; font-family: sans-serif;">
                     Giảm ngay 30% hôm nay!
@@ -303,8 +303,15 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                 context_parts.append(d.page_content)
                 source_map[u] = t
             
-            sys_prompt = f"Bạn là chuyên gia Yoga. Dựa vào nguồn: {' '.join(context_parts)}. Trả lời câu hỏi: {prompt}. Ngắn gọn dưới 100 từ. Không bịa link."
-            
+            # System Prompt: (Giữ nguyên theo ý bác)
+            sys_prompt = (
+                f"Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
+                f"1. Trả lời NGẮN GỌN (tối đa 6-7 gạch đầu dòng, dưới 100 từ).\n"
+                f"2. Đi thẳng vào trọng tâm chuyên môn.\n"
+                f"3. Chỉ dùng thông tin có trong NGUỒN bên dưới.\n"
+                f"4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.\n\n"
+                f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
+              
             try:
                 res_text = model.generate_content(sys_prompt).text
                 
