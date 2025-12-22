@@ -67,6 +67,8 @@ div[data-testid="stChatMessage"][data-test-role="user"] {
 # =====================================================
 # 3. IMPORT KHÁC
 # =====================================================
+import gdown
+import zipfile
 import os, re, json, datetime
 import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
