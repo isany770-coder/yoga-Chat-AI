@@ -88,27 +88,9 @@ st.markdown("""
     /* =============================================
        4. BỐ CỤC NỘI DUNG (TRÁNH BỊ CHE)
        ============================================= */
-    /* RESET: Xóa hết khoảng trắng thừa của trình duyệt */
-    html, body, [data-testid="stAppViewContainer"] {
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        overflow: hidden !important; /* Ẩn cuộn của body, chỉ cho phép cuộn nội dung chat */
-        background-color: white !important;
-    }
-    
-    /* Vùng chứa nội dung chính: Cho phép cuộn mượt */
-    .main .block-container {
-        padding-top: 50px !important;     /* Né thanh progress bar */
-        padding-bottom: 120px !important; /* Né thanh chat input */
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow-y: auto !important; /* Chỉ cuộn phần này */
-        -webkit-overflow-scrolling: touch;
-        height: 100vh !important;
+     .main .block-container {
+        padding-top: 3rem !important;
+        padding-bottom: 180px !important; /* Khoảng trống lớn ở đáy để không bị ô chat che */
     }
 
     /* Ẩn header/footer */
