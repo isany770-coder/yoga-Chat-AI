@@ -66,6 +66,27 @@ st.markdown("""
         background-color: #f8f9fa !important; border-radius: 12px; 
         padding: 8px !important; margin-bottom: 10px !important;
     }
+    .zalo-btn {
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        width: 100%; 
+        background-color: white; 
+        color: #0f988b !important; 
+        border: 1px solid #dcdfe3; /* Màu border nhẹ giống nút gốc */
+        border-radius: 8px; 
+        text-align: center; 
+        font-weight: 400; 
+        font-size: 14px; 
+        height: 38.4px; /* Chiều cao chuẩn của nút Streamlit */
+        text-decoration: none !important; 
+        transition: all 0.2s;
+        box-sizing: border-box;
+    }
+    .zalo-btn:hover { 
+        background-color: #f0f9f8; 
+        border-color: #0f988b;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -235,7 +256,7 @@ if can_chat:
                 # Rerun để cập nhật UI
                 st.rerun()
                 
-# FORM ĐĂNG NHẬP SONG SONG (BÁC CẦN CÁI NÀY)
+# FORM ĐĂNG NHẬP SONG SONG - ĐÃ FIX LỆCH NÚT
 if not st.session_state.authenticated:
     st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("🔐 Đăng nhập / Lấy thêm lượt (Dành cho Member)", expanded=not can_chat):
@@ -243,13 +264,27 @@ if not st.session_state.authenticated:
             u = st.text_input("Tên đăng nhập", placeholder="Nhập username")
             p = st.text_input("Mật khẩu", type="password", placeholder="Nhập mật mã")
             
+            # Sử dụng columns để chia đôi không gian
             c1, c2 = st.columns(2)
+            
             with c1:
-                if st.form_submit_button("Đăng nhập", use_container_width=True):
-                    if st.secrets["passwords"].get(u) == p:
-                        st.session_state.authenticated = True
-                        st.session_state.username = u
-                        st.rerun()
-                    else: st.error("Sai rồi bác ơi!")
+                # Nút Đăng nhập của Streamlit
+                submit = st.form_submit_button("Đăng nhập", use_container_width=True)
+                
             with c2:
-                st.markdown(f'<a href="https://zalo.me/84963759566" target="_blank" class="zalo-btn">💬 Lấy TK Zalo</a>', unsafe_allow_html=True)
+                # Nút Zalo tự chế - Ép Margin-top để bù đắp khoảng lệch của Streamlit Form
+                st.markdown(f"""
+                    <a href="https://zalo.me/84963759566" target="_blank" style="text-decoration: none;">
+                        <div class="zalo-btn" style="margin-top: 1px;">
+                            💬 Lấy TK Zalo
+                        </div>
+                    </a>
+                """, unsafe_allow_html=True)
+
+            if submit:
+                if st.secrets["passwords"].get(u) == p:
+                    st.session_state.authenticated = True
+                    st.session_state.username = u
+                    st.rerun()
+                else: 
+                    st.error("Sai rồi bác ơi!")
