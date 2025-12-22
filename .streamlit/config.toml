@@ -9,3 +9,7 @@ font="sans serif"
 [server]
 # Đã bỏ dấu / ở cuối tên miền để đảm bảo hoạt động chuẩn xác
 frameAncestors = ["'self'", "https://yogaismylife.vn"]
+
+[server]
+enableCORS = false
+enableXsrfProtection = false
