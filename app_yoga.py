@@ -191,6 +191,19 @@ db, model = load_brain()
 if db is None or model is None:
     st.warning("🧘‍♂️ Hệ thống đang khởi động, bác vui lòng vuốt xuống để tải lại (F5) nhé!")
     st.stop()
+    
+def get_remote_ip():
+    """Lấy địa chỉ IP thật của người dùng trên Streamlit Cloud"""
+    try:
+        from streamlit.web.server.websocket_headers import _get_headers
+        headers = _get_headers()
+        # Streamlit Cloud dùng proxy nên IP thật nằm ở 'X-Forwarded-For'
+        ip = headers.get("X-Forwarded-For")
+        if ip:
+            return ip.split(",")[0].strip()
+    except:
+        pass
+    return "guest_unknown"
 
 # =====================================================
 # 4. QUẢN LÝ DATABASE
@@ -211,8 +224,8 @@ def save_data(data):
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
 
-user_key = st.session_state.username if st.session_state.authenticated else "anonymous_guest"
-today = str(datetime.date.today())
+# Nếu chưa đăng nhập, dùng IP làm định danh để chặn lách luật bằng tab ẩn danh
+user_key = st.session_state.username if st.session_state.authenticated else get_remote_ip()today = str(datetime.date.today())
 db_data = get_data()
 
 if user_key not in db_data or db_data[user_key].get("date") != today:
