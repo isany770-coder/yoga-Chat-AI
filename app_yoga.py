@@ -1,71 +1,61 @@
 import streamlit as st
 
 # =====================================================
-# 1. PAGE CONFIG – BẮT BUỘC LÀ LỆNH STREAMLIT ĐẦU TIÊN
+# 1. PAGE CONFIG - BẮT BUỘC ĐẦU TIÊN
 # =====================================================
 st.set_page_config(
-    page_title="Yoga Assistant",
+    page_title="Yoga Assistant Pro",
     page_icon="🧘",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
 # =====================================================
-# 2. CSS – CHỈ CSS, KHÔNG PHÁ LAYOUT
+# 2. CSS - ÉP GIAO DIỆN TRẮNG & THANH TIẾN TRÌNH
 # =====================================================
 st.markdown("""
 <style>
-html, body {
-    background: #ffffff !important;
-}
+    /* Ép nền trắng tuyệt đối cho toàn bộ App */
+    [data-testid="stAppViewContainer"], .stApp, html, body {
+        background-color: white !important;
+        color: #212121 !important;
+    }
+    
+    /* Ẩn toolbar và footer */
+    [data-testid="stToolbar"], header, footer {
+        visibility: hidden !important;
+        height: 0px !important;
+    }
 
-[data-testid="stAppViewContainer"],
-[data-testid="stApp"],
-.stApp {
-    background: #ffffff !important;
-}
+    /* THANH PROGRESS BAR CỐ ĐỊNH TRÊN CÙNG */
+    .usage-bar-container {
+        position: fixed; top: 0; left: 0; width: 100%; height: 6px;
+        background-color: #f0f0f0; z-index: 999999;
+    }
+    .usage-bar-fill {
+        height: 100%; 
+        background: linear-gradient(90deg, #00d2ff 0%, #3a7bd5 100%);
+        transition: width 0.5s ease-in-out;
+    }
+    .usage-text {
+        position: fixed; top: 10px; right: 20px; 
+        background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px;
+        font-size: 12px; color: #333; font-weight: bold;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 999998;
+    }
 
-[data-testid="stToolbar"] {
-    visibility: hidden;
-    height: 0;
-}
-
-/* CHAT UI */
-div[data-testid="stChatMessage"] {
-    background: #f8f9fa;
-    border-radius: 14px;
-    padding: 12px;
-    margin-top: 22px;
-    border: 1px solid #eee;
-}
-
-div[data-testid="stChatMessage"][data-test-role="user"] {
-    background-color: #e3f2fd;
-    flex-direction: row-reverse;
-    text-align: right;
-    border: none;
-}
-
-/* LINK */
-.stMarkdown a {
-    color: #0f988b;
-    font-weight: 600;
-    text-decoration: none;
-}
-.stMarkdown a:hover {
-    text-decoration: underline;
-}
-
-/* FONT */
-* {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-}
+    /* CHAT UI */
+    div[data-testid="stChatMessage"] {
+        background-color: #f8f9fa !important; border-radius: 15px; padding: 12px; margin-top: 25px;
+    }
+    div[data-testid="stChatMessage"][data-test-role="user"] {
+        background-color: #e3f2fd !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 3. IMPORT KHÁC
+# 3. IMPORT & CẤU HÌNH CLOUD
 # =====================================================
 import gdown
 import zipfile
@@ -74,215 +64,139 @@ import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
-# =====================================================
-# 4. API KEY
-# =====================================================
-try:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-    genai.configure(api_key=api_key)
-except Exception:
-    st.error("❌ Thiếu GOOGLE_API_KEY")
-    st.stop()
-
-# =====================================================
-# 5. CONSTANT
-# =====================================================
-VECTOR_DB_PATH = "bo_nao_vector"
-USAGE_DB_FILE = "usage_database.json"
-DAILY_LIMIT = 25
-TRIAL_LIMIT = 10
-
-# =====================================================
-# 6. USAGE DATABASE
-# =====================================================
-
-def load_usage_db():
-    if not os.path.exists(USAGE_DB_FILE):
-        return {}
-    with open(USAGE_DB_FILE, "r") as f:
-        return json.load(f)
-
-def save_usage_db(data):
-    with open(USAGE_DB_FILE, "w") as f:
-        json.dump(data, f)
-
-def check_member_limit(username):
-    data = load_usage_db()
-    today = str(datetime.date.today())
-    if username not in data or data[username]["date"] != today:
-        data[username] = {"date": today, "count": 0}
-        save_usage_db(data)
-        return 0, DAILY_LIMIT
-    return data[username]["count"], DAILY_LIMIT - data[username]["count"]
-
-def increment_member_usage(username):
-    data = load_usage_db()
-    today = str(datetime.date.today())
-    if username in data and data[username]["date"] == today:
-        data[username]["count"] += 1
-        save_usage_db(data)
-
-# =====================================================
-# 7. SEARCH ENGINE
-# =====================================================
-SPECIAL_MAPPING = {
-    "trồng chuối": ["sirsasana"],
-    "con quạ": ["bakasana"],
-    "cái cày": ["halasana"]
-}
-STOPWORDS = {'là','của','như','thế','nào','tập','bài','cách','tôi','bạn','muốn','hỏi','gì'}
-
-def clean_and_extract_keywords(text):
-    text = re.sub(r'[^\w\s]', ' ', text.lower())
-    return {w for w in text.split() if w not in STOPWORDS and len(w) > 1}
-    
-# Thay ID file của bác vào đây
+# Thay ID file .zip 500MB của bác vào đây
 FILE_ID_DRIVE = "1vOvvanNvDaLwP8Xs4nn1UhkciRvTxzyA" 
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
 OUTPUT_ZIP = "/tmp/bo_nao_vector.zip"
 EXTRACT_PATH = "/tmp/bo_nao_vector"
+
+try:
+    api_key = st.secrets["GOOGLE_API_KEY"]
+    genai.configure(api_key=api_key)
+except:
+    st.error("❌ Thiếu API KEY trong Secrets")
+    st.stop()
+
+# =====================================================
+# 4. LOAD NÃO BỘ TỪ DRIVE (TỐI ƯU RAM)
+# =====================================================
 @st.cache_resource
 def load_brain():
-    # 1. Nếu chưa có não bộ ở /tmp/ thì tải về
     if not os.path.exists(EXTRACT_PATH):
-        with st.spinner("🚀 Đang tải bộ não Yoga từ Cloud... Đợi em tí nhé!"):
-            gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=False)
-            with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zip_ref:
-                zip_ref.extractall("/tmp/")
-    
-    # 2. Load não bộ từ đường dẫn mới
-    if not os.path.exists(EXTRACT_PATH):
-        return None, None
-        
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
+        try:
+            with st.spinner("🚀 Đang nạp 500MB não bộ... Đợi tí nhé!"):
+                # Tải file từ Drive
+                gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=False)
+                # Giải nén
+                with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zip_ref:
+                    zip_ref.extractall("/tmp/")
+                # Xóa file zip ngay để tiết kiệm bộ nhớ server
+                if os.path.exists(OUTPUT_ZIP): os.remove(OUTPUT_ZIP)
+        except Exception as e:
+            st.error(f"Lỗi tải não: {e}")
+            return None, None
+
     try:
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         db = FAISS.load_local(EXTRACT_PATH, embeddings, allow_dangerous_deserialization=True)
-        model = genai.GenerativeModel('gemini-flash-latest')
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
         return db, model
     except Exception as e:
-        st.error(f"Lỗi load não: {e}")
+        st.error(f"Lỗi khởi tạo AI: {e}")
         return None, None
 
-# Lúc gọi dùng biến db, model bình thường
 db, model = load_brain()
 
-def search_engine(query, db):
-    user_keywords = clean_and_extract_keywords(query)
-    injected = []
-    for k,v in SPECIAL_MAPPING.items():
-        if k in query.lower():
-            injected += v
-    docs = db.similarity_search(query + " " + " ".join(injected), k=50)
-    results, seen = [], set()
-    for d in docs:
-        title = d.metadata.get("title","")
-        if title in seen: continue
-        score = len(user_keywords & clean_and_extract_keywords(title))
-        if score:
-            results.append(d)
-            seen.add(title)
-    return results[:3]
+# =====================================================
+# 5. QUẢN LÝ LƯỢT DÙNG
+# =====================================================
+USAGE_DB_FILE = "/tmp/usage_database.json"
+DAILY_LIMIT = 25
+TRIAL_LIMIT = 10
+
+def load_usage():
+    if not os.path.exists(USAGE_DB_FILE): return {}
+    with open(USAGE_DB_FILE, "r") as f: return json.load(f)
+
+def save_usage(data):
+    with open(USAGE_DB_FILE, "w") as f: json.dump(data, f)
+
+# Khởi tạo session
+if "authenticated" not in st.session_state: st.session_state.authenticated = False
+if "username" not in st.session_state: st.session_state.username = ""
+if "guest_usage" not in st.session_state: st.session_state.guest_usage = 0
+if "messages" not in st.session_state: st.session_state.messages = [{"role":"assistant","content":"Namaste! 🙏 Bạn cần hỗ trợ gì?"}]
+
+# Tính lượt dùng
+today = str(datetime.date.today())
+db_usage = load_usage()
+current_user = st.session_state.username if st.session_state.authenticated else "guest_default"
+
+if current_user not in db_usage or db_usage[current_user]["date"] != today:
+    db_usage[current_user] = {"date": today, "count": 0}
+    save_usage(db_usage)
+
+used = db_usage[current_user]["count"]
+limit = DAILY_LIMIT if st.session_state.authenticated else TRIAL_LIMIT
+percent = min(100, int((used / limit) * 100))
+
+# HIỂN THỊ THANH TIẾN TRÌNH
+st.markdown(f"""
+    <div class="usage-bar-container"><div class="usage-bar-fill" style="width: {percent}%;"></div></div>
+    <div class="usage-text">⚡ Lượt dùng: {used}/{limit}</div>
+""", unsafe_allow_html=True)
 
 # =====================================================
-# 8. SESSION STATE
+# 6. LOGIC CHAT
 # =====================================================
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-if "username" not in st.session_state:
-    st.session_state.username = ""
-if "guest_usage" not in st.session_state:
-    st.session_state.guest_usage = 0
-if "messages" not in st.session_state:
-    st.session_state.messages = [{
-        "role":"assistant",
-        "content":"Namaste! 🙏 Bạn muốn hỏi điều gì hôm nay?"
-    }]
+can_chat = used < limit
 
-# =====================================================
-# 9. CHAT LIMIT
-# =====================================================
-can_chat = False
-if st.session_state.authenticated:
-    _, remain = check_member_limit(st.session_state.username)
-    can_chat = remain > 0
-else:
-    can_chat = st.session_state.guest_usage < TRIAL_LIMIT
-
-# =====================================================
-# 10. RENDER CHAT
-# =====================================================
 for m in st.session_state.messages:
-    with st.chat_message(m["role"]):
-        st.markdown(m["content"], unsafe_allow_html=True)
+    with st.chat_message(m["role"]): st.markdown(m["content"])
 
-# =====================================================
-# 11. CHAT LOGIC
-# =====================================================
 if can_chat:
-    if prompt := st.chat_input("Nhập câu hỏi..."):
+    if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
         st.session_state.messages.append({"role":"user","content":prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+        st.rerun() # Rerun để hiện câu hỏi ngay
 
-        with st.chat_message("assistant"):
-            if not db:
-                st.error("❌ Chưa nạp được dữ liệu")
-            else:
-                docs = search_engine(prompt, db)
-                context = "\n".join([d.page_content for d in docs])
-                links = {}
-                for d in docs:
-                    if "url" in d.metadata:
-                        links[d.metadata["url"]] = d.metadata.get("title","Tài liệu")
-
-                sys_prompt = f"""
-Bạn là chuyên gia Yoga.
-DỮ LIỆU:
-{context}
-CÂU HỎI: {prompt}
- YÊU CẦU:
-                1. Trả lời CỰC KỲ NGẮN GỌN (Tối đa 5-6 gạch đầu dòng).
-                2. Tổng độ dài KHÔNG QUÁ 100 TỪ.
-                3. Đi thẳng vào trọng tâm, bỏ qua lời dẫn dắt vô nghĩa.
-                4. Giọng văn thân thiện, dứt khoát.
-                5. KHÔNG tự chèn link (Hệ thống sẽ tự làm).
-                """
-
-                res = model.generate_content(sys_prompt).text
-                if st.session_state.authenticated:
-                    increment_member_usage(st.session_state.username)
-                else:
-                    st.session_state.guest_usage += 1
-
-                if links:
-                    res += "\n\n---\n**📚 Tài liệu tham khảo:**\n"
-                    for u,t in links.items():
-                        res += f"- 🔗 [{t}]({u})\n"
-
-                st.markdown(res, unsafe_allow_html=True)
-                st.session_state.messages.append({"role":"assistant","content":res})
+# Xử lý phản hồi AI (nằm ngoài block chat_input để tránh lag)
+if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
+    last_prompt = st.session_state.messages[-1]["content"]
+    with st.chat_message("assistant"):
+        if db:
+            docs = db.similarity_search(last_prompt, k=3)
+            context = "\n".join([d.page_content for d in docs])
+            
+            sys_prompt = f"Bạn là chuyên gia Yoga. Dựa vào: {context}\nHãy trả lời câu hỏi: {last_prompt}\nYêu cầu: Ngắn gọn, dưới 100 từ, giọng thân thiện."
+            
+            res = model.generate_content(sys_prompt).text
+            
+            # Tăng lượt dùng và lưu
+            db_usage[current_user]["count"] += 1
+            save_usage(db_usage)
+            
+            # Gắn link tham khảo
+            links = "\n\n---\n**📚 Tham khảo:**\n"
+            for d in docs:
+                if "url" in d.metadata: links += f"- 🔗 [{d.metadata.get('title','Tài liệu')}]({d.metadata['url']})\n"
+            
+            final_res = res + links
+            st.markdown(final_content := final_res)
+            st.session_state.messages.append({"role":"assistant","content":final_content})
+            st.rerun()
 
 # =====================================================
-# 12. LOGIN + ZALO (GIỮ NGUYÊN)
+# 7. FORM ĐĂNG NHẬP (NẾU HẾT LƯỢT HOẶC CHƯA LOGIN)
 # =====================================================
-else:
-    st.markdown("---")
-    with st.form("login"):
-        st.markdown("### 🔐 Đăng nhập Thành viên")
-        u = st.text_input("User")
-        p = st.text_input("Pass", type="password")
-        if st.form_submit_button("Vào tập"):
-            if st.secrets["passwords"].get(u) == p:
-                st.session_state.authenticated = True
-                st.session_state.username = u
-                st.rerun()
-            else:
-                st.error("Sai thông tin")
-
-    st.markdown(
-        "<div style='text-align:center;margin-top:10px'>"
-        "<a href='https://zalo.me/84963759566' target='_blank' "
-        "style='color:#0f988b;font-weight:600'>💬 Lấy TK Zalo</a>"
-        "</div>",
-        unsafe_allow_html=True
-    )
+if not can_chat or not st.session_state.authenticated:
+    with st.expander("🔐 Đăng nhập Thành viên / Lấy thêm lượt"):
+        with st.form("login_form"):
+            u = st.text_input("Tên đăng nhập")
+            p = st.text_input("Mật khẩu", type="password")
+            if st.form_submit_button("Vào tập ngay"):
+                if st.secrets["passwords"].get(u) == p:
+                    st.session_state.authenticated = True
+                    st.session_state.username = u
+                    st.rerun()
+                else: st.error("Sai thông tin rồi bác ơi!")
+        st.markdown("[💬 Nhắn Zalo lấy tài khoản](https://zalo.me/84963759566)")
