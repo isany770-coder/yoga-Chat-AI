@@ -142,99 +142,78 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 6. HIỂN THỊ CHAT & XỬ LÝ (BẢN SẠCH 100% - ƯU TIÊN NGHIÊN CỨU)
+# 6. HIỂN THỊ CHAT & XỬ LÝ TRẢ LỜI (ĐÃ TỐI ƯU)
 # =====================================================
-# Định nghĩa lại biến can_chat để fix lỗi đỏ
-can_chat = used < limit
-
 # Hiển thị lịch sử chat
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
+# Kiểm tra lượt dùng
+can_chat = used < limit
+
 if can_chat:
     if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
+        # 1. Thêm tin nhắn người dùng vào bộ nhớ và hiển thị ngay
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
+        # 2. Xử lý trả lời từ AI
         with st.chat_message("assistant"):
             if db:
-                # 1. Tăng k=25 để quét sâu nhất trong 3.000 bài
-                docs = db.similarity_search(prompt, k=25)
+                # Tăng k=5 để AI có nhiều lựa chọn bài viết chính xác hơn
+                docs = db.similarity_search(prompt, k=5)
                 
-                # 2. BỘ LỌC THÔNG MINH: Tách riêng bài nghiên cứu và bài thường
-                study_docs = []
-                general_docs = []
-                keywords = ["nghiên cứu", "giải mã", "rct", "meta", "khoa học", "chứng minh", "cơ chế"]
-
-                for d in docs:
-                    title = d.metadata.get('title', '').lower()
-                    # Nếu tiêu đề chứa từ khóa nghiên cứu, cho vào "Vip list"
-                    if any(kw in title for kw in keywords):
-                        study_docs.append(d)
-                    else:
-                        general_docs.append(d)
-
-                # Ưu tiên đưa bài nghiên cứu lên hàng đầu cho AI đọc
-                final_docs = (study_docs + general_docs)[:10]
-                
+                # Cấu trúc lại Context để AI thấy rõ Tiêu đề và Link của từng đoạn
                 context_parts = []
-                source_map = {} 
-                for d in final_docs:
+                source_map = {} # Dùng để lọc link trùng
+                
+                for i, d in enumerate(docs):
                     t = d.metadata.get('title', 'Tài liệu Yoga')
                     u = d.metadata.get('url', '#')
-                    # Gộp nội dung và xóa bỏ mọi gợi ý về số thứ tự
-                    context_parts.append(f"TIÊU ĐỀ: {t}\nNỘI DUNG: {d.page_content}")
-                    source_map[u] = t
+                    context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nURL: {u}\nNỘI DUNG: {d.page_content}")
+                    source_map[u] = t # Lưu lại để hiện link ở cuối
 
                 context_string = "\n\n".join(context_parts)
                 
-                # 3. PROMPT "SẠCH": Tuyệt đối không trích dẫn số
-                sys_prompt = f"""Bạn là một chuyên gia Yoga cấp cao. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.
-                QUY TẮC TRÌNH BÀY:
-                1. Trả lời CỰC KỲ NGẮN GỌN (Tối đa 5-6 gạch đầu dòng).
-                2. Tổng độ dài KHÔNG QUÁ 100 TỪ.
-                3. Đi thẳng vào trọng tâm, bỏ qua lời dẫn dắt vô nghĩa.
-                4. Giọng văn thân thiện, dứt khoát.
-                5. KHÔNG tự chèn link (Hệ thống sẽ tự làm).
-                6. Trả lời trôi chảy, chuyên nghiệp, KHÔNG được ghi (Nguồn 1) hay [1, 2] vào bài viết.
-                7. Nếu có dữ liệu từ các bài 'Giải mã' hoặc 'Nghiên cứu', hãy ưu tiên đưa thông tin đó vào câu trả lời.
-                
+                # Prompt mới: Ép AI tập trung vào thông tin từ nguồn được cung cấp
+                sys_prompt = f"""Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.
+                1. Trả lời NGẮN GỌN (tối đa 5-6 gạch đầu dòng, dưới 100 từ).
+                2. Đi thẳng vào trọng tâm chuyên môn.
+                3. Chỉ dùng thông tin có trong NGUỒN bên dưới.
+                4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.
                 
                 DỮ LIỆU NGUỒN:
                 {context_string}
                 
                 CÂU HỎI: {prompt}"""
 
+                # Gọi Gemini Flash
                 res_text = model.generate_content(sys_prompt).text
                 
-                # 4. TRÌNH BÀY LINK THAM KHẢO (Đẹp và Phân loại)
-                study_list = []
-                normal_list = []
+                # 3. Tạo phần Tài liệu tham khảo (Chỉ hiện các link DUY NHẤT)
+                links_html = "\n\n---\n**📚 Tài liệu tham khảo:**\n"
                 seen_urls = set()
-
+                count = 0
                 for url, title in source_map.items():
-                    if url != "#" and url not in seen_urls:
-                        link_md = f"- 🔗 [{title}]({url})"
-                        if any(kw in title.lower() for kw in keywords):
-                            study_list.append(link_md)
-                        else:
-                            normal_list.append(link_md)
+                    if url != "#" and url not in seen_urls and count < 3:
+                        links_html += f"- 🔗 [{title}]({url})\n"
                         seen_urls.add(url)
-
-                # Chỉ hiện 2 link nghiên cứu tốt nhất và 2 link bài viết liên quan
-                header = "\n\n---\n**🔬 BẰNG CHỨNG KHOA HỌC & NGHIÊN CỨU:**\n" if study_list else "\n\n---\n**📚 TÀI LIỆU THAM KHẢO:**\n"
-                final_links = study_list[:3] + normal_list[:2]
+                        count += 1
                 
-                final_res = res_text + header + "\n".join(final_links)
+                final_res = res_text + links_html
                 st.markdown(final_res)
                 
-                # Lưu và cập nhật
+                # 4. Lưu vào bộ nhớ và cập nhật lượt dùng
                 st.session_state.messages.append({"role": "assistant", "content": final_res})
+                
                 usage_db[user_key]["count"] += 1
                 save_usage_data(usage_db)
+                
+                # Rerun cuối cùng để cập nhật thanh Progress bar ở trên đầu
                 st.rerun()
+                
 # FORM ĐĂNG NHẬP SONG SONG (BÁC CẦN CÁI NÀY)
 if not st.session_state.authenticated:
     st.markdown("<br>", unsafe_allow_html=True)
