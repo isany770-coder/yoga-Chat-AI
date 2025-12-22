@@ -24,20 +24,19 @@ st.set_page_config(
 st.markdown("""
 <style>
     /* Reset nền trắng & chữ đen */
-[data-testid="stAppViewContainer"], .stApp, html, body {
-    background-color: white !important;
-    color: #31333F !important;
-}
-
-/* CHỈ ép màu chữ cho nội dung chat, tránh ép màu lên banner quảng cáo */
-.stChatMessage p, .stChatMessage span, .stChatMessage div {
-    color: #31333F !important;
-}
-
-/* Ẩn header mặc định */
-[data-testid="stToolbar"], header, footer, .stAppDeployButton {
-    display: none !important;
-}
+    [data-testid="stAppViewContainer"], .stApp, html, body {
+        background-color: white !important;
+        color: #31333F !important;
+    }
+    /* Ép màu chung (nhưng chừa thằng quảng cáo ra) */
+    p, h1, h2, h3, h4, h5, h6, label, li {
+        color: #31333F !important;
+    }
+    
+    /* Ẩn header mặc định */
+    [data-testid="stToolbar"], header, footer, .stAppDeployButton {
+        display: none !important;
+    }
 
     /* THANH CHAT INPUT (NỔI) */
     div[data-testid="stChatInput"] {
@@ -227,7 +226,7 @@ if not st.session_state.authenticated:
             <span>🎁</span>
             <span>Combo Thảm + Gạch Yoga giảm 30%!</span>
         </div>
-        <a href="https://yogaismylife.vn/cua-hang/" target="_blank" class="ad-btn">Xem ngay 👉</a>
+        <a href="https://yogaismylife.vn/khuyen-mai" target="_blank" class="ad-btn">Xem ngay 👉</a>
     </div>
     """, unsafe_allow_html=True)
 
@@ -275,14 +274,12 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
         if db:
             docs = db.similarity_search(prompt, k=4)
             source_map = {}
-           # Tìm đoạn này trong code và thay thế:
-# Tìm đoạn này trong code và thay thế:
-    context_parts = []
-    for i, d in enumerate(docs):
-    u = d.metadata.get('url', '#')
-    t = d.metadata.get('title', 'Tài liệu')
-    context_parts.append(d.page_content) # Lưu nội dung vào list
-    source_map[u] = t
+            context_parts = []
+            for i, d in enumerate(docs):
+                u = d.metadata.get('url', '#')
+                t = d.metadata.get('title', 'Tài liệu')
+                context_parts.append(d.page_content) # Lưu nội dung vào list
+                source_map[u] = t
 
             # THÊM DÒNG NÀY ĐỂ GỘP NỘI DUNG:
             context_string = "\n\n".join(context_parts)
