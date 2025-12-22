@@ -277,8 +277,8 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
             source_map = {}
            # Tìm đoạn này trong code và thay thế:
 # Tìm đoạn này trong code và thay thế:
-context_parts = []
-for i, d in enumerate(docs):
+    context_parts = []
+    for i, d in enumerate(docs):
     u = d.metadata.get('url', '#')
     t = d.metadata.get('title', 'Tài liệu')
     context_parts.append(d.page_content) # Lưu nội dung vào list
