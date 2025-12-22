@@ -28,6 +28,10 @@ st.markdown("""
         background-color: white !important;
         color: #31333F !important;
     }
+    /* CHỈ ép màu chữ cho nội dung chat, tránh ép màu lên banner quảng cáo */
+    .stChatMessage p, .stChatMessage span, .stChatMessage div {
+        color: #31333F !important;
+    }
     /* Ép màu chung (nhưng chừa thằng quảng cáo ra) */
     p, h1, h2, h3, h4, h5, h6, label, li {
         color: #31333F !important;
