@@ -114,7 +114,7 @@ def load_brain():
 db, model = load_brain()
 
 # =====================================================
-# 5. QUẢN LÝ LƯỢT DÙNG (CHỐNG F5 BẰNG JSON)
+# 5. QUẢN LÝ LƯỢT DÙNG (AUTO-RESET MỖI NGÀY)
 # =====================================================
 USAGE_DB_FILE = "/tmp/usage_db_v2.json"
 DAILY_LIMIT = 25
@@ -122,21 +122,25 @@ TRIAL_LIMIT = 10
 
 def get_usage_data():
     if not os.path.exists(USAGE_DB_FILE): return {}
-    with open(USAGE_DB_FILE, "r") as f: return json.load(f)
+    try:
+        with open(USAGE_DB_FILE, "r") as f: return json.load(f)
+    except: return {}
 
 def save_usage_data(data):
     with open(USAGE_DB_FILE, "w") as f: json.dump(data, f)
 
+# Khởi tạo trạng thái đăng nhập
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
 if "messages" not in st.session_state: st.session_state.messages = [{"role":"assistant","content":"Namaste! 🙏 Thật vui được gặp bạn. Hôm nay chúng ta sẽ bắt đầu từ đâu?"}]
 
-# Xác định người dùng và giới hạn
+# --- LOGIC RESET TỰ ĐỘNG ---
 today = str(datetime.date.today())
 usage_db = get_usage_data()
 user_key = st.session_state.username if st.session_state.authenticated else "anonymous_guest"
 
-if user_key not in usage_db or usage_db[user_key]["date"] != today:
+# Nếu user chưa tồn tại HOẶC ngày trong file khác với ngày hôm nay -> RESET
+if user_key not in usage_db or usage_db[user_key].get("date") != today:
     usage_db[user_key] = {"date": today, "count": 0}
     save_usage_data(usage_db)
 
@@ -163,11 +167,20 @@ for m in st.session_state.messages:
 can_chat = used < limit
 
 if can_chat:
-    if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
-        # 1. Thêm tin nhắn người dùng
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+   if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
+    # 1. Thêm tin nhắn người dùng
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    # 2. TĂNG LƯỢT DÙNG NGAY LẬP TỨC (Đưa lên đây)
+    usage_db[user_key]["count"] += 1
+    save_usage_data(usage_db)
+    
+    # 3. Hiển thị tin nhắn và chạy AI
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    
+    # Ở đây không cần st.rerun() ngay vì Streamlit sẽ vẽ lại các thành phần 
+    # khi script chạy tiếp xuống dưới, thanh bar sẽ nhận giá trị 'used' mới.
 
         # 2. Xử lý trả lời từ AI
         with st.chat_message("assistant"):
