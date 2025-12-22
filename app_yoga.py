@@ -142,94 +142,75 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 6. HIỂN THỊ CHAT & XỬ LÝ (BẢN FIX TRIỆT ĐỂ: HIỆN ĐÚNG LINK NGHIÊN CỨU)
+# 6. HIỂN THỊ CHAT & XỬ LÝ TRẢ LỜI (TỐI ƯU GIAO DIỆN)
 # =====================================================
-can_chat = used < limit
 
+# --- Hiển thị lịch sử chat ---
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
+# --- Kiểm tra lượt dùng ---
+can_chat = used < limit
+
 if can_chat:
     if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
+        # 1. Thêm tin nhắn người dùng
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
+        # 2. Xử lý trả lời từ AI
         with st.chat_message("assistant"):
             if db:
-                # Tăng k lên 25 để quét sâu nhất có thể
-                docs = db.similarity_search(prompt, k=25)
-                
-                # Tạo trí nhớ ngữ cảnh
-                history = ""
-                for m in st.session_state.messages[-4:-1]:
-                    role = "Người dùng" if m["role"] == "user" else "AI"
-                    history += f"{role}: {m['content'][:150]}\n"
-
-                # Phân loại và ƯU TIÊN bài nghiên cứu
-                study_docs = []
-                general_docs = []
-                # Từ khóa để "nhặt" đúng các bài RCT, Giải mã của bạn
-                study_keywords = ["nghiên cứu", "giải mã", "rct", "meta", "khoa học", "chứng minh", "động mạch", "huyết áp"]
-
-                for d in docs:
-                    title = d.metadata.get('title', '').lower()
-                    if any(kw in title for kw in study_keywords):
-                        study_docs.append(d)
-                    else:
-                        general_docs.append(d)
-
-                # Ép AI đọc tài liệu nghiên cứu trước
-                final_docs = (study_docs + general_docs)[:12]
+                # Tìm kiếm tài liệu (k=5)
+                docs = db.similarity_search(prompt, k=5)
                 
                 context_parts = []
-                source_map = {} 
-                for d in final_docs:
+                source_map = {} # Lọc link trùng
+                
+                for i, d in enumerate(docs):
                     t = d.metadata.get('title', 'Tài liệu Yoga')
                     u = d.metadata.get('url', '#')
-                    context_parts.append(f"TIÊU ĐỀ: {t}\nNỘI DUNG: {d.page_content}")
-                    source_map[u] = t
+                    context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nURL: {u}\nNỘI DUNG: {d.page_content}")
+                    source_map[u] = t 
 
                 context_string = "\n\n".join(context_parts)
                 
-                sys_prompt = f"""Bạn là chuyên gia Yoga khoa học. Hãy trả lời dựa trên LỊCH SỬ và DỮ LIỆU NGUỒN.
-                LỊCH SỬ: {history}
-                NGUỒN: {context_string}
-                
-                QUY TẮC:
-                1. Trả lời trôi chảy, chuyên sâu nhưng ngắn gọn (dưới 100 từ).
-                2. Tuyệt đối KHÔNG ghi số thứ tự nguồn rác như (1, 2) hay [Nguồn].
-                3. Ưu tiên thông tin từ các bài 'Nghiên cứu' hoặc 'Giải mã'.
-                4. Nếu câu hỏi sau liên quan câu trước, hãy dựa vào Lịch sử để trả lời."""
+                # System Prompt: Ép AI tập trung vào nguồn
+                sys_prompt = (
+                    f"Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
+                    f"1. Trả lời NGẮN GỌN (tối đa 6-7 gạch đầu dòng, dưới 100 từ).\n"
+                    f"2. Đi thẳng vào trọng tâm chuyên môn.\n"
+                    f"3. Chỉ dùng thông tin có trong NGUỒN bên dưới.\n"
+                    f"4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.\n\n"
+                    f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
+                    f"CÂU HỎI: {prompt}"
+                )
 
+                # Gọi Gemini Flash
                 res_text = model.generate_content(sys_prompt).text
                 
-                # --- PHẦN QUAN TRỌNG: HIỂN THỊ LINK NGHIÊN CỨU ---
-                study_links = []
-                normal_links = []
+                # 3. Tạo phần Tài liệu tham khảo (Unique links)
+                links_html = "\n\n---\n**📚 Tài liệu tham khảo:**\n"
                 seen_urls = set()
-
+                count = 0
                 for url, title in source_map.items():
-                    if url != "#" and url not in seen_urls:
-                        link_md = f"- 🔗 [{title}]({url})"
-                        if any(kw in title.lower() for kw in study_keywords):
-                            study_links.append(link_md)
-                        else:
-                            normal_links.append(link_md)
+                    if url != "#" and url not in seen_urls and count < 3:
+                        links_html += f"- 🔗 [{title}]({url})\n"
                         seen_urls.add(url)
-
-                # Hiển thị: Luôn hiện link nghiên cứu trước, sau đó mới đến link thường
-                header = "\n\n---\n**🔬 BẰNG CHỨNG KHOA HỌC & NGHIÊN CỨU:**\n" if study_links else "\n\n---\n**📚 TÀI LIỆU THAM KHẢO:**\n"
-                # Lấy tất cả link nghiên cứu tìm được (tối đa 5) và bù thêm link thường cho đủ 5
-                final_display_links = (study_links + normal_links)[:5]
+                        count += 1
                 
-                final_res = res_text + header + "\n".join(final_display_links)
+                final_res = res_text + links_html
                 st.markdown(final_res)
                 
+                # 4. Lưu vào bộ nhớ và cập nhật lượt dùng
                 st.session_state.messages.append({"role": "assistant", "content": final_res})
+                
                 usage_db[user_key]["count"] += 1
                 save_usage_data(usage_db)
+                
+                # Rerun để cập nhật UI
                 st.rerun()
                 
 # FORM ĐĂNG NHẬP SONG SONG (BÁC CẦN CÁI NÀY)
