@@ -218,26 +218,35 @@ st.markdown(f"""
 # =====================================================
 can_chat = used < limit
 
-# --- QUẢNG CÁO (SỬ DỤNG INLINE STYLE ĐỂ ÉP HIỆN CHỮ) ---
+# --- QUẢNG CÁO (BẢN MÔNG MÁ - ĐẸP & CHUYÊN NGHIỆP) ---
 if not st.session_state.authenticated:
     st.markdown(f"""
-    <div style="position: fixed; bottom: 85px; left: 15px; right: 15px; 
-                background: linear-gradient(90deg, #fff3e0 0%, #ffe0b2 100%); 
-                border: 2px solid #ffcc80; border-radius: 12px; 
-                padding: 12px 15px; z-index: 99999; 
+    <div style="position: fixed; bottom: 80px; left: 15px; right: 15px; 
+                background: #fff5f0; 
+                border: 1px solid #ffccbc; border-radius: 15px; 
+                padding: 10px 15px; z-index: 99999; 
                 display: flex; align-items: center; justify-content: space-between;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 20px;">🎁</span>
-            <b style="color: #e65100 !important; font-family: sans-serif; font-size: 15px;">
-                Combo Thảm + Gạch Yoga giảm 30%!
-            </b>
+                box-shadow: 0 4px 15px rgba(255, 87, 34, 0.1);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="background: #ff7043; width: 32px; height: 32px; border-radius: 50%; 
+                        display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 16px;">🎁</span>
+            </div>
+            <div>
+                <div style="color: #bf360c !important; font-size: 13px; font-weight: bold; font-family: sans-serif;">
+                    Combo Thảm + Gạch Yoga
+                </div>
+                <div style="color: #ff7043 !important; font-size: 11px; font-family: sans-serif;">
+                    Giảm ngay 30% hôm nay!
+                </div>
+            </div>
         </div>
-        <a href="https://yogaismylife.vn/khuyen-mai" target="_blank" 
-           style="background-color: #e65100; color: white !important; 
-                  padding: 8px 15px; border-radius: 20px; 
-                  text-decoration: none; font-weight: bold; font-size: 13px;">
-            Xem ngay 👉
+        <a href="https://yogaismylife.vn/cua-hang/" target="_blank" 
+           style="background: #ff7043; color: white !important; 
+                  padding: 8px 15px; border-radius: 10px; 
+                  text-decoration: none; font-weight: bold; font-size: 12px;
+                  transition: all 0.3s; box-shadow: 0 2px 5px rgba(255, 112, 67, 0.3);">
+            Xem ngay
         </a>
     </div>
     """, unsafe_allow_html=True)
