@@ -342,7 +342,7 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                 # 3. KHỐI TRY/EXCEPT CŨNG PHẢI THẲNG HÀNG VỚI SYS_PROMPT
                 res_text = model.generate_content(sys_prompt).text
 
-                try:
+            try:
                 # Thêm vòng xoay chờ ở đây
                 with st.spinner("🧘 Chuyên gia đang suy ngẫm..."):
                     response = model.generate_content(sys_prompt)
