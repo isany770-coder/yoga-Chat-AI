@@ -15,31 +15,21 @@ st.set_page_config(
 # =====================================================
 st.markdown("""
 <style>
-    /* 1. Ép nền trắng và font chữ chuẩn */
+    /* =============================================
+       1. CẤU HÌNH CƠ BẢN (NỀN TRẮNG, ẨN HEADER)
+       ============================================= */
     [data-testid="stAppViewContainer"], .stApp, html, body {
         background-color: white !important;
         color: #212121 !important;
     }
     
-    /* 2. FIX MOBILE: Cố định thanh Input không bị trôi khi hiện bàn phím */
-    div[data-testid="stChatInput"] {
-        position: fixed !important;
-        bottom: 10px !important; /* Đẩy lên 1 tí để không chạm viền dưới iPhone */
-        left: 0;
-        right: 0;
-        z-index: 999999;
-        background-color: rgba(255,255,255,0.9) !important;
-        padding: 10px 1rem !important;
-        border-top: 1px solid #f0f0f0;
+    [data-testid="stToolbar"], header, footer, .stAppDeployButton {
+        display: none !important;
     }
 
-    /* 3. Tạo khoảng trống an toàn để không che nội dung cuối cùng */
-    .main .block-container {
-        padding-bottom: 150px !important; 
-        padding-top: 2rem !important;
-    }
-
-    /* 4. Thanh Progress Bar & Lượt dùng */
+    /* =============================================
+       2. THANH TIẾN TRÌNH (PROGRESS BAR)
+       ============================================= */
     .usage-bar-container {
         position: fixed; top: 0; left: 0; width: 100%; height: 5px;
         background-color: #f0f0f0; z-index: 1000000;
@@ -56,17 +46,65 @@ st.markdown("""
         border: 1px solid #0f988b; z-index: 1000001;
     }
 
-    /* 5. Ẩn các thành phần thừa của Streamlit */
-    [data-testid="stToolbar"], header, footer, .stAppDeployButton {
-        display: none !important;
+    /* =============================================
+       3. CHAT INPUT "NỔI" (FIX MOBILE CỰC MƯỢT)
+       ============================================= */
+    /* Khung chứa Input: Nổi lên, bo tròn, đổ bóng */
+    div[data-testid="stChatInput"] {
+        position: fixed !important;
+        bottom: calc(20px + env(safe-area-inset-bottom)) !important; /* Né thanh vuốt iPhone */
+        left: 10px !important;
+        right: 10px !important;
+        width: auto !important;
+        z-index: 999999;
+        background-color: white !important;
+        border-radius: 25px !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        padding: 5px !important;
+        border: 1px solid #f0f0f0;
     }
 
-    /* 6. Chỉnh Chat Message cho mượt trên Mobile */
-    div[data-testid="stChatMessage"] {
-        background-color: #f8f9fa !important; border-radius: 12px; 
-        padding: 8px !important; margin-bottom: 10px !important;
+    /* Ô nhập liệu: Font to chống zoom, nền xám nhạt */
+    textarea[data-testid="stChatInputTextArea"] {
+        font-size: 16px !important; /* Quan trọng: Chống iPhone tự zoom */
+        padding: 10px 15px !important;
+        background-color: #f8f9fa !important;
+        border-radius: 20px !important;
+        min-height: 45px !important; /* Đủ to để bấm */
     }
-    /* Fix nút Zalo chuẩn UI Streamlit và không dính lề */
+
+    /* Nút Gửi (Mũi tên): Xanh Teal, Tròn */
+    button[data-testid="stChatInputSubmit"] {
+        background-color: #0f988b !important;
+        border: none !important;
+        color: white !important;
+        border-radius: 50% !important;
+        padding: 5px !important;
+        right: 10px !important;
+        bottom: 8px !important;
+        pointer-events: auto !important; /* Fix lỗi phải ấn 2 lần */
+    }
+
+    /* =============================================
+       4. BỐ CỤC NỘI DUNG (TRÁNH BỊ CHE)
+       ============================================= */
+    .main .block-container {
+        padding-top: 3rem !important;
+        padding-bottom: 180px !important; /* Khoảng trống lớn ở đáy để không bị ô chat che */
+    }
+
+    div[data-testid="stChatMessage"] {
+        background-color: #f8f9fa !important; 
+        border-radius: 12px; 
+        padding: 10px !important; 
+        margin-bottom: 10px !important;
+        border: 1px solid #eee;
+    }
+
+    /* =============================================
+       5. NÚT ZALO & LOGIN (ĐỒNG BỘ 45PX)
+       ============================================= */
+    /* Nút Zalo */
     .zalo-btn {
         display: flex !important;
         align-items: center;
@@ -78,28 +116,22 @@ st.markdown("""
         border-radius: 8px;
         font-weight: 500;
         font-size: 14px;
-        height: 38.4px; /* Khớp tăm tắp với nút Submit của Streamlit */
+        height: 45px !important; /* Chiều cao chuẩn dễ bấm */
         text-decoration: none !important;
         box-sizing: border-box !important;
         margin: 0 !important;
+        transition: all 0.2s;
     }
     .zalo-btn:hover {
         background-color: #f0f9f8;
         border-color: #0f988b;
     }
 
-    /* Fix lỗi bàn phím Mobile và nhạy nút Send */
-    div[data-testid="stChatInput"] {
-        position: fixed !important;
-        bottom: calc(10px + env(safe-area-inset-bottom)) !important;
-        z-index: 10000;
-        padding-bottom: 5px !important;
-    }
-    
-    /* Ép khung chat-input nhạy hơn với cảm ứng */
-    button[data-testid="stChatInputSubmit"] {
-        pointer-events: auto !important;
-        cursor: pointer !important;
+    /* Nút Login của Streamlit (Ép cao bằng nút Zalo) */
+    div[data-testid="stForm"] button {
+        height: 45px !important;
+        border-radius: 8px !important;
+        font-weight: 500 !important;
     }
 </style>
 """, unsafe_allow_html=True)
