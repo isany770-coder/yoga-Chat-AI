@@ -15,21 +15,34 @@ st.set_page_config(
 # =====================================================
 st.markdown("""
 <style>
-    /* Ép nền trắng tuyệt đối */
+    /* 1. Ép nền trắng và font chữ chuẩn */
     [data-testid="stAppViewContainer"], .stApp, html, body {
         background-color: white !important;
         color: #212121 !important;
     }
     
-    /* Ẩn hoàn toàn Toolbar và Footer để nhúng Iframe cho đẹp */
-    [data-testid="stToolbar"], header, footer {
-        display: none !important;
+    /* 2. FIX MOBILE: Cố định thanh Input không bị trôi khi hiện bàn phím */
+    div[data-testid="stChatInput"] {
+        position: fixed !important;
+        bottom: 10px !important; /* Đẩy lên 1 tí để không chạm viền dưới iPhone */
+        left: 0;
+        right: 0;
+        z-index: 999999;
+        background-color: rgba(255,255,255,0.9) !important;
+        padding: 10px 1rem !important;
+        border-top: 1px solid #f0f0f0;
     }
 
-    /* THANH PROGRESS BAR CỐ ĐỊNH */
+    /* 3. Tạo khoảng trống an toàn để không che nội dung cuối cùng */
+    .main .block-container {
+        padding-bottom: 150px !important; 
+        padding-top: 2rem !important;
+    }
+
+    /* 4. Thanh Progress Bar & Lượt dùng */
     .usage-bar-container {
         position: fixed; top: 0; left: 0; width: 100%; height: 5px;
-        background-color: #f0f0f0; z-index: 999999;
+        background-color: #f0f0f0; z-index: 1000000;
     }
     .usage-bar-fill {
         height: 100%; 
@@ -37,26 +50,22 @@ st.markdown("""
         transition: width 0.5s ease-in-out;
     }
     .usage-text {
-        position: fixed; top: 10px; right: 20px; 
-        background: rgba(255,255,255,0.9); padding: 4px 12px; border-radius: 20px;
-        font-size: 11px; color: #333; font-weight: bold;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 999998;
+        position: fixed; top: 10px; right: 15px; 
+        background: rgba(15, 152, 139, 0.1); padding: 4px 12px; border-radius: 20px;
+        font-size: 11px; color: #0f988b; font-weight: bold;
+        border: 1px solid #0f988b; z-index: 1000001;
     }
 
-    /* CHAT UI */
+    /* 5. Ẩn các thành phần thừa của Streamlit */
+    [data-testid="stToolbar"], header, footer, .stAppDeployButton {
+        display: none !important;
+    }
+
+    /* 6. Chỉnh Chat Message cho mượt trên Mobile */
     div[data-testid="stChatMessage"] {
-        background-color: #f8f9fa !important; border-radius: 12px; padding: 10px; margin-top: 20px;
+        background-color: #f8f9fa !important; border-radius: 12px; 
+        padding: 8px !important; margin-bottom: 10px !important;
     }
-    
-    /* STYLE NÚT ZALO GIẢ LẬP NÚT STREAMLIT */
-    .zalo-btn {
-        display: block; width: 100%; background-color: white; 
-        color: #0f988b !important; border: 1px solid #0f988b;
-        padding: 8px 16px; border-radius: 8px; text-align: center; 
-        font-weight: 500; font-size: 14px; line-height: 1.6;
-        height: 38.5px; text-decoration: none !important; transition: all 0.3s;
-    }
-    .zalo-btn:hover { background-color: #f0f9f8; }
 </style>
 """, unsafe_allow_html=True)
 
