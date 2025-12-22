@@ -142,28 +142,24 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 6. HIỂN THỊ CHAT & XỬ LÝ TRẢ LỜI (NÂNG CẤP KHOA HỌC)
+# 6. HIỂN THỊ CHAT & XỬ LÝ TRẢ LỜI (BẢN FIX TRIỆT ĐỂ)
 # =====================================================
-# Hiển thị lịch sử chat
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# Kiểm tra lượt dùng
 can_chat = used < limit
 
 if can_chat:
     if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
-        # 1. Thêm tin nhắn người dùng vào bộ nhớ và hiển thị ngay
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # 2. Xử lý trả lời từ AI
         with st.chat_message("assistant"):
             if db:
-                # TĂNG k=10: Để lục tìm sâu hơn các bài nghiên cứu (RCT, Meta-analysis)
-                docs = db.similarity_search(prompt, k=10)
+                # Tăng lên k=15 để quét rộng nhất có thể trong 15 triệu từ
+                docs = db.similarity_search(prompt, k=15)
                 
                 context_parts = []
                 source_map = {} 
@@ -176,51 +172,51 @@ if can_chat:
 
                 context_string = "\n\n".join(context_parts)
                 
-                # PROMPT: Ép AI ưu tiên các bằng chứng nghiên cứu khoa học
-                sys_prompt = f"""Bạn là chuyên gia Yoga kiêm nhà nghiên cứu. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.
-                QUY TẮC:
-                1. Trả lời NGẮN GỌN (tối đa 5-6 gạch đầu dòng).
-                2. ƯU TIÊN dẫn chứng từ các bài 'Nghiên cứu', 'RCT', 'Meta-analysis' hoặc 'Giải mã' nếu có trong nguồn.
-                3. Chỉ dùng thông tin có trong NGUỒN. Tuyệt đối không tự bịa link.
+                sys_prompt = f"""Bạn là chuyên gia Yoga khoa học. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.
+                1. Trả lời NGẮN GỌN, súc tích (dưới 100 từ).
+                2. Nếu trong nguồn có bài 'Giải mã', 'Nghiên cứu', 'RCT' hãy ƯU TIÊN lấy thông tin từ đó.
+                3. Tuyệt đối không tự bịa link.
                 
                 DỮ LIỆU NGUỒN:
                 {context_string}
                 
                 CÂU HỎI: {prompt}"""
 
-                # Gọi Gemini Flash
                 res_text = model.generate_content(sys_prompt).text
                 
-                # 3. Tạo phần Tài liệu tham khảo (Ưu tiên đẩy bài nghiên cứu lên đầu)
-                study_links = ""
-                normal_links = ""
+                # --- PHẦN FIX: ÉP THỨ TỰ HIỂN THỊ LINK ---
+                study_links = []
+                normal_links = []
                 seen_urls = set()
-                count = 0
                 
-                # Phân loại link để hiển thị thông minh
+                # Từ khóa để nhận diện bài nghiên cứu của bác
+                keywords = ["nghiên cứu", "giải mã", "rct", "meta", "khoa học", "bằng chứng"]
+
                 for url, title in source_map.items():
-                    if url != "#" and url not in seen_urls and count < 5:
-                        link_item = f"- 🔗 [{title}]({url})\n"
-                        # Kiểm tra nếu tiêu đề có từ khóa nghiên cứu
-                        if any(kw in title.lower() for kw in ["nghiên cứu", "giải mã", "rct", "meta", "khoa học"]):
-                            study_links += link_item
+                    if url != "#" and url not in seen_urls:
+                        link_markdown = f"- 🔗 [{title}]({url})"
+                        
+                        # Kiểm tra xem tiêu đề bài viết có chứa từ khóa nghiên cứu không
+                        is_study = any(kw in title.lower() for kw in keywords)
+                        
+                        if is_study:
+                            study_links.append(link_markdown)
                         else:
-                            normal_links += link_item
+                            normal_links.append(link_markdown)
                         seen_urls.add(url)
-                        count += 1
+
+                # Chỉ lấy tối đa 5 link để tránh rối (Ưu tiên bài nghiên cứu lên trước)
+                top_links = (study_links + normal_links)[:5]
                 
-                # Gộp lại: Nghiên cứu hiện trước, bài thường hiện sau
-                header_links = "\n\n---\n**📚 Tài liệu tham khảo chuyên sâu:**\n"
-                final_res = res_text + header_links + study_links + normal_links
+                header_text = "\n\n---\n**📚 Tài liệu tham khảo chuyên sâu:**\n" if study_links else "\n\n---\n**📚 Tài liệu tham khảo:**\n"
+                links_html = header_text + "\n".join(top_links)
                 
+                final_res = res_text + links_html
                 st.markdown(final_res)
                 
-                # 4. Lưu vào bộ nhớ và cập nhật lượt dùng
                 st.session_state.messages.append({"role": "assistant", "content": final_res})
-                
                 usage_db[user_key]["count"] += 1
                 save_usage_data(usage_db)
-                
                 st.rerun()
 
 # FORM ĐĂNG NHẬP SONG SONG (BÁC CẦN CÁI NÀY)
