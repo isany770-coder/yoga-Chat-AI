@@ -66,35 +66,40 @@ st.markdown("""
         background-color: #f8f9fa !important; border-radius: 12px; 
         padding: 8px !important; margin-bottom: 10px !important;
     }
+    /* Fix nút Zalo chuẩn UI Streamlit và không dính lề */
     .zalo-btn {
-        display: flex !important; 
-        align-items: center; 
+        display: flex !important;
+        align-items: center;
         justify-content: center;
-        width: 100%; 
-        background-color: white; 
-        color: #0f988b !important; 
-        border: 1px solid #dcdfe3; 
-        border-radius: 8px; 
-        font-weight: 500; 
-        font-size: 14px; 
-        height: 40px; /* Tăng lên 40px cho chuẩn khớp với nút Streamlit mới */
-        text-decoration: none !important; 
-        margin: 0 !important; /* Xóa mọi margin thừa */
+        width: 100%;
+        background-color: white;
+        color: #0f988b !important;
+        border: 1px solid #dcdfe3;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 14px;
+        height: 38.4px; /* Khớp tăm tắp với nút Submit của Streamlit */
+        text-decoration: none !important;
         box-sizing: border-box !important;
+        margin: 0 !important;
     }
-    .zalo-btn:hover { 
-        background-color: #f0f9f8; 
+    .zalo-btn:hover {
+        background-color: #f0f9f8;
         border-color: #0f988b;
     }
-    /* Fix lỗi bàn phím mobile che khuất và bắt ấn 2 lần */
-    input[data-testid="stChatInputTextArea"] {
-        -webkit-user-select: text !important;
-        padding-bottom: 10px !important;
+
+    /* Fix lỗi bàn phím Mobile và nhạy nút Send */
+    div[data-testid="stChatInput"] {
+        position: fixed !important;
+        bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+        z-index: 10000;
+        padding-bottom: 5px !important;
     }
     
-    /* Ép khung chứa input không bị dịch chuyển khi mất focus */
-    div[data-testid="stChatInput"] {
-        transition: none !important; 
+    /* Ép khung chat-input nhạy hơn với cảm ứng */
+    button[data-testid="stChatInputSubmit"] {
+        pointer-events: auto !important;
+        cursor: pointer !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -270,21 +275,23 @@ if not st.session_state.authenticated:
     st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("🔐 Đăng nhập / Lấy thêm lượt (Dành cho Member)", expanded=not can_chat):
         with st.form("login_form"):
-            u = st.text_input("Tên đăng nhập")
-            p = st.text_input("Mật khẩu", type="password")
+            u = st.text_input("Tên đăng nhập", placeholder="Username")
+            p = st.text_input("Mật khẩu", type="password", placeholder="Password")
             
-            # Tạo khoảng cách giữa input và nút
-            st.markdown('<div style="margin-bottom: 10px;"></div>', unsafe_allow_html=True)
+            # Tạo khoảng trống nhẹ để nút không dính vào ô Password
+            st.write("") 
             
             c1, c2 = st.columns(2)
             with c1:
                 submit = st.form_submit_button("Đăng nhập", use_container_width=True)
             with c2:
-                # Ép nút Zalo nằm trong một div có chiều cao cố định để không dính lề
+                # Bọc trong div để kiểm soát margin tuyệt đối
                 st.markdown(f"""
-                    <a href="https://zalo.me/84963759566" target="_blank" style="text-decoration: none; display: block;">
-                        <div class="zalo-btn">💬 Lấy TK Zalo</div>
-                    </a>
+                    <div style="margin-top: 0px;">
+                        <a href="https://zalo.me/84963759566" target="_blank" style="text-decoration: none;">
+                            <div class="zalo-btn">💬 Lấy TK Zalo</div>
+                        </a>
+                    </div>
                 """, unsafe_allow_html=True)
 
             if submit:
