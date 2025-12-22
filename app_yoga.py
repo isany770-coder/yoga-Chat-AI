@@ -336,7 +336,7 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
 
     with st.chat_message("assistant"):
         if db:
-            # Tăng k=7 để quét rộng hơn, dễ tìm thấy các bài RCT/Meta nằm sâu
+            # Tăng k=7 để AI quét sâu hơn vào kho 15 triệu từ, tìm đúng các bài RCT/Meta
             docs = db.similarity_search(prompt, k=7)
             source_map = {}
             context_parts = []
@@ -344,7 +344,7 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
             for i, d in enumerate(docs):
                 u = d.metadata.get('url', '#')
                 t = d.metadata.get('title', 'Tài liệu')
-                # Dán nhãn để AI biết bài nào là nghiên cứu
+                # Dán nhãn để AI thấy mối liên hệ giữa kiến thức và Link
                 context_parts.append(f"--- NGUỒN {i+1} ---\nTIÊU ĐỀ: {t}\nLINK: {u}\nNỘI DUNG: {d.page_content}")
                 source_map[u] = t
             
@@ -352,45 +352,49 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
             
             sys_prompt = (
                 f"Bạn là chuyên gia Yoga Y khoa. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
-                f"1. ƯU TIÊN CAO NHẤT: Nếu trong nguồn có các nghiên cứu RCT, Meta-analysis hoặc bằng chứng lâm sàng, hãy trình bày chúng lên đầu.\n"
-                f"2. Trình bày bằng GẠCH ĐẦU DÒNG, rõ ràng, dễ đọc.\n"
+                f"1. ƯU TIÊN CAO NHẤT: Trích dẫn các nghiên cứu RCT, Meta-analysis hoặc bằng chứng lâm sàng nếu có trong nguồn.\n"
+                f"2. Trình bày bằng GẠCH ĐẦU DÒNG, ngôn ngữ chuyên nghiệp, súc tích.\n"
                 f"3. Cuối bài, trích xuất đúng Link URL của bài viết bạn đã dùng theo cú pháp: 'LINK_CHỌN: [Dán URL]'.\n\n"
                 f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
                 f"CÂU HỎI: {prompt}"
             )
             
             try:
-                with st.spinner("🧘 Chuyên gia đang phân tích dữ liệu nghiên cứu..."):
+                with st.spinner("🧘 Chuyên gia đang phân tích bằng chứng khoa học..."):
                     response = model.generate_content(sys_prompt)
                     res_text = response.text
                 
                 import re
+                # Bốc link AI chọn
                 found_links = re.findall(r'LINK_CHỌN:\s*(https?://[^\s\n]+)', res_text)
+                # Dọn dẹp dòng LINK_CHỌN trong văn bản hiện ra
                 clean_res = re.sub(r'LINK_CHỌN:.*', '', res_text).strip()
 
                 links_html = ""
-                # Lấy link AI chọn, nếu không thấy thì lấy 2 link đầu từ kết quả tìm kiếm cho chắc
+                # Chỉ lấy link nằm trong danh sách bài viết thực tế của bác
                 final_links = list(set([l for l in found_links if l in source_map]))
+                
+                # Nếu AI quên không ghi LINK_CHỌN, ta lấy 2 bài liên quan nhất hiện ra cho khách
                 if not final_links and source_map:
                     final_links = list(source_map.keys())[:2]
 
                 if final_links:
-                    links_html += "<br><hr><b>📚 Bằng chứng khoa học liên quan:</b><ul style='list-style:none;padding:0'>"
+                    links_html += "<br><hr><b>📚 Bằng chứng y khoa & Nghiên cứu liên quan:</b><ul style='list-style:none;padding:0'>"
                     for url in final_links:
-                        title = source_map.get(url, "Xem chi tiết nghiên cứu")
+                        title = source_map.get(url, "Xem chi tiết bài viết")
                         links_html += f"<li style='margin-bottom:5px'>🔗 <a href='{url}' target='_blank' style='color:#0f988b;text-decoration:none;font-weight:600'>{title}</a></li>"
                     links_html += "</ul>"
                 
-                # FIX LỖI: Tạo biến final_res ở đây
-                final_res_to_display = clean_res + links_html
-                st.markdown(final_res_to_display, unsafe_allow_html=True)
+                # CHỖ NÀY LÀ FIX LỖI: Gom tất cả vào một biến duy nhất để hiển thị và lưu
+                full_assistant_content = clean_res + links_html
+                st.markdown(full_assistant_content, unsafe_allow_html=True)
                 
-                # Lưu vào lịch sử
-                db_data[user_key]["history"].append({"role": "assistant", "content": final_res_to_display})
+                # Lưu vào lịch sử chuẩn xác
+                db_data[user_key]["history"].append({"role": "assistant", "content": full_assistant_content})
                 save_data(db_data)
                 
             except Exception as e:
-                st.error(f"Lỗi hệ thống: {e}")
+                st.error(f"AI đang điều chỉnh dữ liệu nghiên cứu, bác đợi xíu nhé: {e}")
 
 # =====================================================
 # 6. LOGIN FORM
