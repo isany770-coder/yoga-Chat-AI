@@ -19,81 +19,127 @@ st.set_page_config(
 )
 
 # =====================================================
-# 2. CSS GIAO DIỆN (ĐÃ TỐI ƯU HIỂN THỊ QUẢNG CÁO)
+# 2. CSS GIAO DIỆN (ĐÃ FIX LỖI MẤT CHỮ QUẢNG CÁO)
 # =====================================================
 st.markdown("""
 <style>
-    /* Nền trắng chữ đen cho hệ thống */
-    [data-testid="stAppViewContainer"], .stApp {
+    /* Reset nền trắng & chữ đen */
+    [data-testid="stAppViewContainer"], .stApp, html, body {
         background-color: white !important;
+        color: #31333F !important;
+    }
+    /* Ép màu chung (nhưng chừa thằng quảng cáo ra) */
+    p, h1, h2, h3, h4, h5, h6, label, li {
         color: #31333F !important;
     }
     
-    /* CHỈ ép màu đen cho chữ trong khung Chat */
-    div[data-testid="stChatMessage"] p {
-        color: #31333F !important;
-    }
-
-    /* Ẩn toolbar/header của Streamlit */
-    [data-testid="stToolbar"], header, footer {
+    /* Ẩn header mặc định */
+    [data-testid="stToolbar"], header, footer, .stAppDeployButton {
         display: none !important;
     }
 
-    /* --- CSS QUẢNG CÁO (FIX LỖI MẤT CHỮ) --- */
-    .ad-banner {
-        position: fixed;
-        bottom: 85px; left: 15px; right: 15px;
-        background: linear-gradient(90deg, #fff3e0 0%, #ffe0b2 100%) !important;
-        border: 2px solid #ffcc80 !important;
-        border-radius: 12px;
-        padding: 12px 15px;
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-
-    .ad-content {
-        color: #e65100 !important; /* Ép màu cam đậm cho chữ quảng cáo */
-        font-weight: 800 !important;
-        font-size: 15px !important;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .ad-btn {
-        background-color: #e65100 !important;
-        color: white !important;
-        padding: 8px 18px;
-        border-radius: 25px;
-        text-decoration: none !important;
-        font-weight: bold !important;
-        font-size: 13px !important;
-    }
-
-    /* Input Chat nổi */
+    /* THANH CHAT INPUT (NỔI) */
     div[data-testid="stChatInput"] {
         position: fixed !important;
         bottom: 20px !important;
-        z-index: 10000;
+        left: 10px !important;
+        right: 10px !important;
+        width: auto !important;
+        z-index: 999999;
         background-color: white !important;
+        border-radius: 25px !important;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        padding: 5px !important;
+        border: 1px solid #e0e0e0;
+        transition: bottom 0.3s ease;
+    }
+    
+    textarea[data-testid="stChatInputTextArea"] {
+        font-size: 16px !important;
+        color: #333333 !important;
+        background-color: #f0f2f6 !important;
+        border-radius: 20px !important;
     }
 
-    .usage-bar-container { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background: #f0f0f0; z-index: 10001; }
-    .usage-bar-fill { height: 100%; background: #0f988b; }
-    .usage-text { position: fixed; top: 10px; right: 15px; background: white; padding: 2px 10px; border-radius: 10px; font-size: 11px; color: #0f988b; font-weight: bold; border: 1px solid #0f988b; z-index: 10001; }
+    /* FIX LỖI BÀN PHÍM CHE INPUT */
+    @media (max-height: 500px) {
+        div[data-testid="stChatInput"] {
+            bottom: 0px !important;
+            border-radius: 0 !important;
+            border-bottom: none !important;
+        }
+        .ad-banner { display: none !important; } /* Ẩn quảng cáo khi gõ phím */
+        .usage-bar-container, .usage-text { display: none !important; }
+    }
 
-    .main .block-container { padding-bottom: 220px !important; }
+    /* --- CSS QUẢNG CÁO (FIX MẠNH MẼ) --- */
+    .ad-banner {
+        position: fixed;
+        bottom: 85px;
+        left: 15px;
+        right: 15px;
+        background: linear-gradient(90deg, #fff3e0 0%, #ffe0b2 100%);
+        border: 1px solid #ffcc80;
+        border-radius: 12px;
+        padding: 10px 15px;
+        z-index: 999990;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        animation: slideUp 0.5s ease-out;
+    }
+    
+    /* Ép màu chữ cam đậm cho nội dung quảng cáo */
+    .ad-content, .ad-content span {
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        color: #e65100 !important; /* Màu cam đậm */
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .ad-btn {
+        background: #e65100;
+        color: white !important;
+        padding: 6px 15px;
+        border-radius: 20px;
+        font-size: 12px;
+        text-decoration: none;
+        font-weight: bold;
+        white-space: nowrap;
+        box-shadow: 0 2px 5px rgba(230, 81, 0, 0.3);
+    }
+
+    /* Animation */
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* CÁC THÀNH PHẦN KHÁC */
+    .main .block-container { padding-top: 3rem !important; padding-bottom: 250px !important; }
+    div[data-testid="stChatMessage"] { background-color: #f8f9fa !important; border: 1px solid #eee; }
+    div[data-testid="stChatMessage"][data-test-role="user"] { background-color: #e3f2fd !important; }
+    
+    .usage-bar-container { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background-color: #f0f0f0; z-index: 1000000; }
+    .usage-bar-fill { height: 100%; background: linear-gradient(90deg, #0f988b 0%, #14b8a6 100%); }
+    .usage-text { position: fixed; top: 10px; right: 15px; background: rgba(255,255,255,0.9); padding: 4px 12px; border-radius: 20px; font-size: 11px; color: #0f988b !important; font-weight: bold; border: 1px solid #0f988b; z-index: 1000001; }
+
+    .zalo-btn { display: flex !important; align-items: center; justify-content: center; width: 100%; background-color: white; color: #0f988b !important; border: 1px solid #dcdfe3; border-radius: 8px; font-weight: 500; font-size: 14px; height: 45px !important; text-decoration: none !important; margin: 0 !important; }
+    div[data-testid="stForm"] button { height: 45px !important; border-radius: 8px !important; font-weight: 500 !important; color: #31333F !important; }
+
+    /* MODAL HẾT LƯỢT */
+    .limit-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); z-index: 2147483647 !important; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+    .limit-box { background: white; padding: 40px; border-radius: 25px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; max-width: 90%; width: 400px; border: 2px solid #0f988b; }
+    .limit-btn { background: linear-gradient(135deg, #0f988b, #14b8a6); color: white !important; padding: 12px 35px; border-radius: 50px; text-decoration: none; font-weight: bold; display: inline-block; margin-top: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 3. KẾT NỐI API & DATABASE (GIỮ NGUYÊN)
+# 3. KẾT NỐI API & GOOGLE DRIVE
 # =====================================================
 FILE_ID_DRIVE = "1vOvvanNvDaLwP8Xs4nn1UhkciRvTxzyA"
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
+OUTPUT_ZIP = "/tmp/bo_nao_vector.zip"
 EXTRACT_PATH = "/tmp/bo_nao_vector"
 
 try:
@@ -107,25 +153,36 @@ except:
 def load_brain():
     if not os.path.exists(EXTRACT_PATH):
         try:
-            output_zip = "/tmp/data.zip"
-            gdown.download(URL_DRIVE, output_zip, quiet=True)
-            with zipfile.ZipFile(output_zip, 'r') as z:
-                z.extractall("/tmp/")
-        except: return None, None
+            gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=True)
+            with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zip_ref:
+                zip_ref.extractall("/tmp/")
+            if os.path.exists(OUTPUT_ZIP):
+                os.remove(OUTPUT_ZIP)
+        except:
+            return None, None
+    
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         db = FAISS.load_local(EXTRACT_PATH, embeddings, allow_dangerous_deserialization=True)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-flash-latest')
         return db, model
-    except: return None, None
+    except:
+        return None, None
 
 db, model = load_brain()
 
-# Quản lý Database
-USAGE_DB_FILE = "/tmp/usage_db.json"
+# =====================================================
+# 4. QUẢN LÝ DATABASE
+# =====================================================
+USAGE_DB_FILE = "/tmp/usage_history_db.json"
+DAILY_LIMIT = 25
+TRIAL_LIMIT = 10
+
 def get_data():
     if not os.path.exists(USAGE_DB_FILE): return {}
-    with open(USAGE_DB_FILE, "r") as f: return json.load(f)
+    try:
+        with open(USAGE_DB_FILE, "r") as f: return json.load(f)
+    except: return {}
 
 def save_data(data):
     with open(USAGE_DB_FILE, "w") as f: json.dump(data, f)
@@ -134,83 +191,154 @@ if "authenticated" not in st.session_state: st.session_state.authenticated = Fal
 if "username" not in st.session_state: st.session_state.username = ""
 
 user_key = st.session_state.username if st.session_state.authenticated else "anonymous_guest"
-db_data = get_data()
 today = str(datetime.date.today())
+db_data = get_data()
 
 if user_key not in db_data or db_data[user_key].get("date") != today:
-    db_data[user_key] = {"date": today, "count": 0, "history": []}
+    db_data[user_key] = {
+        "date": today,
+        "count": 0,
+        "history": [{"role":"assistant","content":"Namaste! 🙏 Thật vui được gặp bạn. Hôm nay chúng ta sẽ bắt đầu từ đâu?"}]
+    }
+    save_data(db_data)
 
-used = db_data[user_key]["count"]
-limit = 25 if st.session_state.authenticated else 10
 st.session_state.messages = db_data[user_key]["history"]
+used = db_data[user_key]["count"]
+limit = DAILY_LIMIT if st.session_state.authenticated else TRIAL_LIMIT
+percent = min(100, int((used / limit) * 100))
 
-# Thanh tiến trình lượt dùng
-st.markdown(f'<div class="usage-bar-container"><div class="usage-bar-fill" style="width:{(used/limit)*100}%;"></div></div><div class="usage-text">⚡ {used}/{limit}</div>', unsafe_allow_html=True)
+# Thanh tiến trình
+st.markdown(f"""
+    <div class="usage-bar-container"><div class="usage-bar-fill" style="width: {percent}%;"></div></div>
+    <div class="usage-text">⚡ Lượt dùng: {used}/{limit}</div>
+""", unsafe_allow_html=True)
 
 # =====================================================
-# 4. HIỂN THỊ QUẢNG CÁO & CHAT
+# 5. HIỂN THỊ CHAT, QUẢNG CÁO & ADMIN
 # =====================================================
+can_chat = used < limit
 
-# Quảng cáo hiện khi chưa đăng nhập
+# --- QUẢNG CÁO (HIỆN NẾU CHƯA LOGIN) ---
 if not st.session_state.authenticated:
     st.markdown("""
-    <div class="ad-banner">
+    <div class="ad-banner" id="promo-banner">
         <div class="ad-content">
-            <span>🎁</span> Combo Thảm + Gạch Yoga giảm 30%!
+            <span>🎁</span>
+            <span>Combo Thảm + Gạch Yoga giảm 30%!</span>
         </div>
         <a href="https://yogaismylife.vn/khuyen-mai" target="_blank" class="ad-btn">Xem ngay 👉</a>
     </div>
     """, unsafe_allow_html=True)
 
-# Hiển thị lịch sử chat
+# --- ADMIN VIEW ---
+if st.session_state.authenticated and st.session_state.username == "admin":
+    st.info("🕵️ **CHẾ ĐỘ ADMIN: SOI LOG CHAT**")
+    if st.button("🔄 Cập nhật Log"):
+        st.rerun()
+    if "anonymous_guest" in db_data:
+        anon_hist = db_data["anonymous_guest"]["history"]
+        with st.expander(f"👥 Khách vãng lai ({len(anon_hist)} tin nhắn)", expanded=True):
+            for msg in reversed(anon_hist):
+                if msg['role'] == 'user':
+                    st.write(f"👤 **Khách:** {msg['content']}")
+                else:
+                    st.caption(f"🤖 AI: {msg['content'][:50]}...")
+                st.divider()
+
+# --- CHAT HISTORY ---
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"], unsafe_allow_html=True)
 
-# Xử lý Chat Input
-if used < limit:
-    if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
-        db_data[user_key]["count"] += 1
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        
-        with st.chat_message("user"):
-            st.markdown(prompt)
+# --- MODAL HẾT LƯỢT ---
+if not can_chat:
+    st.markdown(f"""
+    <div class="limit-modal"><div class="limit-box"><div style="font-size:50px;margin-bottom:10px">🧘‍♀️</div>
+    <div style="font-size:20px;font-weight:bold;color:#ff6b6b">Đã hết năng lượng!</div>
+    <p style="color:#555;margin:15px 0">Bạn đã dùng hết {limit} câu hỏi miễn phí hôm nay.</p>
+    <a href="https://zalo.me/84963759566" target="_blank" class="limit-btn">💬 Liên hệ Admin ngay</a></div></div>
+    """, unsafe_allow_html=True)
+    st.stop()
 
-        with st.chat_message("assistant"):
-            if db:
-                docs = db.similarity_search(prompt, k=3)
-                context = "\n".join([d.page_content for d in docs])
-                
-                # System Prompt: (Giữ nguyên theo ý bác)
-            sys_prompt = (
-                f"Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
-                f"1. Trả lời NGẮN GỌN (tối đa 6-7 gạch đầu dòng, dưới 100 từ).\n"
-                f"2. Đi thẳng vào trọng tâm chuyên môn.\n"
-                f"3. Chỉ dùng thông tin có trong NGUỒN bên dưới.\n"
-                f"4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.\n\n"
-                f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
-                f"CÂU HỎI: {prompt}"
-            )
-                
-                try:
-                    response = model.generate_content(sys_prompt).text
-                    st.markdown(response)
-                    st.session_state.messages.append({"role": "assistant", "content": response})
-                    db_data[user_key]["history"] = st.session_state.messages
-                    save_data(db_data)
-                    st.rerun()
-                except:
-                    st.error("Lỗi kết nối AI.")
-else:
-    st.warning("Bạn đã hết lượt dùng hôm nay. Vui lòng đăng nhập để nhận thêm!")
+# --- INPUT & XỬ LÝ ---
+if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
+    db_data[user_key]["count"] += 1
+    db_data[user_key]["history"].append({"role": "user", "content": prompt})
+    save_data(db_data)
+    
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-# Form đăng nhập cuối trang
-if not st.session_state.authenticated:
-    with st.expander("🔐 Đăng nhập Member"):
-        u = st.text_input("Username")
-        p = st.text_input("Password", type="password")
-        if st.button("Xác nhận"):
-            if u == "admin" and p == "yoga888":
-                st.session_state.authenticated = True
-                st.session_state.username = u
+    with st.chat_message("assistant"):
+        if db:
+            docs = db.similarity_search(prompt, k=4)
+            source_map = {}
+            context_parts = []
+            
+            for i, d in enumerate(docs):
+                u = d.metadata.get('url', '#')
+                t = d.metadata.get('title', 'Tài liệu')
+                context_parts.append(d.page_content)
+                source_map[u] = t
+            
+            sys_prompt = f"Bạn là chuyên gia Yoga. Dựa vào nguồn: {' '.join(context_parts)}. Trả lời câu hỏi: {prompt}. Ngắn gọn dưới 100 từ. Không bịa link."
+            
+            try:
+                res_text = model.generate_content(sys_prompt).text
+                
+                links_html = ""
+                if source_map:
+                    links_html += "<br><hr><b>📚 Tài liệu tham khảo:</b><ul style='list-style:none;padding:0'>"
+                    seen_urls = set()
+                    count = 0
+                    for url, title in source_map.items():
+                        if url != "#" and url not in seen_urls and count < 3:
+                            links_html += f"<li style='margin-bottom:5px'>🔗 <a href='{url}' target='_blank' style='color:#0f988b;text-decoration:none;font-weight:500'>{title}</a></li>"
+                            seen_urls.add(url)
+                            count += 1
+                    links_html += "</ul>"
+                
+                final_res = res_text + links_html
+                st.markdown(final_res, unsafe_allow_html=True)
+                
+                db_data[user_key]["history"].append({"role": "assistant", "content": final_res})
+                save_data(db_data)
                 st.rerun()
+            except:
+                st.error("AI đang thở gấp...")
+
+# =====================================================
+# 6. LOGIN FORM
+# =====================================================
+if not st.session_state.authenticated:
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander("🔐 Đăng nhập / Lấy thêm lượt (Dành cho Member)", expanded=not can_chat):
+        with st.form("login_form"):
+            u = st.text_input("Tên đăng nhập", placeholder="Username")
+            p = st.text_input("Mật khẩu", type="password", placeholder="Password")
+            
+            st.write("")
+            c1, c2 = st.columns(2)
+            with c1:
+                submit = st.form_submit_button("Đăng nhập", use_container_width=True)
+            with c2:
+                st.markdown(f"""<div style="margin-top:0px;"><a href="https://zalo.me/84963759566" target="_blank" style="text-decoration:none;"><div class="zalo-btn">💬 Lấy TK Zalo</div></a></div>""", unsafe_allow_html=True)
+
+            if submit:
+                if u == "admin" and p == "yoga888":
+                    st.session_state.authenticated = True
+                    st.session_state.username = u
+                    st.rerun()
+                else:
+                    try:
+                        if st.secrets["passwords"].get(u) == p:
+                            st.session_state.authenticated = True
+                            st.session_state.username = u
+                            st.rerun()
+                        else:
+                            st.error("Sai mật khẩu rồi bác ơi!")
+                    except:
+                        st.error("Chưa cấu hình mật khẩu user!")
+
+    st.markdown("<div style='height: 250px; display: block;'></div>", unsafe_allow_html=True)
