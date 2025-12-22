@@ -303,7 +303,10 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                 context_parts.append(d.page_content)
                 source_map[u] = t
             
-            # System Prompt: (Giữ nguyên theo ý bác)
+            # 1. PHẢI CÓ DÒNG NÀY ĐỂ TẠO DỮ LIỆU NGUỒN
+            context_string = "\n\n".join(context_parts)
+            
+            # 2. CĂN THẲNG HÀNG TỪ ĐẦU ĐẾN CUỐI
             sys_prompt = (
                 f"Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
                 f"1. Trả lời NGẮN GỌN (tối đa 6-7 gạch đầu dòng, dưới 100 từ).\n"
@@ -311,8 +314,11 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
                 f"3. Chỉ dùng thông tin có trong NGUỒN bên dưới.\n"
                 f"4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.\n\n"
                 f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
-              
+                f"CÂU HỎI: {prompt}"
+            )
+            
             try:
+                # 3. KHỐI TRY/EXCEPT CŨNG PHẢI THẲNG HÀNG VỚI SYS_PROMPT
                 res_text = model.generate_content(sys_prompt).text
                 
                 links_html = ""
