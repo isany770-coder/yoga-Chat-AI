@@ -25,7 +25,7 @@ YOGA_SOLUTIONS = {
     "AI_COACH": {
         "name": "🤖 Gặp AI Coach 1:1",
         "url": "https://yogaismylife.vn/kiem-tra-tu-the-yoga/",
-        "trigger": ["đau", "chấn thương", "mỏi", "bệnh", "trị liệu", "tư vấn riêng", "khó quá", "không tập được", "thoát vị", "đau gối", "lưng", "cổ", "vai"]
+        "trigger": ["đau", "chấn thương", "mỏi", "bệnh", "trị liệu", "tư vấn riêng", "khó quá", "không tập được", "thoát vị", "đau gối", "lưng", "cổ", "vai", "xương khớp"]
     },
     "APP_THIEN_THO": {
         "name": "🧘 App Thiền & Hít Thở",
@@ -82,8 +82,8 @@ st.markdown("""
 # =====================================================
 FILE_ID_DRIVE = "13z82kBBd8QwpCvUqGysD9DXI8Xurvtq9" 
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
-OUTPUT_ZIP = "/tmp/brain_v6_final.zip"
-EXTRACT_PATH = "/tmp/brain_v6_final"
+OUTPUT_ZIP = "/tmp/brain_v7_final.zip"
+EXTRACT_PATH = "/tmp/brain_v7_final"
 
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
@@ -140,7 +140,7 @@ def get_remote_ip():
     return "guest_unknown"
 
 # =====================================================
-# 5. QUẢN LÝ USER & DATA (ĐÃ SỬA LỖI SYNTAX Ở ĐÂY)
+# 5. QUẢN LÝ USER & DATA (ĐÃ SỬA LỖI SYNTAX TRIỆT ĐỂ)
 # =====================================================
 USAGE_DB_FILE = "/tmp/usage_history_db.json"
 DAILY_LIMIT = 25
@@ -167,7 +167,7 @@ today = str(datetime.date.today())
 db_data = get_data()
 
 if user_key not in db_data or db_data[user_key].get("date") != today:
-    db_data[user_key] = {"date": today, "count": 0, "history": [{"role":"assistant","content":"Namaste! 🙏 Tôi là Trợ lý Yoga AI chuyên sâu. Bác cần tư vấn gì hôm nay?"}]}
+    db_data[user_key] = {"date": today, "count": 0, "history": [{"role":"assistant","content":"Namaste! 🙏 Tôi là Trợ lý Yoga AI. Bác cần tư vấn gì hôm nay?"}]}
     save_data(db_data)
 
 st.session_state.messages = db_data[user_key]["history"]
@@ -203,7 +203,7 @@ def get_recommended_solutions(user_query):
 if not st.session_state.authenticated:
     st.markdown(f"""<div style="position: fixed; bottom: 80px; left: 15px; right: 15px; background: #fff5f0; border: 1px solid #ffccbc; border-radius: 15px; padding: 10px 15px; z-index: 99999; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 15px rgba(255, 87, 34, 0.1);"><div style="display: flex; align-items: center; gap: 10px;"><div style="background: #ff7043; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;"><span style="font-size: 16px;">🎁</span></div><div><div style="color: #bf360c !important; font-size: 13px; font-weight: bold;">Combo Thảm & Freeship!!</div><div style="color: #ff7043 !important; font-size: 11px;">Giảm ngay 30% hôm nay!</div></div></div><a href="https://yogaismylife.vn/cua-hang/" target="_blank" style="background: #ff7043; color: white !important; padding: 8px 15px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 12px; box-shadow: 0 2px 5px rgba(255, 112, 67, 0.3);">Xem ngay</a></div>""", unsafe_allow_html=True)
 
-# HIỂN THỊ LỊCH SỬ CHAT (Đảm bảo không bị mất link cũ)
+# HIỂN THỊ LỊCH SỬ CHAT
 for m in st.session_state.messages:
     with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
@@ -217,24 +217,55 @@ if not can_chat:
 # XỬ LÝ CHAT
 if prompt := st.chat_input("Hỏi tôi về Yoga..."):
     db_data[user_key]["count"] += 1
-    # Chỉ lưu câu hỏi người dùng tạm thời
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
 
     with st.chat_message("assistant"):
         if db:
-            # 1. Tìm kiếm SÂU (30 kết quả)
-            docs = db.similarity_search(prompt, k=30)
+            # 1. VÉT CẠN ĐÁY KHO (50 KẾT QUẢ)
+            docs = db.similarity_search(prompt, k=50)
             
-            # 2. Lọc & Sắp xếp
-            science_docs = [d for d in docs if d.metadata.get('type') == 'science']
-            qa_docs = [d for d in docs if d.metadata.get('type') == 'qa']
-            blog_docs = [d for d in docs if d.metadata.get('type') == 'blog']
+            # 2. LOGIC LỌC MỚI: ƯU TIÊN TỪ KHÓA KHỚP
+            science_docs = []
+            qa_docs = []
+            blog_docs = []
             
-            # Ưu tiên Science tuyệt đối
-            final_docs = science_docs + qa_docs[:4] + blog_docs[:4]
-            final_docs = final_docs[:8] # Lấy 8 cái tốt nhất
+            prompt_keywords = prompt.lower().split()
+            important_keywords = [w for w in prompt_keywords if len(w) > 3] # Lấy từ khóa chính
+
+            for d in docs:
+                dtype = d.metadata.get('type', 'general')
+                title = d.metadata.get('title', '').lower()
+                
+                # Tính điểm khớp tiêu đề
+                match_score = sum(1 for w in important_keywords if w in title)
+                
+                if dtype == 'science': 
+                    science_docs.append((match_score, d))
+                elif dtype == 'qa': 
+                    qa_docs.append((match_score, d))
+                else: 
+                    blog_docs.append((match_score, d))
             
+            # Sắp xếp theo độ khớp từ khóa giảm dần, sau đó mới đến thứ tự tìm kiếm
+            science_docs.sort(key=lambda x: x[0], reverse=True)
+            qa_docs.sort(key=lambda x: x[0], reverse=True)
+            blog_docs.sort(key=lambda x: x[0], reverse=True)
+
+            # Lấy docs ra từ tuple
+            final_science = [x[1] for x in science_docs]
+            final_qa = [x[1] for x in qa_docs]
+            final_blog = [x[1] for x in blog_docs]
+
+            # Ưu tiên lấy những bài khớp từ khóa nhất
+            final_docs = final_science[:3] + final_qa[:3] + final_blog[:4]
+            
+            # Debug: Cho bác xem nó tìm thấy gì (Bấm vào để xem)
+            with st.expander("🔍 Soi dữ liệu tìm thấy (Debug)"):
+                st.write(f"Tìm thấy: {len(science_docs)} Nghiên cứu, {len(blog_docs)} Bài viết.")
+                for d in final_docs:
+                    st.caption(f"- [{d.metadata.get('type').upper()}] {d.metadata.get('title')}")
+
             context_parts = []
             source_map = {}
             has_science = False
@@ -257,7 +288,6 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
                     source_map[url] = {"title": title, "type": dtype}
             
             full_context = "\n\n".join(context_parts)
-            
             solutions = get_recommended_solutions(prompt)
             sol_context = ""
             if solutions:
@@ -272,8 +302,8 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
             {sol_context}
 
             YÊU CẦU:
-            1. KHÔNG VIẾT HOA TOÀN BỘ TIÊU ĐỀ. Dùng chữ thường (Sentence case).
-            2. Ngắn gọn, súc tích (150 từ).
+            1. KHÔNG VIẾT HOA TOÀN BỘ TIÊU ĐỀ. Dùng chữ thường.
+            2. Ngắn gọn (150 từ).
             3. {sci_instruct}
             4. Luôn nhắc an toàn.
 
@@ -285,16 +315,12 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
                     response = model.generate_content(sys_prompt)
                     res_text = response.text
                 
-                # --- TẠO NỘI DUNG HTML ĐẦY ĐỦ ĐỂ LƯU VÀO HISTORY ---
                 full_html_content = res_text
-                
-                # Thêm Solutions vào HTML lưu
                 if solutions:
                     full_html_content += "<hr>"
                     for sol in solutions:
                         full_html_content += f"""<div class="solution-card"><div class="solution-text">{sol['name']}</div><a href="{sol['url']}" target="_blank" class="solution-btn">Sử dụng ngay 🚀</a></div>"""
                 
-                # Thêm Link nguồn vào HTML lưu
                 if source_map:
                     sorted_urls = sorted(source_map.items(), key=lambda x: 0 if x[1]['type']=='science' else 1 if x[1]['type']=='qa' else 2)
                     links_html = "<div class='source-box'><strong>📚 Nguồn tham khảo uy tín:</strong><div style='margin-top:8px'>"
@@ -307,12 +333,10 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
                     links_html += "</div></div>"
                     full_html_content += links_html
                 
-                # HIỂN THỊ NGAY
                 st.markdown(full_html_content, unsafe_allow_html=True)
                 
-                # LƯU VÀO HISTORY (FULL HTML) -> ĐỂ KHÔNG BỊ MẤT KHI RELOAD
-                db_data[user_key]["history"].append({"role": "user", "content": prompt}) # Lưu câu user
-                db_data[user_key]["history"].append({"role": "assistant", "content": full_html_content}) # Lưu câu AI full
+                db_data[user_key]["history"].append({"role": "user", "content": prompt})
+                db_data[user_key]["history"].append({"role": "assistant", "content": full_html_content})
                 save_data(db_data)
                 
             except Exception as e: st.error(f"Lỗi AI: {e}")
