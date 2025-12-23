@@ -402,4 +402,4 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                 if upsell_html: full_save += "\n\n" + upsell_html
                 st.session_state.messages.append({"role": "assistant", "content": full_save})
 
-            except Exception as e: st.error("Hệ thống đang bận. Vui lòng thử lại.")
+                except Exception as e: st.error("Hệ thống đang bận. Vui lòng thử lại.")
