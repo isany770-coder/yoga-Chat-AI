@@ -4,6 +4,7 @@ import zipfile
 import os
 import json
 import datetime
+import gc # <--- QUAN TRỌNG: Thư viện dọn rác bộ nhớ
 import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -11,7 +12,12 @@ from langchain_community.vectorstores import FAISS
 # =====================================================
 # 1. CẤU HÌNH TRANG
 # =====================================================
-st.set_page_config(page_title="Yoga Assistant Pro", page_icon="🧘", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="Yoga Assistant Pro",
+    page_icon="🧘",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
 # =====================================================
 # 2. HỆ SINH THÁI GIẢI PHÁP
@@ -35,13 +41,14 @@ YOGA_SOLUTIONS = {
 }
 
 # =====================================================
-# 3. CSS GIAO DIỆN
+# 3. CSS GIAO DIỆN (PREMIUM UI)
 # =====================================================
 st.markdown("""
 <style>
     [data-testid="stAppViewContainer"], .stApp, html, body { background-color: white !important; color: #31333F !important; }
     [data-testid="stToolbar"], header, footer, .stAppDeployButton {display: none !important;}
     
+    /* INPUT CHAT */
     div[data-testid="stChatInput"] { 
         position: fixed !important; bottom: 20px !important; left: 10px !important; right: 10px !important; 
         z-index: 999999; background-color: white !important; border-radius: 25px !important; 
@@ -49,40 +56,72 @@ st.markdown("""
     }
     textarea[data-testid="stChatInputTextArea"] { font-size: 16px !important; background-color: #f0f2f6 !important; border-radius: 20px !important; }
 
-    .solution-card {
-        background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
-        border: 1px solid #009688; border-radius: 10px; padding: 12px; margin-top: 10px;
-        display: flex; align-items: center; justify-content: space-between;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    /* CARD GIỚI HẠN (PREMIUM) */
+    .limit-overlay {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: rgba(255, 255, 255, 0.9);
+        z-index: 9999990;
+        backdrop-filter: blur(5px);
     }
-    .solution-text { font-size: 14px; color: #004d40; font-weight: bold; }
-    .solution-btn {
-        background-color: #00796b; color: white !important; padding: 6px 15px;
-        border-radius: 20px; text-decoration: none; font-size: 12px; font-weight: bold; white-space: nowrap;
+    .limit-card {
+        position: relative;
+        background: white;
+        padding: 40px;
+        border-radius: 25px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        border: 1px solid #e0f2f1;
+        text-align: center;
+        max-width: 500px;
+        margin: 10vh auto; /* Cách top 10% màn hình */
+        z-index: 9999999;
+        animation: slideDown 0.5s ease-out;
     }
-    .solution-btn:hover { background-color: #004d40; }
-
-    .source-box { background-color: #f8f9fa; border-left: 4px solid #0f988b; padding: 12px; margin-top: 15px; border-radius: 0 8px 8px 0; font-size: 0.9em; }
-    .tag-science { background-color: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: bold; margin-right: 6px; border: 1px solid #c7d2fe; }
-    .tag-blog { background-color: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: bold; margin-right: 6px; border: 1px solid #bbf7d0; }
-    .tag-qa { background-color: #fef9c3; color: #854d0e; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: bold; margin-right: 6px; border: 1px solid #fde047; }
+    @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     
-    .limit-container { margin-top: 50px; padding: 40px; border-radius: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); text-align: center; border: 2px solid #0f988b; background: white; margin-left: auto; margin-right: auto; max-width: 500px; }
-    .zalo-btn { display: flex !important; align-items: center; justify-content: center; width: 100%; background-color: white; color: #0f988b !important; border: 1px solid #dcdfe3; border-radius: 8px; font-weight: 500; font-size: 14px; height: 45px !important; text-decoration: none !important; margin: 0 !important; }
-    div[data-testid="stForm"] button { height: 45px !important; border-radius: 8px !important; font-weight: 500 !important; color: #31333F !important; }
+    .limit-icon { font-size: 60px; margin-bottom: 15px; display: block; }
+    .limit-title { font-size: 24px; font-weight: 800; color: #00796b; margin-bottom: 10px; }
+    .limit-desc { font-size: 15px; color: #555; margin-bottom: 30px; line-height: 1.6; }
+    
+    /* Form Login trong Card */
+    .login-box { text-align: left; background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 20px; }
+    div[data-testid="stForm"] { border: none !important; padding: 0 !important; }
+    div[data-testid="stForm"] button { 
+        width: 100%; border-radius: 50px !important; height: 50px !important; 
+        background: linear-gradient(135deg, #009688 0%, #00796b 100%) !important;
+        color: white !important; font-weight: bold !important; font-size: 16px !important; border: none !important;
+        box-shadow: 0 4px 15px rgba(0, 150, 136, 0.3); transition: 0.3s;
+    }
+    div[data-testid="stForm"] button:hover { transform: scale(1.02); box-shadow: 0 6px 20px rgba(0, 150, 136, 0.4); }
+
+    /* Nút Zalo */
+    .zalo-link { text-decoration: none; display: block; margin-top: 15px; }
+    .zalo-btn { 
+        background: white; color: #0068ff; border: 2px solid #0068ff; 
+        padding: 10px 20px; border-radius: 50px; font-weight: bold; font-size: 14px; 
+        display: inline-flex; align-items: center; gap: 8px; transition: 0.3s;
+    }
+    .zalo-btn:hover { background: #0068ff; color: white; }
+
+    /* THANH TRẠNG THÁI TRÊN CÙNG */
     .usage-bar-container { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background-color: #f0f0f0; z-index: 1000000; }
     .usage-bar-fill { height: 100%; background: linear-gradient(90deg, #0f988b 0%, #14b8a6 100%); }
     .usage-text { position: fixed; top: 10px; right: 15px; background: rgba(255,255,255,0.9); padding: 4px 12px; border-radius: 20px; font-size: 11px; color: #0f988b !important; font-weight: bold; border: 1px solid #0f988b; z-index: 1000001; }
+
+    /* HIỂN THỊ TIN NHẮN */
+    .source-box { background-color: #f8f9fa; border-left: 4px solid #0f988b; padding: 12px; margin-top: 15px; border-radius: 0 8px 8px 0; font-size: 0.9em; }
+    .solution-card { background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border: 1px solid #009688; border-radius: 10px; padding: 12px; margin-top: 10px; display: flex; align-items: center; justify-content: space-between; }
+    .solution-text { font-size: 14px; color: #004d40; font-weight: bold; }
+    .solution-btn { background-color: #00796b; color: white !important; padding: 6px 15px; border-radius: 20px; text-decoration: none; font-size: 12px; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 4. KẾT NỐI API & DRIVE
+# 4. KẾT NỐI API & DRIVE (TỐI ƯU RAM)
 # =====================================================
 FILE_ID_DRIVE = "13z82kBBd8QwpCvUqGysD9DXI8Xurvtq9" 
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
-OUTPUT_ZIP = "/tmp/brain_v9_clean.zip"
-EXTRACT_PATH = "/tmp/brain_v9_clean"
+OUTPUT_ZIP = "/tmp/brain_final.zip"
+EXTRACT_PATH = "/tmp/brain_final"
 
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
@@ -93,23 +132,27 @@ except:
 
 @st.cache_resource
 def load_brain():
+    # 1. Tải file (Chỉ tải nếu chưa có folder giải nén)
     if not os.path.exists(EXTRACT_PATH):
         try:
-            # Tải file
+            print("Dang tai file...")
             gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=False, fuzzy=True)
-            # Giải nén
+            print("Dang giai nen...")
             with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zip_ref:
                 zip_ref.extractall(EXTRACT_PATH)
-            # Xóa zip
+            
+            # XÓA ZIP NGAY ĐỂ GIẢM RAM
             if os.path.exists(OUTPUT_ZIP):
                 os.remove(OUTPUT_ZIP)
+            gc.collect() # Dọn rác bộ nhớ
+            
         except Exception as e:
             if os.path.exists(EXTRACT_PATH):
                 import shutil
                 shutil.rmtree(EXTRACT_PATH)
             return None, None
     
-    # Tự động dò tìm file index.faiss
+    # 2. Tìm file não
     vector_db_path = None
     for root, dirs, files in os.walk(EXTRACT_PATH):
         for file in files:
@@ -122,17 +165,21 @@ def load_brain():
     if vector_db_path is None:
         return None, None
 
+    # 3. Load Model
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         db = FAISS.load_local(vector_db_path, embeddings, allow_dangerous_deserialization=True)
-        model = genai.GenerativeModel('gemini-flash-latest')
+        # Dùng model Flash để nhanh và nhẹ
+        model = genai.GenerativeModel('gemini-flash-latest') 
         return db, model
     except:
         return None, None
 
 db, model = load_brain()
+
+# Nếu lỗi tải não
 if db is None or model is None:
-    st.warning("🧘‍♂️ Đang khởi động não bộ... Vui lòng chờ 30s rồi tải lại (F5).")
+    st.warning("🧘‍♂️ Đang khởi động hệ thống... Vui lòng chờ 30s rồi tải lại trang (F5).")
     st.stop()
 
 def get_remote_ip():
@@ -145,24 +192,20 @@ def get_remote_ip():
     return "guest_unknown"
 
 # =====================================================
-# 5. QUẢN LÝ USER & DATA (ĐÃ SỬA CÚ PHÁP CHUẨN)
+# 5. QUẢN LÝ USER
 # =====================================================
 USAGE_DB_FILE = "/tmp/usage_history_db.json"
 DAILY_LIMIT = 25
-TRIAL_LIMIT = 5
+TRIAL_LIMIT = 5 # Giới hạn 5 câu hỏi cho khách
 
 def get_data():
-    if not os.path.exists(USAGE_DB_FILE):
-        return {}
-    try:
-        with open(USAGE_DB_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return {}
+    if not os.path.exists(USAGE_DB_FILE): return {}
+    try: with open(USAGE_DB_FILE, "r") as f: return json.load(f)
+    except: return {}
 
 def save_data(data):
-    with open(USAGE_DB_FILE, "w") as f:
-        json.dump(data, f)
+    try: with open(USAGE_DB_FILE, "w") as f: json.dump(data, f)
+    except: pass
 
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
@@ -172,7 +215,7 @@ today = str(datetime.date.today())
 db_data = get_data()
 
 if user_key not in db_data or db_data[user_key].get("date") != today:
-    db_data[user_key] = {"date": today, "count": 0, "history": [{"role":"assistant","content":"Namaste! 🙏 Tôi là Trợ lý Yoga AI chuyên sâu. Bác cần tư vấn gì hôm nay?"}]}
+    db_data[user_key] = {"date": today, "count": 0, "history": [{"role":"assistant","content":"Namaste! 🙏 Tôi là Trợ lý Yoga AI. Bác cần tư vấn gì hôm nay?"}]}
     save_data(db_data)
 
 st.session_state.messages = db_data[user_key]["history"]
@@ -182,19 +225,70 @@ percent = min(100, int((used / limit) * 100))
 st.markdown(f"""<div class="usage-bar-container"><div class="usage-bar-fill" style="width: {percent}%;"></div></div><div class="usage-text">⚡ Lượt dùng: {used}/{limit}</div>""", unsafe_allow_html=True)
 can_chat = used < limit
 
-def render_login_form():
-    with st.form("login_form"):
-        st.write("🔐 **Đăng nhập Member:**")
-        u = st.text_input("Tên đăng nhập", placeholder="Username")
-        p = st.text_input("Mật khẩu", type="password", placeholder="Password")
-        c1, c2 = st.columns(2)
-        with c1: submit = st.form_submit_button("Đăng nhập", use_container_width=True)
-        with c2: st.markdown(f"""<a href="https://zalo.me/84963759566" target="_blank" style="text-decoration:none;"><div class="zalo-btn">💬 Lấy TK Zalo</div></a>""", unsafe_allow_html=True)
-        if submit:
-            if (u=="admin" and p=="yoga888") or (st.secrets["passwords"].get(u)==p):
-                st.session_state.authenticated = True; st.session_state.username = u; st.rerun()
-            else: st.error("Sai mật khẩu!")
+# =====================================================
+# 6. GIAO DIỆN CHÍNH
+# =====================================================
+if not st.session_state.authenticated:
+    # Banner quảng cáo dưới cùng
+    st.markdown(f"""<div style="position: fixed; bottom: 80px; left: 15px; right: 15px; background: #fff5f0; border: 1px solid #ffccbc; border-radius: 15px; padding: 10px 15px; z-index: 99999; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 15px rgba(255, 87, 34, 0.1);"><div style="display: flex; align-items: center; gap: 10px;"><div style="background: #ff7043; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;"><span style="font-size: 16px;">🎁</span></div><div><div style="color: #bf360c !important; font-size: 13px; font-weight: bold;">Combo Thảm & Freeship!!</div><div style="color: #ff7043 !important; font-size: 11px;">Giảm ngay 30% hôm nay!</div></div></div><a href="https://yogaismylife.vn/cua-hang/" target="_blank" style="background: #ff7043; color: white !important; padding: 8px 15px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 12px; box-shadow: 0 2px 5px rgba(255, 112, 67, 0.3);">Xem ngay</a></div>""", unsafe_allow_html=True)
 
+# Hiển thị lịch sử chat
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
+
+# =====================================================
+# 7. XỬ LÝ HẾT LƯỢT (GIAO DIỆN PREMIUM CARD)
+# =====================================================
+if not can_chat:
+    # Ẩn thanh chat
+    st.markdown("""<style>div[data-testid="stChatInput"] {display: none !important;}</style>""", unsafe_allow_html=True)
+    
+    # Hiển thị Card + Form Đăng Nhập
+    st.markdown("""<div class="limit-overlay"></div>""", unsafe_allow_html=True)
+    
+    # Mở container cột giữa
+    _, col, _ = st.columns([1, 10, 1])
+    with col:
+        st.markdown("""
+        <div class="limit-card">
+            <span class="limit-icon">🧘‍♀️</span>
+            <div class="limit-title">Đã đạt giới hạn hôm nay!</div>
+            <div class="limit-desc">
+                Bạn đã dùng hết lượt hỏi miễn phí.<br>
+                Đăng nhập Member để mở khóa kho tri thức không giới hạn.
+            </div>
+            <div class="login-box">
+                <div style="font-size:14px; font-weight:bold; color:#333; margin-bottom:10px;">🔐 Đăng nhập ngay:</div>
+        """, unsafe_allow_html=True)
+        
+        # Form nằm TRONG Card
+        with st.form("login_form_limit"):
+            u = st.text_input("Tên đăng nhập", placeholder="Nhập username...", label_visibility="collapsed")
+            p = st.text_input("Mật khẩu", type="password", placeholder="Nhập password...", label_visibility="collapsed")
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            submit = st.form_submit_button("ĐĂNG NHẬP")
+            
+            if submit:
+                if (u=="admin" and p=="yoga888") or (st.secrets["passwords"].get(u)==p):
+                    st.session_state.authenticated = True
+                    st.session_state.username = u
+                    st.rerun()
+                else:
+                    st.error("❌ Sai mật khẩu hoặc tên đăng nhập!")
+        
+        st.markdown("""
+            </div>
+            <a href="https://zalo.me/84963759566" target="_blank" class="zalo-link">
+                <div class="zalo-btn">💬 Liên hệ Admin lấy tài khoản</div>
+            </a>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.stop()
+
+# =====================================================
+# 8. XỬ LÝ CHAT (LOGIC V9 - CHUẨN)
+# =====================================================
 def get_recommended_solutions(user_query):
     query_lower = user_query.lower()
     recommendations = []
@@ -202,23 +296,6 @@ def get_recommended_solutions(user_query):
         if any(trigger in query_lower for trigger in data["trigger"]): recommendations.append(data)
     return recommendations[:2]
 
-# =====================================================
-# 6. GIAO DIỆN CHÍNH
-# =====================================================
-if not st.session_state.authenticated:
-    st.markdown(f"""<div style="position: fixed; bottom: 80px; left: 15px; right: 15px; background: #fff5f0; border: 1px solid #ffccbc; border-radius: 15px; padding: 10px 15px; z-index: 99999; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 15px rgba(255, 87, 34, 0.1);"><div style="display: flex; align-items: center; gap: 10px;"><div style="background: #ff7043; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;"><span style="font-size: 16px;">🎁</span></div><div><div style="color: #bf360c !important; font-size: 13px; font-weight: bold;">Combo Thảm & Freeship!!</div><div style="color: #ff7043 !important; font-size: 11px;">Giảm ngay 30% hôm nay!</div></div></div><a href="https://yogaismylife.vn/cua-hang/" target="_blank" style="background: #ff7043; color: white !important; padding: 8px 15px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 12px; box-shadow: 0 2px 5px rgba(255, 112, 67, 0.3);">Xem ngay</a></div>""", unsafe_allow_html=True)
-
-for m in st.session_state.messages:
-    with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
-
-if not can_chat:
-    st.markdown("""<style>div[data-testid="stChatInput"] {display: none !important;}</style>""", unsafe_allow_html=True)
-    st.markdown(f"""<div class="limit-container"><div style="font-size:50px;margin-bottom:10px">🧘‍♀️</div><div style="font-size:22px;font-weight:bold;color:#0f988b;margin-bottom:10px">Đã đạt giới hạn!</div><p style="color:#555;margin-bottom:20px">Hết {TRIAL_LIMIT} lượt dùng thử.<br>Vui lòng đăng nhập.</p></div><br>""", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns([1,2,1])
-    with c2: render_login_form()
-    st.stop()
-
-# XỬ LÝ CHAT (LOGIC MỚI: BẮT DÍNH TỪ KHÓA)
 if prompt := st.chat_input("Hỏi tôi về Yoga..."):
     db_data[user_key]["count"] += 1
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -226,15 +303,12 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
 
     with st.chat_message("assistant"):
         if db:
-            # 1. VÉT 80 KẾT QUẢ
+            # 1. Tìm kiếm rộng (k=80)
             docs = db.similarity_search(prompt, k=80)
             
-            # 2. XÁC ĐỊNH TỪ KHÓA QUAN TRỌNG TỪ CÂU HỎI
-            # Ví dụ: "tập yoga có giảm cân không" -> keywords: ["giảm", "cân", "béo", "mỡ"]
-            user_keywords = prompt.lower().split()
-            # Lọc từ ngắn quá (<3 ký tự)
-            user_keywords = [w for w in user_keywords if len(w) > 2]
-
+            # 2. Chấm điểm từ khóa
+            user_keywords = [w for w in prompt.lower().split() if len(w) > 2]
+            
             science_pool = []
             qa_pool = []
             blog_pool = []
@@ -242,89 +316,61 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
 
             for d in docs:
                 url = d.metadata.get('url', '#')
-                # Lọc trùng URL (Deduplication)
                 if url != '#' and len(str(url)) > 10:
                     if url in seen_urls: continue
                     seen_urls.add(url)
-
+                
                 dtype = d.metadata.get('type', 'general')
                 title = d.metadata.get('title', '').lower()
                 
-                # --- TÍNH ĐIỂM KHỚP TỪ KHÓA ---
-                # Nếu tiêu đề bài viết chứa từ khóa trong câu hỏi -> Cộng điểm cực mạnh
                 score = 0
                 for kw in user_keywords:
-                    if kw in title:
-                        score += 10 # Điểm thưởng lớn
+                    if kw in title: score += 10
                 
-                # Đóng gói (điểm, document)
                 item = (score, d)
-
                 if dtype == 'science': science_pool.append(item)
                 elif dtype == 'qa': qa_pool.append(item)
                 else: blog_pool.append(item)
             
-            # 3. SẮP XẾP THEO ĐIỂM CAO NHẤT
+            # 3. Sắp xếp & Chọn lọc
             science_pool.sort(key=lambda x: x[0], reverse=True)
             qa_pool.sort(key=lambda x: x[0], reverse=True)
             blog_pool.sort(key=lambda x: x[0], reverse=True)
 
-            # 4. CHIA SLOT (Lấy doc từ tuple)
-            # Lấy 2 Science tốt nhất (dù điểm thấp hơn blog cũng phải lấy)
-            final_docs = [x[1] for x in science_pool[:2]]
-            # Lấy 2 QA tốt nhất
-            final_docs += [x[1] for x in qa_pool[:2]]
-            # Lấy 2 Blog tốt nhất (khớp từ khóa nhất)
-            final_docs += [x[1] for x in blog_pool[:2]]
+            final_docs = [x[1] for x in science_pool[:2]] + [x[1] for x in qa_pool[:2]] + [x[1] for x in blog_pool[:2]]
 
             context_parts = []
             source_map = {}
-            has_science = False
             
             for i, d in enumerate(final_docs):
                 dtype = d.metadata.get('type', 'general')
                 title = d.metadata.get('title', 'Tài liệu')
                 url = d.metadata.get('url', '#')
-                
-                label = ""
-                if dtype == 'science': 
-                    label = "NGHIÊN CỨU KHOA HỌC"
-                    has_science = True
-                elif dtype == 'qa': label = "CHUYÊN GIA"
-                else: label = "BÀI VIẾT"
+                label = "NGHIÊN CỨU" if dtype == 'science' else "BÀI VIẾT"
                 
                 context_parts.append(f"--- NGUỒN {i+1} [{label}] ---\nTiêu đề: {title}\nNội dung: {d.page_content}")
-                
-                if url and len(str(url)) > 10:
-                    source_map[url] = {"title": title, "type": dtype}
+                if url and len(str(url)) > 10: source_map[url] = {"title": title, "type": dtype}
             
             full_context = "\n\n".join(context_parts)
-            
             solutions = get_recommended_solutions(prompt)
             sol_context = ""
             if solutions:
                 names = ", ".join([s["name"] for s in solutions])
-                sol_context = f"\nLưu ý: Cuối câu trả lời, khuyên dùng: {names}."
-
-            sci_instruct = "BẮT BUỘC: Nếu có nguồn [NGHIÊN CỨU KHOA HỌC], hãy trích dẫn 'Theo nghiên cứu năm [Năm] của [Tác giả]...'" if has_science else "Trả lời dựa trên kiến thức Yoga chuẩn."
+                sol_context = f"\nLưu ý: Cuối bài, khuyên dùng: {names}."
 
             sys_prompt = f"""
-            Bạn là Chuyên gia Yoga Khoa học. DỮ LIỆU THAM KHẢO:
+            Bạn là Chuyên gia Yoga. DỮ LIỆU:
             {full_context}
             {sol_context}
-
             YÊU CẦU:
-            1. KHÔNG VIẾT HOA TOÀN BỘ TIÊU ĐỀ (Ví dụ: Đừng viết "KẾT LUẬN", hãy viết "Kết luận").
-            1. Tuyệt đối KHÔNG sử dụng Markdown Header lớn. Dùng in đậm nếu cần.
-            2. Trả lời thẳng vào vấn đề, ngắn gọn (dưới 150 từ).
-            3. {sci_instruct}
-            4. Luôn nhắc nhở lắng nghe cơ thể.
-
+            1. Tuyệt đối KHÔNG dùng Markdown Header lớn (#, ##). Dùng in đậm (**ABC**) nếu cần tiêu đề.
+            2. KHÔNG viết hoa toàn bộ câu.
+            3. Ngắn gọn, súc tích.
             CÂU HỎI: "{prompt}"
             """
             
             try:
-                with st.spinner("🧘 Đang phân tích dữ liệu chuyên sâu..."):
+                with st.spinner("🧘 Đang tra cứu..."):
                     response = model.generate_content(sys_prompt)
                     res_text = response.text
                 
@@ -336,30 +382,21 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
                         full_html_content += f"""<div class="solution-card"><div class="solution-text">{sol['name']}</div><a href="{sol['url']}" target="_blank" class="solution-btn">Sử dụng ngay 🚀</a></div>"""
                 
                 if source_map:
-                    # Sắp xếp hiển thị: Science lên đầu
-                    sorted_urls = sorted(source_map.items(), key=lambda x: 0 if x[1]['type']=='science' else 1 if x[1]['type']=='qa' else 2)
-                    
-                    links_html = "<div class='source-box'><strong>📚 Nguồn tham khảo uy tín:</strong><div style='margin-top:8px'>"
+                    links_html = "<div class='source-box'><strong>📚 Nguồn tham khảo:</strong><div style='margin-top:8px'>"
+                    sorted_urls = sorted(source_map.items(), key=lambda x: 0 if x[1]['type']=='science' else 1)
                     for url, info in sorted_urls:
-                        tag_html = ""
-                        if info['type'] == 'science': tag_html = "<span class='tag-science'>KHOA HỌC</span>"
-                        elif info['type'] == 'qa': tag_html = "<span class='tag-qa'>CHUYÊN GIA</span>"
-                        else: tag_html = "<span class='tag-blog'>BÀI VIẾT</span>"
+                        tag_html = "<span class='tag-science'>KHOA HỌC</span>" if info['type']=='science' else "<span class='tag-blog'>BÀI VIẾT</span>"
                         links_html += f"<div style='margin-bottom:6px'>{tag_html} <a href='{url}' target='_blank' style='text-decoration:none; color:#0f988b; font-weight:500'>{info['title']}</a></div>"
                     links_html += "</div></div>"
                     full_html_content += links_html
                 
                 st.markdown(full_html_content, unsafe_allow_html=True)
                 
-                # Lưu lịch sử FULL HTML để không bị mất khi load lại
                 db_data[user_key]["history"].append({"role": "user", "content": prompt})
                 db_data[user_key]["history"].append({"role": "assistant", "content": full_html_content})
                 save_data(db_data)
                 
             except Exception as e:
-                st.error(f"Lỗi AI: {e}")
+                st.error(f"Lỗi: {e}")
 
-if not st.session_state.authenticated and can_chat:
-    st.markdown("<br>", unsafe_allow_html=True)
-    with st.expander("🔐 Đăng nhập (Dành cho Member)", expanded=False): render_login_form()
-    st.markdown("<div style='height: 250px;'></div>", unsafe_allow_html=True)
+# (Nút đăng nhập dự phòng dưới cùng đã bỏ vì đã tích hợp vào Card)
