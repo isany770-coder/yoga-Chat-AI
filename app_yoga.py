@@ -246,115 +246,136 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 5. GIAO DIỆN CHAT & XỬ LÝ
+# D. XỬ LÝ CHAT LOGIC (Strict Citation Mode V2)
 # =====================================================
-
-# A. Banner Quảng Cáo (Chỉ hiện khi chưa đăng nhập hoặc lượt dùng ít)
-if not st.session_state.authenticated:
-    st.markdown("""
-    <div class="promo-banner">
-        <div>
-            <div class="promo-text">🎁 Ưu đãi độc quyền hôm nay!</div>
-            <div class="promo-sub">Combo Thảm tập + Gạch Yoga giảm 30% - Freeship toàn quốc</div>
-        </div>
-        <a href="https://yogaismylife.vn/cua-hang/" target="_blank" class="promo-btn">Săn Deal Ngay 🚀</a>
-    </div>
-    """, unsafe_allow_html=True)
-
-# B. Hiển thị lịch sử chat
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"], unsafe_allow_html=True)
-
-# C. Xử lý khi Hết lượt (Chặn chat & Hiện form đăng nhập)
-if not can_chat:
-    st.markdown("""
-    <div style="text-align:center; padding:30px; border:2px dashed #ff9800; border-radius:15px; margin-top:20px; background:#fff8e1;">
-        <h3 style="color:#ef6c00;">🚫 Đã hết lượt dùng thử</h3>
-        <p>Vui lòng đăng nhập để tiếp tục tra cứu không giới hạn.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    with st.form("login_form"):
-        col1, col2 = st.columns(2)
-        u = col1.text_input("Username")
-        p = col2.text_input("Password", type="password")
-        if st.form_submit_button("Đăng Nhập Ngay", use_container_width=True):
-            stored_pass = st.secrets["passwords"].get(u)
-            if stored_pass and p == stored_pass:
-                st.session_state.authenticated = True
-                st.session_state.username = u
-                st.success("Đăng nhập thành công! Đang tải lại...")
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.error("Sai tài khoản hoặc mật khẩu!")
-    st.stop() # Dừng app ở đây, không cho chat tiếp
-
-# D. Xử lý Chat Logic (Khi người dùng nhập)
-if prompt := st.chat_input("Hỏi tôi về sức khỏe, bài tập..."):
+if prompt := st.chat_input("Hỏi về nghiên cứu, bệnh lý, bài tập..."):
     # 1. Hiển thị tin nhắn user
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
-    increment_usage(user_id) # Trừ lượt dùng
+    increment_usage(user_id)
 
-    # 2. Xử lý AI
     with st.chat_message("assistant"):
-        with st.spinner("🧘 Đang tra cứu dữ liệu y khoa & yoga..."):
+        with st.spinner("🔍 Đang đối chiếu các nghiên cứu RCT & Meta-Analysis..."):
             try:
-                # BƯỚC 1: Tìm kiếm (RAG) - Chỉ lấy top 15 để chính xác
-                docs = db.similarity_search(prompt, k=15)
+                # BƯỚC 1: Tìm kiếm có chấm điểm (Score)
+                # k=10 là đủ, lấy nhiều quá sẽ bị loãng
+                docs_and_scores = db.similarity_search_with_score(prompt, k=10)
                 
-                # BƯỚC 2: Lọc & Chuẩn bị Context
+                # BƯỚC 2: Lọc nhiễu (Quan trọng!)
+                # Score càng thấp càng giống. Thường < 1.0 là ổn, < 0.8 là rất tốt.
+                # Ta chỉ lấy những tài liệu có liên quan thực sự.
+                qualified_docs = []
+                for doc, score in docs_and_scores:
+                    if score < 1.2: # Ngưỡng lọc (tùy chỉnh nếu cần chặt hơn thì giảm xuống 1.0)
+                        qualified_docs.append(doc)
+                
+                if not qualified_docs:
+                    st.warning("⚠️ Không tìm thấy nghiên cứu nào trong dữ liệu khớp với câu hỏi này.")
+                    st.stop()
+
+                # BƯỚC 3: Xây dựng Context có đánh số ID
                 context_text = ""
-                unique_links = {} # Dùng để khử trùng lặp link
+                source_map = {} # Map từ ID -> Thông tin Link
                 
-                for d in docs:
-                    url = d.metadata.get('url', '')
-                    title = d.metadata.get('title', 'Tài liệu')
+                for i, d in enumerate(qualified_docs):
+                    doc_id = i + 1
+                    url = d.metadata.get('url', '#')
+                    title = d.metadata.get('title', 'Tài liệu không tên')
                     type_ = d.metadata.get('type', 'blog')
                     
-                    # Chỉ thêm vào context
-                    context_text += f"Nguồn: {title}\nNội dung: {d.page_content}\n---\n"
+                    # Lưu mapping
+                    source_map[doc_id] = {
+                        "url": url,
+                        "title": title,
+                        "type": type_
+                    }
                     
-                    # Lưu link lại để hiển thị sau (nếu url hợp lệ)
-                    if url and "http" in url and url not in unique_links:
-                        unique_links[url] = {"title": title, "type": type_}
+                    # Nhồi vào context cho AI đọc
+                    context_text += f"""
+                    --- TÀI LIỆU SỐ [{doc_id}] ---
+                    Tiêu đề: {title}
+                    Nội dung: {d.page_content}
+                    ---------------------------
+                    """
 
-                # BƯỚC 3: Tạo Prompt cho Gemini
+                # BƯỚC 4: Prompt "Khóa mõm" (Strict Prompt)
                 sys_prompt = f"""
-                Bạn là Trợ lý Yoga chuyên nghiệp. Dựa vào thông tin sau để trả lời:
+                Bạn là Trợ lý Nghiên cứu Khoa học Yoga (Evidence-Based Yoga).
+                Nhiệm vụ: Trả lời câu hỏi dựa trên các "TÀI LIỆU SỐ" được cung cấp bên dưới.
+                
+                QUY TẮC BẮT BUỘC:
+                1. Mọi thông tin đưa ra phải lấy từ tài liệu. KHÔNG ĐƯỢC BỊA.
+                2. Cuối mỗi ý hoặc đoạn văn, PHẢI ghi chú nguồn gốc bằng cách viết: [Nguồn: X] (với X là số thứ tự tài liệu).
+                   Ví dụ: "Yoga giúp giảm huyết áp tâm thu [Nguồn: 1], và cải thiện giấc ngủ [Nguồn: 2]."
+                3. Nếu câu hỏi không có trong tài liệu, hãy trả lời: "Dữ liệu hiện tại chưa có nghiên cứu về vấn đề này."
+                4. Phong cách: Khoa học, khách quan, trích dẫn cụ thể.
+                5. Độ dài tối đa không quá 200 từ.
+
+                DỮ LIỆU ĐẦU VÀO:
                 {context_text}
                 
-                Câu hỏi: {prompt}
-                
-                Yêu cầu:
-                1. Trả lời thân thiện, ngắn gọn, đi thẳng vào vấn đề.
-                2. Nếu là bệnh lý, khuyên đi khám bác sĩ trước.
-                3. Tuyệt đối KHÔNG bịa ra kiến thức nếu không có trong "Nguồn".
-                4. Trình bày bằng Markdown, dùng gạch đầu dòng cho dễ đọc.
+                CÂU HỎI CỦA NGƯỜI DÙNG: "{prompt}"
                 """
                 
                 # Gọi Gemini
                 response = model.generate_content(sys_prompt)
-                ai_text = response.text
+                ai_raw_text = response.text
 
-                # BƯỚC 4: Ghép Link nguồn vào cuối (Chỉ hiện 3 link liên quan nhất)
-                if unique_links:
-                    ai_text += "\n\n" + "<div class='source-box'><div class='source-title'>📚 Nguồn tham khảo:</div>"
-                    # Lấy tối đa 4 link đầu tiên từ kết quả tìm kiếm (thường là liên quan nhất)
-                    count_link = 0
-                    for url, info in unique_links.items():
-                        if count_link >= 4: break
-                        tag_class = "tag-science" if info['type'] == 'science' else "tag-blog"
-                        tag_label = "KHOA HỌC" if info['type'] == 'science' else "BÀI VIẾT"
-                        ai_text += f"<a href='{url}' target='_blank' class='source-link'><span class='tag-type {tag_class}'>{tag_label}</span> {info['title']}</a>"
-                        count_link += 1
-                    ai_text += "</div>"
+                # BƯỚC 5: Hậu xử lý - Chỉ hiện Link mà AI thực sự dùng
+                # Logic: Quét xem AI đã viết "[Nguồn: 1]", "[Nguồn: 2]" nào thì hiện link đó.
+                used_sources = set()
+                
+                # Thay thế [Nguồn: X] thành icon nhỏ đẹp hơn trong văn bản
+                final_text = ai_raw_text
+                import re
+                
+                # Tìm tất cả các số X trong chuỗi "[Nguồn: X]"
+                matches = re.findall(r'\[Nguồn: (\d+)\]', ai_raw_text)
+                for m in matches:
+                    doc_id = int(m)
+                    if doc_id in source_map:
+                        used_sources.add(doc_id)
+                        # Tạo hiệu ứng highlight nhỏ trong văn bản (tùy chọn)
+                        # final_text = final_text.replace(f"[Nguồn: {doc_id}]", f" **(Ref.{doc_id})**")
 
-                st.markdown(ai_text, unsafe_allow_html=True)
-                st.session_state.messages.append({"role": "assistant", "content": ai_text})
+                # Hiển thị câu trả lời
+                st.markdown(final_text)
+                
+                # Hiển thị Link (Chỉ những link có trong used_sources)
+                if used_sources:
+                    st.markdown("---")
+                    st.markdown("#### 📚 Tài liệu tham khảo & Kiểm chứng:")
+                    
+                    # Sắp xếp để hiện theo thứ tự 1, 2, 3...
+                    sorted_ids = sorted(list(used_sources))
+                    
+                    for doc_id in sorted_ids:
+                        info = source_map[doc_id]
+                        if len(str(info['url'])) > 5: # Chỉ hiện nếu có link thật
+                            tag_label = "NGHIÊN CỨU RCT" if info['type'] == 'science' else "BÀI VIẾT CHUYÊN GIA"
+                            tag_color = "#e3f2fd" if info['type'] == 'science' else "#e8f5e9"
+                            text_color = "#1565c0" if info['type'] == 'science' else "#2e7d32"
+                            
+                            st.markdown(f"""
+                            <div style="margin-bottom:8px; background: {tag_color}; padding: 8px; border-radius: 8px; border-left: 4px solid {text_color};">
+                                <span style="font-weight:bold; font-size:0.8em; color:{text_color}; margin-right:5px;">[{doc_id}] {tag_label}</span>
+                                <a href="{info['url']}" target="_blank" style="text-decoration:none; color:#333; font-weight:500;">
+                                    {info['title']}
+                                </a>
+                            </div>
+                            """, unsafe_allow_html=True)
+                else:
+                    # Trường hợp AI trả lời nhưng quên trích dẫn (Hiếm gặp với prompt này)
+                    # Ta có thể hiện fallback 3 link đầu tiên có độ khớp cao nhất
+                    if len(qualified_docs) > 0:
+                        st.markdown("---")
+                        st.caption("Các nguồn có liên quan nhất (AI tổng hợp):")
+                        for i in range(min(3, len(qualified_docs))):
+                            info = source_map[i+1]
+                            st.markdown(f"- [{info['title']}]({info['url']})")
+
+                # Lưu lịch sử
+                st.session_state.messages.append({"role": "assistant", "content": final_text})
 
             except Exception as e:
-                st.error("Hệ thống đang quá tải, vui lòng hỏi lại sau 5 giây.")
-                print(f"Error: {e}")
+                st.error(f"Lỗi xử lý: {str(e)}")
