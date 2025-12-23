@@ -321,9 +321,7 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
 
     with st.chat_message("assistant"):
         with st.spinner("Đang tìm kiếm trong kho dữ liệu..."):
-            try:
-                # --- THAY ĐỔI QUAN TRỌNG: BỎ SCORE FILTER ---
-                # Lấy thẳng 8 kết quả tương đồng nhất, bất kể điểm số bao nhiêu
+            # --- THAY ĐỔI QUAN TRỌNG: BỎ SCORE FILTER ---
                 docs = db.similarity_search(prompt, k=8)
                 
                 context_text = ""
@@ -338,41 +336,39 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                     source_map[doc_id] = {"url": url, "title": title, "type": type_}
                     context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
 
-                # Prompt để AI tự lọc
-                # --- GỌI HÀM LẤY LỊCH SỬ ---
-                history_context = get_clean_history()
+                # Lấy lịch sử chat để AI không bị "mất trí nhớ"
+                history_text = get_clean_history()
 
-                # --- PROMPT MỚI: KẾT HỢP LỊCH SỬ + TRA CỨU ---
+                # Prompt Logic mới (Ép trích dẫn chặt hơn)
                 sys_prompt = f"""
                 Bạn là chuyên gia Yoga.
                 
-                1. NGỮ CẢNH TRÒ CHUYỆN (Lịch sử chat gần nhất):
-                {history_context}
+                1. LỊCH SỬ TRÒ CHUYỆN (Tham khảo để hiểu ngữ cảnh):
+                {history_text}
                 
-                2. DỮ LIỆU TRA CỨU TỪ KHO (Rất quan trọng):
+                2. DỮ LIỆU TRA CỨU (Bắt buộc dùng để trả lời):
                 {context_text}
                 
-                3. CÂU HỎI MỚI CỦA USER: "{prompt}"
+                3. CÂU HỎI MỚI: "{prompt}"
                 
-                YÊU CẦU TRẢ LỜI:
-                - Kết hợp ngữ cảnh lịch sử (để hiểu User đang nói gì) và Dữ liệu tra cứu (để trả lời chính xác).
-                - Nếu dùng ý từ Dữ liệu tra cứu, BẮT BUỘC ghi [Ref: X].
-                - Nếu câu hỏi không liên quan đến bài trước, hãy trả lời độc lập.
-                - Ngắn gọn dưới 150 từ.
-                
-                NGUỒN DỮ LIỆU:
-                {context_text}
+                YÊU CẦU:
+                - Trả lời ngắn gọn (dưới 150 từ).
+                - BẮT BUỘC: Mọi ý lấy từ "Dữ liệu tra cứu" phải có dẫn chứng [Ref: X]. 
+                - Ví dụ: Yoga giảm đau lưng [Ref: 1].
+                - Nếu câu hỏi không liên quan đến dữ liệu, hãy trả lời theo kiến thức của bạn.
+                - Nếu câu hỏi không liên chủ đề yoga, sức khỏe, thiền định đã được nạp từ chối khéo.
+                - Nếu cố tình hỏi không liên quan trong 3 câu chặn.
                 """
                 
                 response = model.generate_content(sys_prompt)
                 ai_resp = response.text
                 
-                # Render kết quả
-                clean_text = re.sub(r'\[Ref: \d+\]', ' 🔖', ai_resp)
+                # Render kết quả (Sửa regex để bắt lỗi Ref linh hoạt hơn)
+                clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp) 
                 st.markdown(clean_text)
                 
-                # Logic hiển thị Link (Ref)
-                used_ids = [int(m) for m in re.findall(r'\[Ref: (\d+)\]', ai_resp) if int(m) in source_map]
+                # Logic hiển thị Link (Ref) - Regex mới bắt cả [Ref: 1] và [Ref:1]
+                used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
                 unique_used_ids = sorted(list(set(used_ids)))
                 
                 html_sources = ""
@@ -381,6 +377,7 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                     seen_urls = set()
                     for uid in unique_used_ids:
                         info = source_map[uid]
+                        # Chỉ hiện link nếu chưa hiện và url hợp lệ
                         if info['url'] != '#' and info['url'] not in seen_urls:
                             seen_urls.add(info['url'])
                             color = "#e3f2fd" if info['type']=='science' else "#e8f5e9"
@@ -389,7 +386,7 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                     html_sources += "</div>"
                     st.markdown(html_sources, unsafe_allow_html=True)
 
-                # Logic Upsell (Gợi ý giải pháp)
+                # Logic Upsell (Giữ nguyên của bạn)
                 upsell_html = ""
                 recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
                 if recs:
@@ -399,7 +396,7 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                     upsell_html += "</div>"
                     st.markdown(upsell_html, unsafe_allow_html=True)
                 
-                # Lưu lịch sử
+                # Lưu lịch sử (Full HTML để F5 vẫn còn)
                 full_save = clean_text
                 if html_sources: full_save += "\n\n" + html_sources
                 if upsell_html: full_save += "\n\n" + upsell_html
