@@ -101,13 +101,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 4. KẾT NỐI DỮ LIỆU
+# 4. KẾT NỐI API & DRIVE (ĐÃ SỬA ĐỂ ÉP TẢI LẠI)
 # =====================================================
-# 👉 THAY ID FILE CỦA BÁC VÀO ĐÂY
-FILE_ID_DRIVE = "13z82kBBd8QwpCvUqGysD9DXI8Xurvtq9" 
+# 👉 Bác dán ID vào đây (chỉ ID thôi nhé, không dán cả link)
+FILE_ID_DRIVE = "1vOvvanNvDaLwP8Xs4nn1UhkciRvTxzyA" 
+
+# --- Code xử lý tải file mới ---
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
-OUTPUT_ZIP = "/tmp/bo_nao_vector.zip"
-EXTRACT_PATH = "/tmp/bo_nao_vector"
+# Đổi tên file để né file lỗi cũ
+OUTPUT_ZIP = "/tmp/brain_new_v2.zip"  
+EXTRACT_PATH = "/tmp/brain_new_v2"
 
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
@@ -118,20 +121,41 @@ except:
 
 @st.cache_resource
 def load_brain():
+    # 1. Tải não mới (Force download)
     if not os.path.exists(EXTRACT_PATH):
         try:
-            gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=True)
+            print("Dang tai file tu Drive...")
+            # fuzzy=True để xử lý cảnh báo virus của Drive
+            gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=False, fuzzy=True) 
+            
+            print("Dang giai nen...")
             with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zip_ref:
-                zip_ref.extractall("/tmp/")
+                zip_ref.extractall(EXTRACT_PATH)
+            
+            # Xóa file zip cho nhẹ
             if os.path.exists(OUTPUT_ZIP): os.remove(OUTPUT_ZIP)
         except Exception as e:
+            st.error(f"⚠️ Lỗi tải dữ liệu: {e}")
+            # Nếu tải lỗi, xóa thư mục để lần sau tải lại
+            if os.path.exists(EXTRACT_PATH):
+                import shutil
+                shutil.rmtree(EXTRACT_PATH)
             return None, None
+    
+    # 2. Khởi động AI
     try:
+        # Trỏ đúng vào thư mục vừa giải nén
+        # (Tìm thư mục con nếu giải nén bị lồng)
+        vector_db_path = EXTRACT_PATH
+        if os.path.exists(os.path.join(EXTRACT_PATH, "vector_db")):
+             vector_db_path = os.path.join(EXTRACT_PATH, "vector_db")
+
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
-        db = FAISS.load_local(EXTRACT_PATH, embeddings, allow_dangerous_deserialization=True)
-        model = genai.GenerativeModel('gemini-flash-latest')
+        db = FAISS.load_local(vector_db_path, embeddings, allow_dangerous_deserialization=True)
+        model = genai.GenerativeModel('gemini-1.5-flash')
         return db, model
     except Exception as e:
+        st.error(f"⚠️ Lỗi khởi động AI: {e}")
         return None, None
 
 db, model = load_brain()
