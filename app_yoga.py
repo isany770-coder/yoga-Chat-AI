@@ -22,29 +22,19 @@ st.set_page_config(
 # 2. HỆ SINH THÁI GIẢI PHÁP
 # =====================================================
 YOGA_SOLUTIONS = {
-    "AI_CHECK_ANH": {
-        "name": "📸 AI Check Lỗi Asana (Upload Ảnh)",
-        "url": "https://yogaismylife.vn/kiem-tra-tu-the-yoga/", 
-        "trigger": ["tư thế", "sai", "đúng không", "chỉnh", "check", "xem giúp", "chiến binh", "trồng chuối", "bánh xe", "đau lưng khi tập", "ảnh"]
-    },
     "QUY_TRINH_8_BUOC": {
         "name": "🗺️ Quy trình 8 Bước Toàn Diện",
-        "url": "https://yogaismylife.vn/quy-trinh-8-buoc",
+        "url": "https://yogaismylife.vn/kiem-tra-suc-khoe-toan-dien/",
         "trigger": ["bắt đầu", "lộ trình", "người mới", "từ đầu", "cơ bản", "hướng dẫn", "bao lâu", "học yoga", "nhập môn"]
     },
     "AI_COACH": {
         "name": "🤖 Gặp AI Coach 1:1",
-        "url": "https://yogaismylife.vn/ai-coach",
+        "url": "https://yogaismylife.vn/kiem-tra-tu-the-yoga/",
         "trigger": ["đau", "chấn thương", "mỏi", "bệnh", "trị liệu", "tư vấn riêng", "khó quá", "không tập được", "thoát vị", "đau gối"]
     },
-    "CHECKLIST_AN_TOAN": {
-        "name": "🛡️ Checklist An Toàn",
-        "url": "https://yogaismylife.vn/checklist-an-toan",
-        "trigger": ["an toàn", "nguy hiểm", "lưu ý", "chống chỉ định", "bầu", "người già", "huyết áp", "tim mạch", "tới tháng"]
-    },
-    "APP_THIEN": {
+    "APP_THIEN_THO": {
         "name": "🧘 App Thiền & Hít Thở (Giảm Stress)",
-        "url": "https://yogaismylife.vn/app-thien-tho",
+        "url": "https://yogaismylife.vn/thien-hoi-tho-chua-lanh/",
         "trigger": ["stress", "căng thẳng", "mất ngủ", "lo âu", "thở", "thiền", "thư giãn", "mệt mỏi", "áp lực", "ngủ ngon", "yên tĩnh"]
     }
 }
