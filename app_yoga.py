@@ -365,6 +365,7 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                 - Nếu "DỮ LIỆU TRA CỨU" không liên quan (ví dụ: hỏi bệnh mà dữ liệu ra triết lý), HÃY BỎ QUA DỮ LIỆU ĐÓ và trả lời bằng kiến thức Yoga Y Khoa chuẩn xác của bạn.
                 - Tuyệt đối không trả lời lung tung. Nếu là bệnh lý (huyết áp, thoát vị...), ưu tiên bài tập nhẹ nhàng, an toàn.
                 - Tối đa 150 từ.
+                - Dẫn link đúng bài đã tham khảo.
                 """
                 
                 response = model.generate_content(sys_prompt)
