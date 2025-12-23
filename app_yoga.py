@@ -104,7 +104,7 @@ st.markdown("""
 # 4. KẾT NỐI DỮ LIỆU
 # =====================================================
 # 👉 THAY ID FILE CỦA BÁC VÀO ĐÂY
-FILE_ID_DRIVE = "https://drive.google.com/file/d/13z82kBBd8QwpCvUqGysD9DXI8Xurvtq9/view?usp=sharing" 
+FILE_ID_DRIVE = "13z82kBBd8QwpCvUqGysD9DXI8Xurvtq9" 
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
 OUTPUT_ZIP = "/tmp/bo_nao_vector.zip"
 EXTRACT_PATH = "/tmp/bo_nao_vector"
