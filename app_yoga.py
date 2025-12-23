@@ -101,7 +101,7 @@ st.markdown("""
 # 4. KẾT NỐI API & DRIVE
 # =====================================================
 # 👉 BÁC THAY ID FILE VECTOR MỚI VÀO ĐÂY
-FILE_ID_DRIVE = "1vOvvanNvDaLwP8Xs4nn1UhkciRvTxzyA"
+FILE_ID_DRIVE = "13z82kBBd8QwpCvUqGysD9DXI8Xurvtq9"
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
 OUTPUT_ZIP = "/tmp/bo_nao_vector.zip"
 EXTRACT_PATH = "/tmp/bo_nao_vector"
