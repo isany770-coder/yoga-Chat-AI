@@ -262,47 +262,59 @@ if prompt := st.chat_input("Hỏi tôi về Yoga, tư thế, đau mỏi..."):
 
     with st.chat_message("assistant"):
         if db:
-            # 1. Tìm kiếm dữ liệu trong não (Lấy 6 mảnh ghép)
-            docs = db.similarity_search(prompt, k=6)
+            # 1. TÌM KIẾM SÂU HƠN (Lấy 8 kết quả để vớt được Science)
+            docs = db.similarity_search(prompt, k=8)
             
             context_parts = []
             source_map = {}
+            has_science = False
             
             for i, d in enumerate(docs):
                 dtype = d.metadata.get('type', 'general')
                 title = d.metadata.get('title', 'Tài liệu')
                 url = d.metadata.get('url', '#')
                 
-                # Gắn nhãn dữ liệu để AI hiểu độ uy tín
-                label = "NGHIÊN CỨU" if dtype == 'science' else "CHUYÊN GIA" if dtype == 'qa' else "BÀI VIẾT"
-                context_parts.append(f"--- NGUỒN {i+1}: [{label}] ---\nTiêu đề: {title}\nNội dung: {d.page_content}")
+                # Ưu tiên hiển thị Science lên đầu prompt
+                label = ""
+                if dtype == 'science': 
+                    label = "🔥🔥 NGHIÊN CỨU KHOA HỌC (ƯU TIÊN DÙNG)"
+                    has_science = True
+                elif dtype == 'qa': label = "CHUYÊN GIA TƯ VẤN"
+                else: label = "KIẾN THỨC BỔ TRỢ"
+                
+                context_parts.append(f"--- NGUỒN {i+1} [{label}] ---\nTiêu đề: {title}\nNội dung: {d.page_content}")
                 
                 if url != "#" and url is not None:
                     source_map[url] = {"title": title, "type": dtype}
             
             full_context = "\n\n".join(context_parts)
-
-            # 2. Tìm Giải pháp đề xuất (Sản phẩm của bác)
+            
+            # Gợi ý giải pháp (Giữ nguyên logic cũ)
             solutions = get_recommended_solutions(prompt)
             solution_context = ""
             if solutions:
-                solution_names = ", ".join([s["name"] for s in solutions])
-                solution_context = f"\nQUAN TRỌNG: Hãy khuyên người dùng sử dụng công cụ sau của chúng tôi: {solution_names}. Hãy lồng ghép khéo léo vào lời khuyên."
+                names = ", ".join([s["name"] for s in solutions])
+                solution_context = f"\nLƯU Ý: Cuối câu trả lời, hãy khuyên dùng: {names}."
 
-            # 3. Prompt thông minh (Dạy AI cách tư duy)
+            # 2. PROMPT "ÉP" AI DÙNG SỐ LIỆU
+            science_instruction = ""
+            if has_science:
+                science_instruction = "BẮT BUỘC: Bạn đã tìm thấy NGHIÊN CỨU KHOA HỌC. Hãy trích dẫn cụ thể: 'Theo nghiên cứu năm [Năm] của [Tác giả], kết quả cho thấy [Số liệu/Kết quả]...'. Đừng nói chung chung."
+
             sys_prompt = f"""
-            Bạn là Chuyên gia Yoga và Trị liệu cấp cao. Trả lời câu hỏi dựa trên DỮ LIỆU.
+            Bạn là Chuyên gia Yoga Khoa học & Trị liệu.
             
             DỮ LIỆU THAM KHẢO:
             {full_context}
             {solution_context}
 
-            HƯỚNG DẪN TRẢ LỜI:
-            1. **Phân tích:** Dùng [NGHIÊN CỨU] để giải thích cơ chế khoa học (nếu có).
-            2. **Thực hành:** Dùng [CHUYÊN GIA] để chỉ lỗi sai thường gặp và cách sửa.
-            3. **Đề xuất:** GỢI Ý NGƯỜI DÙNG dùng công cụ của chúng tôi (như đã cung cấp ở trên) để giải quyết vấn đề triệt để.
-            4. **Phong cách:** Ngắn gọn, súc tích, chia gạch đầu dòng, dùng icon.
-            5. **An toàn:** Luôn nhắc lắng nghe cơ thể (Ahimsa).
+            YÊU CẦU TRẢ LỜI:
+            1. **Ngắn gọn:** Trả lời súc tích, đi thẳng vào vấn đề. Tối đa 200 từ.
+            2. **Bằng chứng:** {science_instruction}
+            3. **Cấu trúc:** - **Kết luận:** (Ngắn gọn 1 câu).
+               - **Khoa học nói gì:** (Dùng dữ liệu Nghiên cứu nếu có).
+               - **Lời khuyên:** (Dựa trên dữ liệu Chuyên gia).
+            4. **An toàn:** Nhắc lắng nghe cơ thể.
 
             CÂU HỎI: "{prompt}"
             """
