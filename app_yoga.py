@@ -82,8 +82,8 @@ st.markdown("""
 # =====================================================
 FILE_ID_DRIVE = "13z82kBBd8QwpCvUqGysD9DXI8Xurvtq9" 
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
-OUTPUT_ZIP = "/tmp/brain_v5_final.zip"
-EXTRACT_PATH = "/tmp/brain_v5_final"
+OUTPUT_ZIP = "/tmp/brain_v6_final.zip"
+EXTRACT_PATH = "/tmp/brain_v6_final"
 
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
@@ -140,19 +140,24 @@ def get_remote_ip():
     return "guest_unknown"
 
 # =====================================================
-# 5. QUẢN LÝ USER & DATA
+# 5. QUẢN LÝ USER & DATA (ĐÃ SỬA LỖI SYNTAX Ở ĐÂY)
 # =====================================================
 USAGE_DB_FILE = "/tmp/usage_history_db.json"
 DAILY_LIMIT = 25
 TRIAL_LIMIT = 10
 
 def get_data():
-    if not os.path.exists(USAGE_DB_FILE): return {}
-    try: with open(USAGE_DB_FILE, "r") as f: return json.load(f)
-    except: return {}
+    if not os.path.exists(USAGE_DB_FILE):
+        return {}
+    try:
+        with open(USAGE_DB_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {}
 
 def save_data(data):
-    with open(USAGE_DB_FILE, "w") as f: json.dump(data, f)
+    with open(USAGE_DB_FILE, "w") as f:
+        json.dump(data, f)
 
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
@@ -230,9 +235,6 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
             final_docs = science_docs + qa_docs[:4] + blog_docs[:4]
             final_docs = final_docs[:8] # Lấy 8 cái tốt nhất
             
-            # Debug ẩn (Kiểm tra xem có tìm thấy nghiên cứu không)
-            # st.caption(f"Debug: Tìm thấy {len(science_docs)} nghiên cứu, {len(blog_docs)} bài viết.")
-
             context_parts = []
             source_map = {}
             has_science = False
