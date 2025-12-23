@@ -262,19 +262,33 @@ if prompt := st.chat_input("Hỏi tôi về Yoga, tư thế, đau mỏi..."):
 
     with st.chat_message("assistant"):
         if db:
-            # 1. TÌM KIẾM SÂU HƠN (Lấy 8 kết quả để vớt được Science)
-            docs = db.similarity_search(prompt, k=8)
+            # 1. CHIẾN THUẬT LƯỚI RỘNG: Lấy 10 kết quả để chắc chắn vớt được Science
+            docs = db.similarity_search(prompt, k=10)
             
+            # 2. SẮP XẾP LẠI (Rerank): Đưa Science lên đầu, Blog xuống cuối
+            science_docs = []
+            qa_docs = []
+            blog_docs = []
+            
+            for d in docs:
+                dtype = d.metadata.get('type', 'blog')
+                if dtype == 'science': science_docs.append(d)
+                elif dtype == 'qa': qa_docs.append(d)
+                else: blog_docs.append(d)
+            
+            # Trộn lại: Science -> QA -> Blog (Chỉ lấy tối đa 6 cái tốt nhất để không bị loãng)
+            final_docs = science_docs + qa_docs + blog_docs
+            final_docs = final_docs[:6] 
+
             context_parts = []
             source_map = {}
-            has_science = False
+            has_science = False # Cờ đánh dấu có tìm thấy khoa học không
             
-            for i, d in enumerate(docs):
+            for i, d in enumerate(final_docs):
                 dtype = d.metadata.get('type', 'general')
                 title = d.metadata.get('title', 'Tài liệu')
                 url = d.metadata.get('url', '#')
                 
-                # Ưu tiên hiển thị Science lên đầu prompt
                 label = ""
                 if dtype == 'science': 
                     label = "🔥🔥 NGHIÊN CỨU KHOA HỌC (ƯU TIÊN DÙNG)"
@@ -289,32 +303,34 @@ if prompt := st.chat_input("Hỏi tôi về Yoga, tư thế, đau mỏi..."):
             
             full_context = "\n\n".join(context_parts)
             
-            # Gợi ý giải pháp (Giữ nguyên logic cũ)
+            # Gợi ý giải pháp
             solutions = get_recommended_solutions(prompt)
             solution_context = ""
             if solutions:
                 names = ", ".join([s["name"] for s in solutions])
                 solution_context = f"\nLƯU Ý: Cuối câu trả lời, hãy khuyên dùng: {names}."
 
-            # 2. PROMPT "ÉP" AI DÙNG SỐ LIỆU
+            # 3. PROMPT ÉP BUỘC TRÍCH DẪN
             science_instruction = ""
             if has_science:
                 science_instruction = "BẮT BUỘC: Bạn đã tìm thấy NGHIÊN CỨU KHOA HỌC. Hãy trích dẫn cụ thể: 'Theo nghiên cứu năm [Năm] của [Tác giả], kết quả cho thấy [Số liệu/Kết quả]...'. Đừng nói chung chung."
+            else:
+                science_instruction = "Nếu không có nghiên cứu cụ thể, hãy trả lời dựa trên nguyên lý Yoga chung."
 
             sys_prompt = f"""
             Bạn là Chuyên gia Yoga Khoa học & Trị liệu.
             
-            DỮ LIỆU THAM KHẢO:
+            DỮ LIỆU THAM KHẢO (Đã sắp xếp ưu tiên):
             {full_context}
             {solution_context}
 
             YÊU CẦU TRẢ LỜI:
-            1. **Ngắn gọn:** Trả lời súc tích, đi thẳng vào vấn đề. Tối đa 200 từ.
+            1. **Ngắn gọn:** Trả lời súc tích, đi thẳng vào vấn đề.
             2. **Bằng chứng:** {science_instruction}
             3. **Cấu trúc:** - **Kết luận:** (Ngắn gọn 1 câu).
                - **Khoa học nói gì:** (Dùng dữ liệu Nghiên cứu nếu có).
-               - **Lời khuyên:** (Dựa trên dữ liệu Chuyên gia).
-            4. **An toàn:** Nhắc lắng nghe cơ thể.
+               - **Lời khuyên thực hành:** (Dựa trên dữ liệu Chuyên gia).
+            4. **An toàn:** Luôn nhắc lắng nghe cơ thể.
 
             CÂU HỎI: "{prompt}"
             """
