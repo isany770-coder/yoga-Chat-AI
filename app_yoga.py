@@ -226,7 +226,7 @@ if is_limit_reached:
                         <div style="font-size: 60px; margin-bottom: 10px;">🧘‍♀️</div>
                         <h3 style="color: #00897b; margin: 0; font-weight: 800;">ĐÃ ĐẠT GIỚI HẠN!</h3>
                         <p style="color: #555; font-size: 15px; margin-top: 10px; line-height: 1.5;">
-                            Hệ thống nhận thấy bạn đã dùng hết lượt thử.<br>
+                            Hệ thống nhận thấy bạn đã dùng hết lượt thử. Hãy quay lại vào ngày mai<br>
                             Để tra cứu <b>Kho dữ liệu 15 triệu từ</b> và nhận ưu đãi 
                             <b>Mua Thảm tặng Tài khoản Member</b>, mời bạn liên hệ Admin:
                         </p>
@@ -279,7 +279,7 @@ if is_limit_reached:
 if not st.session_state.authenticated:
     st.markdown("""
     <div class="promo-banner">
-        <div class="promo-text">🎁 Combo Thảm tập + Freeship giảm 30% hôm nay!</div>
+        <div class="promo-text">🎁 Combo Thảm tập + Freeship + tài khoản VIP giảm 30% hôm nay!</div>
         <a href="https://yogaismylife.vn/cua-hang/" target="_blank" class="promo-btn">Xem Ngay 🚀</a>
     </div>
     """, unsafe_allow_html=True)
