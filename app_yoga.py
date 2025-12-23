@@ -315,7 +315,7 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
 
             YÊU CẦU:
             1. KHÔNG VIẾT HOA TOÀN BỘ TIÊU ĐỀ (Ví dụ: Đừng viết "KẾT LUẬN", hãy viết "Kết luận").
-            2. Trả lời thẳng vào vấn đề, ngắn gọn (dưới 200 từ).
+            2. Trả lời thẳng vào vấn đề, ngắn gọn (dưới 150 từ).
             3. {sci_instruct}
             4. Luôn nhắc nhở lắng nghe cơ thể.
 
