@@ -199,13 +199,20 @@ DAILY_LIMIT = 25
 TRIAL_LIMIT = 5 # Giới hạn 5 câu hỏi cho khách
 
 def get_data():
-    if not os.path.exists(USAGE_DB_FILE): return {}
-    try: with open(USAGE_DB_FILE, "r") as f: return json.load(f)
-    except: return {}
+    if not os.path.exists(USAGE_DB_FILE):
+        return {}
+    try:
+        with open(USAGE_DB_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {}
 
 def save_data(data):
-    try: with open(USAGE_DB_FILE, "w") as f: json.dump(data, f)
-    except: pass
+    try:
+        with open(USAGE_DB_FILE, "w") as f:
+            json.dump(data, f)
+    except:
+        pass
 
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
