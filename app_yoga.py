@@ -313,7 +313,6 @@ def get_clean_history():
         history_text += f"{role}: {clean_content}\n"
     return history_text
 # -------------------------------------------------------------
-
 if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -321,53 +320,49 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
 
     with st.chat_message("assistant"):
         with st.spinner("Đang tìm kiếm trong kho dữ liệu..."):
-            # --- THAY ĐỔI QUAN TRỌNG: BỎ SCORE FILTER ---
+            try:
+                # 1. TÌM KIẾM
                 docs = db.similarity_search(prompt, k=8)
                 
                 context_text = ""
                 source_map = {}
-                
                 for i, d in enumerate(docs):
                     doc_id = i + 1
                     url = d.metadata.get('url', '#')
                     title = d.metadata.get('title', 'Tài liệu Yoga')
                     type_ = d.metadata.get('type', 'blog')
-                    
                     source_map[doc_id] = {"url": url, "title": title, "type": type_}
                     context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
 
-                # Lấy lịch sử chat để AI không bị "mất trí nhớ"
+                # 2. LẤY LỊCH SỬ CHAT (Gọi hàm vừa thêm ở Bước 1)
                 history_text = get_clean_history()
 
-                # Prompt Logic mới (Ép trích dẫn chặt hơn)
+                # 3. PROMPT
                 sys_prompt = f"""
                 Bạn là chuyên gia Yoga.
                 
-                1. LỊCH SỬ TRÒ CHUYỆN (Tham khảo để hiểu ngữ cảnh):
+                1. LỊCH SỬ TRÒ CHUYỆN:
                 {history_text}
                 
-                2. DỮ LIỆU TRA CỨU (Bắt buộc dùng để trả lời):
+                2. DỮ LIỆU TRA CỨU:
                 {context_text}
                 
                 3. CÂU HỎI MỚI: "{prompt}"
                 
                 YÊU CẦU:
-                - Trả lời ngắn gọn (dưới 150 từ).
-                - BẮT BUỘC: Mọi ý lấy từ "Dữ liệu tra cứu" phải có dẫn chứng [Ref: X]. 
-                - Ví dụ: Yoga giảm đau lưng [Ref: 1].
-                - Nếu câu hỏi không liên quan đến dữ liệu, hãy trả lời theo kiến thức của bạn.
-                - Nếu câu hỏi không liên chủ đề yoga, sức khỏe, thiền định đã được nạp từ chối khéo.
-                - Nếu cố tình hỏi không liên quan trong 3 câu chặn.
+                - Kết hợp lịch sử và dữ liệu để trả lời.
+                - Nếu dùng ý từ Dữ liệu tra cứu, BẮT BUỘC ghi chú [Ref: X].
+                - Ngắn gọn dưới 150 từ.
                 """
                 
                 response = model.generate_content(sys_prompt)
                 ai_resp = response.text
                 
-                # Render kết quả (Sửa regex để bắt lỗi Ref linh hoạt hơn)
-                clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp) 
+                # 4. HIỂN THỊ TEXT (Sửa regex để bắt Ref chuẩn hơn)
+                clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
                 st.markdown(clean_text)
                 
-                # Logic hiển thị Link (Ref) - Regex mới bắt cả [Ref: 1] và [Ref:1]
+                # 5. HIỂN THỊ LINK (Sửa regex để bắt Ref chuẩn hơn)
                 used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
                 unique_used_ids = sorted(list(set(used_ids)))
                 
@@ -377,16 +372,15 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                     seen_urls = set()
                     for uid in unique_used_ids:
                         info = source_map[uid]
-                        # Chỉ hiện link nếu chưa hiện và url hợp lệ
                         if info['url'] != '#' and info['url'] not in seen_urls:
                             seen_urls.add(info['url'])
                             color = "#e3f2fd" if info['type']=='science' else "#e8f5e9"
-                            label = "NGHIÊN CỨU" if info['type']=='science' else "BÀI VIẾT"
-                            html_sources += f"""<a href="{info['url']}" target="_blank" class="source-link"><span class="tag" style="background:{color}">{label}</span>{info['title']}</a>"""
+                            lbl = "NGHIÊN CỨU" if info['type']=='science' else "BÀI VIẾT"
+                            html_sources += f"""<a href="{info['url']}" target="_blank" class="source-link"><span class="tag" style="background:{color}">{lbl}</span>{info['title']}</a>"""
                     html_sources += "</div>"
                     st.markdown(html_sources, unsafe_allow_html=True)
 
-                # Logic Upsell (Giữ nguyên của bạn)
+                # 6. UPSELL (Giữ nguyên của bạn)
                 upsell_html = ""
                 recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
                 if recs:
@@ -396,10 +390,12 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                     upsell_html += "</div>"
                     st.markdown(upsell_html, unsafe_allow_html=True)
                 
-                # Lưu lịch sử (Full HTML để F5 vẫn còn)
                 full_save = clean_text
                 if html_sources: full_save += "\n\n" + html_sources
                 if upsell_html: full_save += "\n\n" + upsell_html
                 st.session_state.messages.append({"role": "assistant", "content": full_save})
 
-                except Exception as e: st.error("Hệ thống đang bận. Vui lòng thử lại.")
+            except Exception as e:
+                # In lỗi ra log console để debug nếu cần, nhưng báo user nhẹ nhàng
+                print(f"Lỗi: {e}")
+                st.error("Hệ thống đang bận. Vui lòng thử lại.")
