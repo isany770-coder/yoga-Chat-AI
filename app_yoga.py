@@ -251,8 +251,26 @@ def get_recommended_solutions(user_query):
 # 7. GIAO DIỆN CHÍNH
 # =====================================================
 if not st.session_state.authenticated:
-    st.markdown(f"""<div style="position: fixed; bottom: 80px; left: 15px; right: 15px; background: #fff5f0; border: 1px solid #ffccbc; border-radius: 15px; padding: 10px 15px; z-index: 99999; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 15px rgba(255, 87, 34, 0.1);"><div style="display: flex; align-items: center; gap: 10px;"><div style="background: #ff7043; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;"><span style="font-size: 16px;">🎁</span></div><div><div style="color: #bf360c !important; font-size: 13px; font-weight: bold;">Combo Thảm & Freeship!!</div><div style="color: #ff7043 !important; font-size: 11px;">Giảm ngay 30% hôm nay!</div></div></div><a href="https://yogaismylife.vn/cua-hang/" target="_blank" style="background: #ff7043; color: white !important; padding: 8px 15px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 12px; box-shadow: 0 2px 5px rgba(255, 112, 67, 0.3);">Xem ngay</a></div>""", unsafe_allow_html=True)
+    # Chuyển thành khối tĩnh (Static), nằm gọn gàng, không trôi nổi đè chữ
+    st.markdown(f"""
+    <div style="background: #fff5f0; border: 1px solid #ffccbc; border-radius: 12px; padding: 12px 15px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="background: #ff7043; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 18px;">🎁</span>
+            </div>
+            <div>
+                <div style="color: #bf360c !important; font-size: 14px; font-weight: bold;">Combo Thảm & Freeship!!</div>
+                <div style="color: #ff7043 !important; font-size: 12px;">Giảm ngay 30% hôm nay!</div>
+            </div>
+        </div>
+        <a href="https://yogaismylife.vn/cua-hang/" target="_blank" style="background: #ff7043; color: white !important; padding: 8px 20px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 13px; box-shadow: 0 3px 6px rgba(255, 112, 67, 0.3);">Xem ngay</a>
+    </div>
+    """, unsafe_allow_html=True)
 
+# Hiển thị nội dung chat bên dưới quảng cáo
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"], unsafe_allow_html=True)
 for m in st.session_state.messages:
     with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
