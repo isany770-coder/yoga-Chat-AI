@@ -174,6 +174,22 @@ used = check_usage(user_id)
 LIMIT = 30 if st.session_state.authenticated else 5
 is_limit_reached = used >= LIMIT
 
+# --- CHÈN THÊM ĐOẠN NÀY ĐỂ HIỆN THANH ĐẾM LƯỢT ---
+percent = min(100, int((used / LIMIT) * 100))
+st.markdown(f"""
+<div style="position: fixed; top: 10px; right: 10px; z-index: 100000;">
+    <div style="background: rgba(255,255,255,0.95); padding: 5px 12px; border-radius: 20px; 
+                border: 1px solid #009688; box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+                font-size: 12px; font-weight: bold; color: #00796b; display: flex; align-items: center; gap: 8px;">
+        <span>⚡ {used}/{LIMIT}</span>
+        <div style="width: 40px; height: 4px; background: #e0e0e0; border-radius: 2px;">
+            <div style="width: {percent}%; height: 100%; background: linear-gradient(90deg, #009688, #80cbc4); border-radius: 2px;"></div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+# ------------------------------------------------
+
 # =====================================================
 # 4. GIAO DIỆN HẾT HẠN (V15 - SIÊU BỀN, KHÔNG VỠ)
 # =====================================================
@@ -284,6 +300,20 @@ YOGA_SOLUTIONS = {
 # =====================================================
 # 6. XỬ LÝ CHAT (ĐÃ BỎ BỘ LỌC CHẶT)
 # =====================================================
+# --- HÀM MỚI: LỌC LỊCH SỬ CHAT (BỎ HTML ĐỂ AI KHÔNG BỊ LOẠN) ---
+def get_clean_history():
+    """Lấy 4 câu hội thoại gần nhất, lọc bỏ code HTML"""
+    history_text = ""
+    # Lấy 4 tin nhắn cuối cùng (bỏ qua tin nhắn chào hỏi đầu tiên nếu muốn)
+    recent_msgs = st.session_state.messages[-4:] 
+    for msg in recent_msgs:
+        role = "User" if msg["role"] == "user" else "AI"
+        # Xóa các thẻ HTML như <div>, <a>, <br>... chỉ giữ lại chữ
+        clean_content = re.sub(r'<[^>]+>', '', msg["content"]) 
+        history_text += f"{role}: {clean_content}\n"
+    return history_text
+# -------------------------------------------------------------
+
 if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -309,14 +339,26 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                     context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
 
                 # Prompt để AI tự lọc
+                # --- GỌI HÀM LẤY LỊCH SỬ ---
+                history_context = get_clean_history()
+
+                # --- PROMPT MỚI: KẾT HỢP LỊCH SỬ + TRA CỨU ---
                 sys_prompt = f"""
-                Bạn là chuyên gia Yoga. Dưới đây là các tài liệu tìm được từ kho dữ liệu.
+                Bạn là chuyên gia Yoga.
                 
-                YÊU CẦU:
-                1. Trả lời câu hỏi: "{prompt}" dựa trên các nguồn sau.
-                2. Nếu các nguồn có vẻ không liên quan trực tiếp, hãy cố gắng tìm ý liên quan nhất hoặc trả lời dựa trên kiến thức Yoga chuẩn xác của bạn, nhưng CẢNH BÁO người dùng là thông tin tham khảo.
-                3. BẮT BUỘC: Khi dùng ý từ nguồn nào, phải ghi chú [Ref: X] (X là số nguồn).
-                3. Không quá 150 từ.
+                1. NGỮ CẢNH TRÒ CHUYỆN (Lịch sử chat gần nhất):
+                {history_context}
+                
+                2. DỮ LIỆU TRA CỨU TỪ KHO (Rất quan trọng):
+                {context_text}
+                
+                3. CÂU HỎI MỚI CỦA USER: "{prompt}"
+                
+                YÊU CẦU TRẢ LỜI:
+                - Kết hợp ngữ cảnh lịch sử (để hiểu User đang nói gì) và Dữ liệu tra cứu (để trả lời chính xác).
+                - Nếu dùng ý từ Dữ liệu tra cứu, BẮT BUỘC ghi [Ref: X].
+                - Nếu câu hỏi không liên quan đến bài trước, hãy trả lời độc lập.
+                - Ngắn gọn dưới 150 từ.
                 
                 NGUỒN DỮ LIỆU:
                 {context_text}
