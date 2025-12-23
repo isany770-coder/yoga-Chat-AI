@@ -82,8 +82,9 @@ st.markdown("""
 # =====================================================
 FILE_ID_DRIVE = "13z82kBBd8QwpCvUqGysD9DXI8Xurvtq9" 
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
-OUTPUT_ZIP = "/tmp/brain_v8_dedup.zip"
-EXTRACT_PATH = "/tmp/brain_v8_dedup"
+# Đổi tên file để ép tải lại lần cuối
+OUTPUT_ZIP = "/tmp/brain_v9_deep.zip"
+EXTRACT_PATH = "/tmp/brain_v9_deep"
 
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
@@ -96,13 +97,11 @@ except:
 def load_brain():
     if not os.path.exists(EXTRACT_PATH):
         try:
-            print("Dang tai file...")
             gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=False, fuzzy=True)
-            print("Dang giai nen...")
             with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zip_ref:
                 zip_ref.extractall(EXTRACT_PATH)
             if os.path.exists(OUTPUT_ZIP): os.remove(OUTPUT_ZIP)
-        except Exception as e:
+        except:
             if os.path.exists(EXTRACT_PATH):
                 import shutil
                 shutil.rmtree(EXTRACT_PATH)
@@ -127,7 +126,7 @@ def load_brain():
 
 db, model = load_brain()
 if db is None or model is None:
-    st.warning("🧘‍♂️ Hệ thống đang tải não bộ, vui lòng tải lại trang (F5) nếu đợi quá lâu...")
+    st.warning("🧘‍♂️ Đang khởi động não bộ V9... Vui lòng F5 nếu chờ quá 1 phút.")
     st.stop()
 
 def get_remote_ip():
@@ -147,17 +146,12 @@ DAILY_LIMIT = 25
 TRIAL_LIMIT = 10
 
 def get_data():
-    if not os.path.exists(USAGE_DB_FILE):
-        return {}
-    try:
-        with open(USAGE_DB_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return {}
+    if not os.path.exists(USAGE_DB_FILE): return {}
+    try: with open(USAGE_DB_FILE, "r") as f: return json.load(f)
+    except: return {}
 
 def save_data(data):
-    with open(USAGE_DB_FILE, "w") as f:
-        json.dump(data, f)
+    with open(USAGE_DB_FILE, "w") as f: json.dump(data, f)
 
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
@@ -221,37 +215,50 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
 
     with st.chat_message("assistant"):
         if db:
-            # 1. VÉT CẠN KHO DỮ LIỆU (LẤY 60 KẾT QUẢ ĐỂ LỌC)
-            docs = db.similarity_search(prompt, k=60)
+            # 1. CHIẾN THUẬT VÉT CẠN: LẤY 100 KẾT QUẢ (Để chắc chắn có Science)
+            docs = db.similarity_search(prompt, k=100)
             
-            # 2. LOGIC LỌC TRÙNG (DEDUPLICATION)
-            # Giúp loại bỏ các đoạn văn bản thuộc cùng 1 bài viết, để nhường chỗ cho bài khác
-            seen_urls = set()
-            unique_science = []
-            unique_qa = []
-            unique_blog = []
+            # 2. PHÂN LOẠI & LỌC TỪ KHÓA
+            science_docs = []
+            qa_docs = []
+            blog_docs = []
+            
+            # Từ khóa quan trọng trong câu hỏi (để tránh bài "đau tay" hiện cho "đau lưng")
+            keywords = [w for w in prompt.lower().split() if len(w) > 3]
 
             for d in docs:
-                url = d.metadata.get('url', '#')
                 dtype = d.metadata.get('type', 'general')
+                title = d.metadata.get('title', '').lower()
+                content = d.page_content.lower()
                 
-                # Nếu URL đã có rồi thì bỏ qua (Trừ khi URL rỗng hoặc #)
-                if url in seen_urls and url != '#' and len(str(url)) > 10:
-                    continue
+                # Tính điểm: +2 nếu từ khóa có trong Tiêu đề, +1 nếu có trong Nội dung
+                score = 0
+                for k in keywords:
+                    if k in title: score += 2
+                    elif k in content: score += 1
                 
-                if url != '#' and len(str(url)) > 10:
-                    seen_urls.add(url)
+                # Chỉ lấy những bài có liên quan (score > 0) hoặc là Science (ưu tiên đặc biệt)
+                if score > 0 or dtype == 'science':
+                    item = (score, d)
+                    if dtype == 'science': science_docs.append(item)
+                    elif dtype == 'qa': qa_docs.append(item)
+                    else: blog_docs.append(item)
+            
+            # Sắp xếp theo điểm giảm dần
+            science_docs.sort(key=lambda x: x[0], reverse=True)
+            qa_docs.sort(key=lambda x: x[0], reverse=True)
+            blog_docs.sort(key=lambda x: x[0], reverse=True)
 
-                if dtype == 'science': unique_science.append(d)
-                elif dtype == 'qa': unique_qa.append(d)
-                else: unique_blog.append(d)
+            # Lấy docs ra (Science lấy 4, QA lấy 2, Blog lấy 2)
+            # Dù Blog có điểm cao mấy cũng chỉ lấy 2 bài thôi, để nhường chỗ cho Science
+            final_science = [x[1] for x in science_docs[:4]]
+            final_qa = [x[1] for x in qa_docs[:2]]
+            final_blog = [x[1] for x in blog_docs[:2]]
             
-            # 3. CHIA SLOT CÔNG BẰNG (Top 3 mỗi loại)
-            # Dù blog có khớp đến mấy cũng chỉ lấy 3 bài, chừa chỗ cho Science
-            final_docs = unique_science[:3] + unique_qa[:2] + unique_blog[:3]
-            
-            # Debug (Ẩn): Kiểm tra xem lấy được gì
-            # st.write(f"Science: {len(unique_science)}, Blog: {len(unique_blog)}")
+            final_docs = final_science + final_qa + final_blog
+
+            # Debug: Hiện số lượng tìm thấy (để bác kiểm tra)
+            # st.caption(f"Tìm thấy: {len(science_docs)} Nghiên cứu, {len(qa_docs)} QA, {len(blog_docs)} Blog.")
 
             context_parts = []
             source_map = {}
@@ -281,18 +288,19 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
                 names = ", ".join([s["name"] for s in solutions])
                 sol_context = f"\nLưu ý: Cuối bài, khuyên dùng: {names}."
 
-            sci_instruct = "BẮT BUỘC: Trích dẫn cụ thể 'Theo nghiên cứu năm [Năm] của [Tác giả]...'." if has_science else "Trả lời dựa trên nguyên lý Yoga chung."
+            sci_instruct = "BẮT BUỘC: Nếu có NGHIÊN CỨU KHOA HỌC, hãy bắt đầu bằng 'Dựa trên nghiên cứu của [Tác giả] năm [Năm]...'" if has_science else "Trả lời dựa trên nguyên lý Yoga chung."
 
+            # Prompt: CẤM HEADER
             sys_prompt = f"""
             Bạn là Chuyên gia Yoga Khoa học. DỮ LIỆU:
             {full_context}
             {sol_context}
 
             YÊU CẦU:
-            1. Dùng chữ thường cho tiêu đề (Sentence case). KHÔNG IN HOA TOÀN BỘ.
-            2. Ngắn gọn (150 từ).
+            1. Tuyệt đối KHÔNG dùng các tiêu đề lớn (như # KẾT LUẬN, ## KHOA HỌC). Hãy viết liền mạch, chia đoạn nhỏ.
+            2. Đi thẳng vào vấn đề.
             3. {sci_instruct}
-            4. Chỉ dùng thông tin trong DỮ LIỆU cung cấp.
+            4. Luôn nhắc an toàn.
 
             CÂU HỎI: "{prompt}"
             """
