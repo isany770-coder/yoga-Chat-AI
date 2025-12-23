@@ -173,7 +173,7 @@ def get_remote_ip():
 # =====================================================
 USAGE_DB_FILE = "/tmp/usage_history_db.json"
 DAILY_LIMIT = 25
-TRIAL_LIMIT = 5 # Giới hạn 5 câu cho khách
+TRIAL_LIMIT = 7 # Giới hạn 5 câu cho khách
 
 def get_data():
     if not os.path.exists(USAGE_DB_FILE):
