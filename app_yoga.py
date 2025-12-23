@@ -104,7 +104,7 @@ st.markdown("""
 # 4. KẾT NỐI API & DRIVE (ĐÃ SỬA ĐỂ ÉP TẢI LẠI)
 # =====================================================
 # 👉 Bác dán ID vào đây (chỉ ID thôi nhé, không dán cả link)
-FILE_ID_DRIVE = "1vOvvanNvDaLwP8Xs4nn1UhkciRvTxzyA" 
+FILE_ID_DRIVE = "13z82kBBd8QwpCvUqGysD9DXI8Xurvtq9" 
 
 # --- Code xử lý tải file mới ---
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
