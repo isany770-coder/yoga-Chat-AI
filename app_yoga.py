@@ -70,7 +70,6 @@ st.markdown("""
     .limit-container { margin-top: 50px; padding: 40px; border-radius: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); text-align: center; border: 2px solid #0f988b; background: white; margin-left: auto; margin-right: auto; max-width: 500px; }
     .zalo-btn { display: flex !important; align-items: center; justify-content: center; width: 100%; background-color: white; color: #0f988b !important; border: 1px solid #dcdfe3; border-radius: 8px; font-weight: 500; font-size: 14px; height: 45px !important; text-decoration: none !important; margin: 0 !important; }
     div[data-testid="stForm"] button { height: 45px !important; border-radius: 8px !important; font-weight: 500 !important; color: #31333F !important; }
-    
     .usage-bar-container { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background-color: #f0f0f0; z-index: 1000000; }
     .usage-bar-fill { height: 100%; background: linear-gradient(90deg, #0f988b 0%, #14b8a6 100%); }
     .usage-text { position: fixed; top: 10px; right: 15px; background: rgba(255,255,255,0.9); padding: 4px 12px; border-radius: 20px; font-size: 11px; color: #0f988b !important; font-weight: bold; border: 1px solid #0f988b; z-index: 1000001; }
@@ -82,9 +81,8 @@ st.markdown("""
 # =====================================================
 FILE_ID_DRIVE = "13z82kBBd8QwpCvUqGysD9DXI8Xurvtq9" 
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
-# Đổi tên file để ép tải lại lần cuối
-OUTPUT_ZIP = "/tmp/brain_v9_deep.zip"
-EXTRACT_PATH = "/tmp/brain_v9_deep"
+OUTPUT_ZIP = "/tmp/brain_v9_clean.zip"
+EXTRACT_PATH = "/tmp/brain_v9_clean"
 
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
@@ -97,36 +95,44 @@ except:
 def load_brain():
     if not os.path.exists(EXTRACT_PATH):
         try:
+            # Tải file
             gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=False, fuzzy=True)
+            # Giải nén
             with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zip_ref:
                 zip_ref.extractall(EXTRACT_PATH)
-            if os.path.exists(OUTPUT_ZIP): os.remove(OUTPUT_ZIP)
-        except:
+            # Xóa zip
+            if os.path.exists(OUTPUT_ZIP):
+                os.remove(OUTPUT_ZIP)
+        except Exception as e:
             if os.path.exists(EXTRACT_PATH):
                 import shutil
                 shutil.rmtree(EXTRACT_PATH)
             return None, None
     
+    # Tự động dò tìm file index.faiss
     vector_db_path = None
     for root, dirs, files in os.walk(EXTRACT_PATH):
         for file in files:
             if file.endswith(".faiss"):
                 vector_db_path = root
                 break
-        if vector_db_path: break
+        if vector_db_path:
+            break
     
-    if vector_db_path is None: return None, None
+    if vector_db_path is None:
+        return None, None
 
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         db = FAISS.load_local(vector_db_path, embeddings, allow_dangerous_deserialization=True)
         model = genai.GenerativeModel('gemini-flash-latest')
         return db, model
-    except: return None, None
+    except:
+        return None, None
 
 db, model = load_brain()
 if db is None or model is None:
-    st.warning("🧘‍♂️ Đang khởi động não bộ V9... Vui lòng F5 nếu chờ quá 1 phút.")
+    st.warning("🧘‍♂️ Đang khởi động não bộ... Vui lòng chờ 30s rồi tải lại (F5).")
     st.stop()
 
 def get_remote_ip():
@@ -139,19 +145,24 @@ def get_remote_ip():
     return "guest_unknown"
 
 # =====================================================
-# 5. QUẢN LÝ USER & DATA
+# 5. QUẢN LÝ USER & DATA (ĐÃ SỬA CÚ PHÁP CHUẨN)
 # =====================================================
 USAGE_DB_FILE = "/tmp/usage_history_db.json"
 DAILY_LIMIT = 25
 TRIAL_LIMIT = 10
 
 def get_data():
-    if not os.path.exists(USAGE_DB_FILE): return {}
-    try: with open(USAGE_DB_FILE, "r") as f: return json.load(f)
-    except: return {}
+    if not os.path.exists(USAGE_DB_FILE):
+        return {}
+    try:
+        with open(USAGE_DB_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {}
 
 def save_data(data):
-    with open(USAGE_DB_FILE, "w") as f: json.dump(data, f)
+    with open(USAGE_DB_FILE, "w") as f:
+        json.dump(data, f)
 
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
@@ -207,7 +218,7 @@ if not can_chat:
     with c2: render_login_form()
     st.stop()
 
-# XỬ LÝ CHAT
+# XỬ LÝ CHAT (LOGIC MỚI: BẮT DÍNH TỪ KHÓA)
 if prompt := st.chat_input("Hỏi tôi về Yoga..."):
     db_data[user_key]["count"] += 1
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -215,50 +226,56 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
 
     with st.chat_message("assistant"):
         if db:
-            # 1. CHIẾN THUẬT VÉT CẠN: LẤY 100 KẾT QUẢ (Để chắc chắn có Science)
-            docs = db.similarity_search(prompt, k=100)
+            # 1. VÉT 80 KẾT QUẢ
+            docs = db.similarity_search(prompt, k=80)
             
-            # 2. PHÂN LOẠI & LỌC TỪ KHÓA
-            science_docs = []
-            qa_docs = []
-            blog_docs = []
-            
-            # Từ khóa quan trọng trong câu hỏi (để tránh bài "đau tay" hiện cho "đau lưng")
-            keywords = [w for w in prompt.lower().split() if len(w) > 3]
+            # 2. XÁC ĐỊNH TỪ KHÓA QUAN TRỌNG TỪ CÂU HỎI
+            # Ví dụ: "tập yoga có giảm cân không" -> keywords: ["giảm", "cân", "béo", "mỡ"]
+            user_keywords = prompt.lower().split()
+            # Lọc từ ngắn quá (<3 ký tự)
+            user_keywords = [w for w in user_keywords if len(w) > 2]
+
+            science_pool = []
+            qa_pool = []
+            blog_pool = []
+            seen_urls = set()
 
             for d in docs:
+                url = d.metadata.get('url', '#')
+                # Lọc trùng URL (Deduplication)
+                if url != '#' and len(str(url)) > 10:
+                    if url in seen_urls: continue
+                    seen_urls.add(url)
+
                 dtype = d.metadata.get('type', 'general')
                 title = d.metadata.get('title', '').lower()
-                content = d.page_content.lower()
                 
-                # Tính điểm: +2 nếu từ khóa có trong Tiêu đề, +1 nếu có trong Nội dung
+                # --- TÍNH ĐIỂM KHỚP TỪ KHÓA ---
+                # Nếu tiêu đề bài viết chứa từ khóa trong câu hỏi -> Cộng điểm cực mạnh
                 score = 0
-                for k in keywords:
-                    if k in title: score += 2
-                    elif k in content: score += 1
+                for kw in user_keywords:
+                    if kw in title:
+                        score += 10 # Điểm thưởng lớn
                 
-                # Chỉ lấy những bài có liên quan (score > 0) hoặc là Science (ưu tiên đặc biệt)
-                if score > 0 or dtype == 'science':
-                    item = (score, d)
-                    if dtype == 'science': science_docs.append(item)
-                    elif dtype == 'qa': qa_docs.append(item)
-                    else: blog_docs.append(item)
-            
-            # Sắp xếp theo điểm giảm dần
-            science_docs.sort(key=lambda x: x[0], reverse=True)
-            qa_docs.sort(key=lambda x: x[0], reverse=True)
-            blog_docs.sort(key=lambda x: x[0], reverse=True)
+                # Đóng gói (điểm, document)
+                item = (score, d)
 
-            # Lấy docs ra (Science lấy 4, QA lấy 2, Blog lấy 2)
-            # Dù Blog có điểm cao mấy cũng chỉ lấy 2 bài thôi, để nhường chỗ cho Science
-            final_science = [x[1] for x in science_docs[:4]]
-            final_qa = [x[1] for x in qa_docs[:2]]
-            final_blog = [x[1] for x in blog_docs[:2]]
+                if dtype == 'science': science_pool.append(item)
+                elif dtype == 'qa': qa_pool.append(item)
+                else: blog_pool.append(item)
             
-            final_docs = final_science + final_qa + final_blog
+            # 3. SẮP XẾP THEO ĐIỂM CAO NHẤT
+            science_pool.sort(key=lambda x: x[0], reverse=True)
+            qa_pool.sort(key=lambda x: x[0], reverse=True)
+            blog_pool.sort(key=lambda x: x[0], reverse=True)
 
-            # Debug: Hiện số lượng tìm thấy (để bác kiểm tra)
-            # st.caption(f"Tìm thấy: {len(science_docs)} Nghiên cứu, {len(qa_docs)} QA, {len(blog_docs)} Blog.")
+            # 4. CHIA SLOT (Lấy doc từ tuple)
+            # Lấy 2 Science tốt nhất (dù điểm thấp hơn blog cũng phải lấy)
+            final_docs = [x[1] for x in science_pool[:2]]
+            # Lấy 2 QA tốt nhất
+            final_docs += [x[1] for x in qa_pool[:2]]
+            # Lấy 2 Blog tốt nhất (khớp từ khóa nhất)
+            final_docs += [x[1] for x in blog_pool[:2]]
 
             context_parts = []
             source_map = {}
@@ -282,42 +299,45 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
                     source_map[url] = {"title": title, "type": dtype}
             
             full_context = "\n\n".join(context_parts)
+            
             solutions = get_recommended_solutions(prompt)
             sol_context = ""
             if solutions:
                 names = ", ".join([s["name"] for s in solutions])
-                sol_context = f"\nLưu ý: Cuối bài, khuyên dùng: {names}."
+                sol_context = f"\nLưu ý: Cuối câu trả lời, khuyên dùng: {names}."
 
-            sci_instruct = "BẮT BUỘC: Nếu có NGHIÊN CỨU KHOA HỌC, hãy bắt đầu bằng 'Dựa trên nghiên cứu của [Tác giả] năm [Năm]...'" if has_science else "Trả lời dựa trên nguyên lý Yoga chung."
+            sci_instruct = "BẮT BUỘC: Nếu có nguồn [NGHIÊN CỨU KHOA HỌC], hãy trích dẫn 'Theo nghiên cứu năm [Năm] của [Tác giả]...'" if has_science else "Trả lời dựa trên kiến thức Yoga chuẩn."
 
-            # Prompt: CẤM HEADER
             sys_prompt = f"""
-            Bạn là Chuyên gia Yoga Khoa học. DỮ LIỆU:
+            Bạn là Chuyên gia Yoga Khoa học. DỮ LIỆU THAM KHẢO:
             {full_context}
             {sol_context}
 
             YÊU CẦU:
-            1. Tuyệt đối KHÔNG dùng các tiêu đề lớn (như # KẾT LUẬN, ## KHOA HỌC). Hãy viết liền mạch, chia đoạn nhỏ.
-            2. Đi thẳng vào vấn đề.
+            1. KHÔNG VIẾT HOA TOÀN BỘ TIÊU ĐỀ (Ví dụ: Đừng viết "KẾT LUẬN", hãy viết "Kết luận").
+            2. Trả lời thẳng vào vấn đề, ngắn gọn (dưới 200 từ).
             3. {sci_instruct}
-            4. Luôn nhắc an toàn.
+            4. Luôn nhắc nhở lắng nghe cơ thể.
 
             CÂU HỎI: "{prompt}"
             """
             
             try:
-                with st.spinner("🧘 Đang tra cứu dữ liệu..."):
+                with st.spinner("🧘 Đang phân tích dữ liệu chuyên sâu..."):
                     response = model.generate_content(sys_prompt)
                     res_text = response.text
                 
                 full_html_content = res_text
+                
                 if solutions:
                     full_html_content += "<hr>"
                     for sol in solutions:
                         full_html_content += f"""<div class="solution-card"><div class="solution-text">{sol['name']}</div><a href="{sol['url']}" target="_blank" class="solution-btn">Sử dụng ngay 🚀</a></div>"""
                 
                 if source_map:
+                    # Sắp xếp hiển thị: Science lên đầu
                     sorted_urls = sorted(source_map.items(), key=lambda x: 0 if x[1]['type']=='science' else 1 if x[1]['type']=='qa' else 2)
+                    
                     links_html = "<div class='source-box'><strong>📚 Nguồn tham khảo uy tín:</strong><div style='margin-top:8px'>"
                     for url, info in sorted_urls:
                         tag_html = ""
@@ -330,11 +350,13 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
                 
                 st.markdown(full_html_content, unsafe_allow_html=True)
                 
+                # Lưu lịch sử FULL HTML để không bị mất khi load lại
                 db_data[user_key]["history"].append({"role": "user", "content": prompt})
                 db_data[user_key]["history"].append({"role": "assistant", "content": full_html_content})
                 save_data(db_data)
                 
-            except Exception as e: st.error(f"Lỗi AI: {e}")
+            except Exception as e:
+                st.error(f"Lỗi AI: {e}")
 
 if not st.session_state.authenticated and can_chat:
     st.markdown("<br>", unsafe_allow_html=True)
