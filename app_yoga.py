@@ -175,42 +175,103 @@ LIMIT = 30 if st.session_state.authenticated else 5
 is_limit_reached = used >= LIMIT
 
 # =====================================================
-# 4. GIAO DIỆN HẾT HẠN (ĐẸP NHƯ ẢNH)
+# 4. GIAO DIỆN HẾT HẠN (V14 - Có nút X, Form hoạt động)
 # =====================================================
 if is_limit_reached:
-    # Ẩn chat input bằng CSS
-    st.markdown("""<style>div[data-testid="stChatInput"] {display: none !important;}</style>""", unsafe_allow_html=True)
-    
-    # Hiển thị Overlay đẹp
-    st.markdown(f"""
-    <div class="limit-overlay">
-        <div class="limit-card">
-            <span class="limit-icon">🧘‍♀️</span>
-            <div class="limit-title">Đã đạt giới hạn tra cứu miễn phí!</div>
-            <div class="limit-desc">
-                Hệ thống nhận thấy bạn đã dùng hết lượt thử.<br>
-                Để tra cứu Kho dữ liệu Yoga Y Khoa 15 triệu từ, vui lòng nâng cấp.
-            </div>
-            <a href="https://zalo.me/84963759566" target="_blank" class="zalo-btn-limit">💬 Nhận mã kích hoạt qua Zalo</a>
-            
-            <hr style="margin: 20px 0; border: 0; border-top: 1px dashed #ccc;">
-            <div style="font-size: 13px; color: #666; margin-bottom: 10px;">Hoặc đăng nhập nếu đã là Member:</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Form đăng nhập (Streamlit Widget) nằm đè lên layout
-    col1, col2, col3 = st.columns([1,1,1])
-    with col2:
-        with st.form("login_limit"):
-            u = st.text_input("Username")
-            p = st.text_input("Password", type="password")
-            if st.form_submit_button("Đăng Nhập"):
-                if st.secrets["passwords"].get(u) == p:
-                    st.session_state.authenticated = True; st.session_state.username = u; st.rerun()
-                else: st.error("Sai mật khẩu")
-    st.stop()
+    # Logic: Nếu người dùng bấm X, biến này sẽ thành True -> Ẩn thông báo đi
+    if "hide_limit_modal" not in st.session_state:
+        st.session_state.hide_limit_modal = False
 
+    # Nếu chưa bấm đóng, thì hiện Modal chặn
+    if not st.session_state.hide_limit_modal:
+        # 1. Ẩn input chat để không cho chat tiếp
+        st.markdown("""<style>div[data-testid="stChatInput"] {display: none !important;}</style>""", unsafe_allow_html=True)
+        
+        # 2. Tạo lớp phủ mờ toàn màn hình
+        st.markdown("""
+            <style>
+                .modal-backdrop {
+                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                    background: rgba(0, 0, 0, 0.5); z-index: 9990;
+                }
+                .modal-card {
+                    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                    width: 90%; max-width: 420px;
+                    background: white; border-radius: 20px;
+                    padding: 25px; z-index: 9999;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                    border: 2px solid #009688;
+                    text-align: center;
+                }
+                /* Nút X đóng */
+                .close-btn {
+                    position: absolute; top: 10px; right: 15px;
+                    font-size: 24px; color: #888; cursor: pointer;
+                    font-weight: bold; text-decoration: none;
+                }
+                .close-btn:hover { color: #d32f2f; }
+            </style>
+            <div class="modal-backdrop"></div>
+            <div class="modal-card">
+        """, unsafe_allow_html=True)
+
+        # 3. Nút Đóng (X) - Dùng thủ thuật tạo link để reload state
+        # Khi bấm vào nút này, nó sẽ reload lại trang, nhưng ta cần xử lý logic ở Python
+        col_close_1, col_close_2 = st.columns([9, 1])
+        with col_close_2:
+            if st.button("✕", key="close_modal_btn"):
+                st.session_state.hide_limit_modal = True
+                st.rerun()
+
+        # 4. Nội dung thông báo (HTML thuần)
+        st.markdown("""
+            <div style="font-size: 50px; margin-bottom: 10px;">🧘‍♀️</div>
+            <h3 style="color: #00796b; margin: 0 0 10px 0;">ĐÃ ĐẠT GIỚI HẠN!</h3>
+            <p style="color: #555; font-size: 14px; margin-bottom: 20px;">
+                Bạn đã dùng hết lượt thử miễn phí.<br>
+                Vui lòng nâng cấp để tra cứu không giới hạn.
+            </p>
+            <a href="https://zalo.me/84963759566" target="_blank" 
+               style="display: block; width: 100%; background: #009688; color: white; 
+                      padding: 12px; border-radius: 25px; text-decoration: none; font-weight: bold;">
+               💬 Nhận mã kích hoạt Zalo
+            </a>
+            <hr style="margin: 20px 0; border-top: 1px dashed #ccc;">
+            <div style="font-size: 13px; color: #666; margin-bottom: 10px;">Hoặc đăng nhập thành viên:</div>
+        """, unsafe_allow_html=True)
+
+        # 5. Form Đăng nhập (Streamlit Widget - Hoạt động 100%)
+        with st.form("login_form_modal"):
+            u = st.text_input("Tên đăng nhập")
+            p = st.text_input("Mật khẩu", type="password")
+            btn = st.form_submit_button("Đăng Nhập", use_container_width=True)
+            
+            if btn:
+                if st.secrets["passwords"].get(u) == p:
+                    st.session_state.authenticated = True
+                    st.session_state.username = u
+                    st.session_state.hide_limit_modal = True # Tắt modal
+                    st.success("Đăng nhập thành công!")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Sai mật khẩu!")
+        
+        # Đóng thẻ div của modal
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Dừng chương trình để không hiện khung chat bên dưới khi modal đang mở
+        st.stop()
+    
+    else:
+        # Nếu đã bấm đóng (X), hiện thông báo nhỏ và CHẶN chat input
+        st.markdown("""
+        <div style="background:#ffebee; color:#c62828; padding:10px; text-align:center; border-radius:10px; margin-bottom:10px; border:1px solid #ef9a9a;">
+            🚫 Bạn đang xem ở chế độ chỉ đọc (Hết lượt). <a href="https://zalo.me/84963759566" target="_blank" style="font-weight:bold;">Liên hệ Admin</a>
+        </div>
+        <style>div[data-testid="stChatInput"] {display: none !important;}</style>
+        """, unsafe_allow_html=True)
+        # Cho phép code chạy tiếp xuống dưới để hiển thị lịch sử chat cũ
 # =====================================================
 # 5. GIAO DIỆN CHAT CHÍNH
 # =====================================================
