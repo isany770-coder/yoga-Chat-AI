@@ -101,16 +101,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 4. KẾT NỐI API & DRIVE (ĐÃ SỬA ĐỂ ÉP TẢI LẠI)
+# 4. KẾT NỐI API & DRIVE (BẢN TỰ ĐỘNG DÒ TÌM FOLDER)
 # =====================================================
-# 👉 Bác dán ID vào đây (chỉ ID thôi nhé, không dán cả link)
-FILE_ID_DRIVE = "13z82kBBd8QwpCvUqGysD9DXI8Xurvtq9" 
+FILE_ID_DRIVE = "13z82kBBd8QwpCvUqGysD9DXI8Xurvtq9"  # <--- Bác kiểm tra lại ID này đúng chưa nhé
 
-# --- Code xử lý tải file mới ---
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
-# Đổi tên file để né file lỗi cũ
-OUTPUT_ZIP = "/tmp/brain_new_v2.zip"  
-EXTRACT_PATH = "/tmp/brain_new_v2"
+# Đổi tên lần nữa để đảm bảo sạch sẽ
+OUTPUT_ZIP = "/tmp/brain_v3.zip"
+EXTRACT_PATH = "/tmp/brain_v3"
 
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
@@ -121,35 +119,43 @@ except:
 
 @st.cache_resource
 def load_brain():
-    # 1. Tải não mới (Force download)
+    # 1. Tải và Giải nén
     if not os.path.exists(EXTRACT_PATH):
         try:
-            print("Dang tai file tu Drive...")
-            # fuzzy=True để xử lý cảnh báo virus của Drive
-            gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=False, fuzzy=True) 
+            print("Dang tai file...")
+            gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=False, fuzzy=True)
             
             print("Dang giai nen...")
             with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zip_ref:
                 zip_ref.extractall(EXTRACT_PATH)
             
-            # Xóa file zip cho nhẹ
             if os.path.exists(OUTPUT_ZIP): os.remove(OUTPUT_ZIP)
         except Exception as e:
-            st.error(f"⚠️ Lỗi tải dữ liệu: {e}")
-            # Nếu tải lỗi, xóa thư mục để lần sau tải lại
+            # Nếu lỗi tải, xóa thư mục để lần sau thử lại
             if os.path.exists(EXTRACT_PATH):
                 import shutil
                 shutil.rmtree(EXTRACT_PATH)
+            st.error(f"⚠️ Lỗi tải dữ liệu: {e}")
             return None, None
     
-    # 2. Khởi động AI
-    try:
-        # Trỏ đúng vào thư mục vừa giải nén
-        # (Tìm thư mục con nếu giải nén bị lồng)
-        vector_db_path = EXTRACT_PATH
-        if os.path.exists(os.path.join(EXTRACT_PATH, "vector_db")):
-             vector_db_path = os.path.join(EXTRACT_PATH, "vector_db")
+    # 2. TỰ ĐỘNG DÒ TÌM FILE index.faiss
+    # (Bất chấp bác nén folder hay nén file, nó đều tìm ra)
+    vector_db_path = None
+    for root, dirs, files in os.walk(EXTRACT_PATH):
+        for file in files:
+            if file.endswith(".faiss"):
+                vector_db_path = root
+                break
+        if vector_db_path:
+            break
+    
+    if vector_db_path is None:
+        st.error(f"⚠️ Không tìm thấy file não (.faiss) trong {EXTRACT_PATH}. Bác kiểm tra lại file zip nhé!")
+        return None, None
 
+    # 3. Khởi động AI
+    try:
+        print(f"Tim thay nao tai: {vector_db_path}")
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         db = FAISS.load_local(vector_db_path, embeddings, allow_dangerous_deserialization=True)
         model = genai.GenerativeModel('gemini-1.5-flash')
