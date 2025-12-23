@@ -67,13 +67,13 @@ st.markdown("""
     .tag-blog { background-color: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: bold; margin-right: 6px; border: 1px solid #bbf7d0; }
     .tag-qa { background-color: #fef9c3; color: #854d0e; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: bold; margin-right: 6px; border: 1px solid #fde047; }
     
-    .usage-bar-container { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background-color: #f0f0f0; z-index: 1000000; }
-    .usage-bar-fill { height: 100%; background: linear-gradient(90deg, #0f988b 0%, #14b8a6 100%); }
-    .usage-text { position: fixed; top: 10px; right: 15px; background: rgba(255,255,255,0.9); padding: 4px 12px; border-radius: 20px; font-size: 11px; color: #0f988b !important; font-weight: bold; border: 1px solid #0f988b; z-index: 1000001; }
-    
     .limit-container { margin-top: 50px; padding: 40px; border-radius: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); text-align: center; border: 2px solid #0f988b; background: white; margin-left: auto; margin-right: auto; max-width: 500px; }
     .zalo-btn { display: flex !important; align-items: center; justify-content: center; width: 100%; background-color: white; color: #0f988b !important; border: 1px solid #dcdfe3; border-radius: 8px; font-weight: 500; font-size: 14px; height: 45px !important; text-decoration: none !important; margin: 0 !important; }
     div[data-testid="stForm"] button { height: 45px !important; border-radius: 8px !important; font-weight: 500 !important; color: #31333F !important; }
+    
+    .usage-bar-container { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background-color: #f0f0f0; z-index: 1000000; }
+    .usage-bar-fill { height: 100%; background: linear-gradient(90deg, #0f988b 0%, #14b8a6 100%); }
+    .usage-text { position: fixed; top: 10px; right: 15px; background: rgba(255,255,255,0.9); padding: 4px 12px; border-radius: 20px; font-size: 11px; color: #0f988b !important; font-weight: bold; border: 1px solid #0f988b; z-index: 1000001; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -82,8 +82,8 @@ st.markdown("""
 # =====================================================
 FILE_ID_DRIVE = "13z82kBBd8QwpCvUqGysD9DXI8Xurvtq9" 
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
-OUTPUT_ZIP = "/tmp/brain_v7_final.zip"
-EXTRACT_PATH = "/tmp/brain_v7_final"
+OUTPUT_ZIP = "/tmp/brain_v8_dedup.zip"
+EXTRACT_PATH = "/tmp/brain_v8_dedup"
 
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
@@ -140,7 +140,7 @@ def get_remote_ip():
     return "guest_unknown"
 
 # =====================================================
-# 5. QUẢN LÝ USER & DATA (ĐÃ SỬA LỖI SYNTAX TRIỆT ĐỂ)
+# 5. QUẢN LÝ USER & DATA
 # =====================================================
 USAGE_DB_FILE = "/tmp/usage_history_db.json"
 DAILY_LIMIT = 25
@@ -167,7 +167,7 @@ today = str(datetime.date.today())
 db_data = get_data()
 
 if user_key not in db_data or db_data[user_key].get("date") != today:
-    db_data[user_key] = {"date": today, "count": 0, "history": [{"role":"assistant","content":"Namaste! 🙏 Tôi là Trợ lý Yoga AI. Bác cần tư vấn gì hôm nay?"}]}
+    db_data[user_key] = {"date": today, "count": 0, "history": [{"role":"assistant","content":"Namaste! 🙏 Tôi là Trợ lý Yoga AI chuyên sâu. Bác cần tư vấn gì hôm nay?"}]}
     save_data(db_data)
 
 st.session_state.messages = db_data[user_key]["history"]
@@ -203,7 +203,6 @@ def get_recommended_solutions(user_query):
 if not st.session_state.authenticated:
     st.markdown(f"""<div style="position: fixed; bottom: 80px; left: 15px; right: 15px; background: #fff5f0; border: 1px solid #ffccbc; border-radius: 15px; padding: 10px 15px; z-index: 99999; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 15px rgba(255, 87, 34, 0.1);"><div style="display: flex; align-items: center; gap: 10px;"><div style="background: #ff7043; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;"><span style="font-size: 16px;">🎁</span></div><div><div style="color: #bf360c !important; font-size: 13px; font-weight: bold;">Combo Thảm & Freeship!!</div><div style="color: #ff7043 !important; font-size: 11px;">Giảm ngay 30% hôm nay!</div></div></div><a href="https://yogaismylife.vn/cua-hang/" target="_blank" style="background: #ff7043; color: white !important; padding: 8px 15px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 12px; box-shadow: 0 2px 5px rgba(255, 112, 67, 0.3);">Xem ngay</a></div>""", unsafe_allow_html=True)
 
-# HIỂN THỊ LỊCH SỬ CHAT
 for m in st.session_state.messages:
     with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
@@ -222,49 +221,37 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
 
     with st.chat_message("assistant"):
         if db:
-            # 1. VÉT CẠN ĐÁY KHO (50 KẾT QUẢ)
-            docs = db.similarity_search(prompt, k=50)
+            # 1. VÉT CẠN KHO DỮ LIỆU (LẤY 60 KẾT QUẢ ĐỂ LỌC)
+            docs = db.similarity_search(prompt, k=60)
             
-            # 2. LOGIC LỌC MỚI: ƯU TIÊN TỪ KHÓA KHỚP
-            science_docs = []
-            qa_docs = []
-            blog_docs = []
-            
-            prompt_keywords = prompt.lower().split()
-            important_keywords = [w for w in prompt_keywords if len(w) > 3] # Lấy từ khóa chính
+            # 2. LOGIC LỌC TRÙNG (DEDUPLICATION)
+            # Giúp loại bỏ các đoạn văn bản thuộc cùng 1 bài viết, để nhường chỗ cho bài khác
+            seen_urls = set()
+            unique_science = []
+            unique_qa = []
+            unique_blog = []
 
             for d in docs:
+                url = d.metadata.get('url', '#')
                 dtype = d.metadata.get('type', 'general')
-                title = d.metadata.get('title', '').lower()
                 
-                # Tính điểm khớp tiêu đề
-                match_score = sum(1 for w in important_keywords if w in title)
+                # Nếu URL đã có rồi thì bỏ qua (Trừ khi URL rỗng hoặc #)
+                if url in seen_urls and url != '#' and len(str(url)) > 10:
+                    continue
                 
-                if dtype == 'science': 
-                    science_docs.append((match_score, d))
-                elif dtype == 'qa': 
-                    qa_docs.append((match_score, d))
-                else: 
-                    blog_docs.append((match_score, d))
-            
-            # Sắp xếp theo độ khớp từ khóa giảm dần, sau đó mới đến thứ tự tìm kiếm
-            science_docs.sort(key=lambda x: x[0], reverse=True)
-            qa_docs.sort(key=lambda x: x[0], reverse=True)
-            blog_docs.sort(key=lambda x: x[0], reverse=True)
+                if url != '#' and len(str(url)) > 10:
+                    seen_urls.add(url)
 
-            # Lấy docs ra từ tuple
-            final_science = [x[1] for x in science_docs]
-            final_qa = [x[1] for x in qa_docs]
-            final_blog = [x[1] for x in blog_docs]
-
-            # Ưu tiên lấy những bài khớp từ khóa nhất
-            final_docs = final_science[:3] + final_qa[:3] + final_blog[:4]
+                if dtype == 'science': unique_science.append(d)
+                elif dtype == 'qa': unique_qa.append(d)
+                else: unique_blog.append(d)
             
-            # Debug: Cho bác xem nó tìm thấy gì (Bấm vào để xem)
-            with st.expander("🔍 Soi dữ liệu tìm thấy (Debug)"):
-                st.write(f"Tìm thấy: {len(science_docs)} Nghiên cứu, {len(blog_docs)} Bài viết.")
-                for d in final_docs:
-                    st.caption(f"- [{d.metadata.get('type').upper()}] {d.metadata.get('title')}")
+            # 3. CHIA SLOT CÔNG BẰNG (Top 3 mỗi loại)
+            # Dù blog có khớp đến mấy cũng chỉ lấy 3 bài, chừa chỗ cho Science
+            final_docs = unique_science[:3] + unique_qa[:2] + unique_blog[:3]
+            
+            # Debug (Ẩn): Kiểm tra xem lấy được gì
+            # st.write(f"Science: {len(unique_science)}, Blog: {len(unique_blog)}")
 
             context_parts = []
             source_map = {}
@@ -302,10 +289,10 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
             {sol_context}
 
             YÊU CẦU:
-            1. KHÔNG VIẾT HOA TOÀN BỘ TIÊU ĐỀ. Dùng chữ thường.
+            1. Dùng chữ thường cho tiêu đề (Sentence case). KHÔNG IN HOA TOÀN BỘ.
             2. Ngắn gọn (150 từ).
             3. {sci_instruct}
-            4. Luôn nhắc an toàn.
+            4. Chỉ dùng thông tin trong DỮ LIỆU cung cấp.
 
             CÂU HỎI: "{prompt}"
             """
