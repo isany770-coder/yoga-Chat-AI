@@ -19,23 +19,33 @@ st.set_page_config(
 )
 
 # =====================================================
-# 2. CẤU HÌNH "HỆ SINH THÁI GIẢI PHÁP" CỦA BÁC
+# 2. HỆ SINH THÁI GIẢI PHÁP (ĐỒ CHƠI CỦA BÁC)
 # =====================================================
-YOGA_SOLUTIONS = { 
+YOGA_SOLUTIONS = {
+    "AI_CHECK_ANH": {
+        "name": "📸 AI Check Lỗi Asana (Upload Ảnh)",
+        "url": "https://yogaismylife.vn/kiem-tra-tu-the-yoga/", 
+        "trigger": ["tư thế", "sai", "đúng không", "chỉnh", "check", "xem giúp", "chiến binh", "trồng chuối", "bánh xe", "đau lưng khi tập", "ảnh"]
+    },
     "QUY_TRINH_8_BUOC": {
         "name": "🗺️ Quy trình 8 Bước Toàn Diện",
-        "url": "https://yogaismylife.vn/kiem-tra-suc-khoe-toan-dien/",
-        "trigger": ["bắt đầu", "lộ trình", "người mới", "từ đầu", "cơ bản", "hướng dẫn", "bao lâu", "học yoga"]
+        "url": "https://yogaismylife.vn/quy-trinh-8-buoc",
+        "trigger": ["bắt đầu", "lộ trình", "người mới", "từ đầu", "cơ bản", "hướng dẫn", "bao lâu", "học yoga", "nhập môn"]
     },
     "AI_COACH": {
-        "name": "🤖 Gặp AI Coach 1:1 - Live",
-        "url": "https://yogaismylife.vn/kiem-tra-tu-the-yoga/",
-        "trigger": ["đau", "chấn thương", "mỏi", "bệnh", "trị liệu", "tư vấn riêng", "khó quá", "không tập được"]
+        "name": "🤖 Gặp AI Coach 1:1",
+        "url": "https://yogaismylife.vn/ai-coach",
+        "trigger": ["đau", "chấn thương", "mỏi", "bệnh", "trị liệu", "tư vấn riêng", "khó quá", "không tập được", "thoát vị", "đau gối"]
     },
-    "APP_THIEN_THO": {
+    "CHECKLIST_AN_TOAN": {
+        "name": "🛡️ Checklist An Toàn",
+        "url": "https://yogaismylife.vn/checklist-an-toan",
+        "trigger": ["an toàn", "nguy hiểm", "lưu ý", "chống chỉ định", "bầu", "người già", "huyết áp", "tim mạch", "tới tháng"]
+    },
+    "APP_THIEN": {
         "name": "🧘 App Thiền & Hít Thở (Giảm Stress)",
-        "url": "https://yogaismylife.vn/thien-hoi-tho-chua-lanh/",  # <--- Thay link thật của bác vào
-        "trigger": ["stress", "căng thẳng", "mất ngủ", "lo âu", "thở", "thiền", "thư giãn", "mệt mỏi", "áp lực", "ngủ ngon"]
+        "url": "https://yogaismylife.vn/app-thien-tho",
+        "trigger": ["stress", "căng thẳng", "mất ngủ", "lo âu", "thở", "thiền", "thư giãn", "mệt mỏi", "áp lực", "ngủ ngon", "yên tĩnh"]
     }
 }
 
@@ -112,7 +122,7 @@ st.markdown("""
 # =====================================================
 # 4. KẾT NỐI API & DRIVE (QUAN TRỌNG)
 # =====================================================
-# 👉 THAY ID FILE VECTOR MỚI CỦA BÁC VÀO ĐÂY
+# 👉 THAY ID FILE VECTOR MỚI CỦA BÁC VÀO ĐÂY (SAU KHI CHẠY 2_nap_nao.py XONG)
 FILE_ID_DRIVE = "https://drive.google.com/file/d/1RYvhzg0ZRLYV-zsMksUcIWHG2XO_l4Mi/view?usp=sharing" 
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
 OUTPUT_ZIP = "/tmp/bo_nao_vector.zip"
@@ -244,7 +254,7 @@ if not can_chat:
     st.stop()
 
 # =====================================================
-# 8. XỬ LÝ CHAT (CỐT LÕI THÔNG MINH)
+# 8. XỬ LÝ CHAT (CỐT LÕI THÔNG MINH - ĐÃ NÂNG CẤP)
 # =====================================================
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
@@ -262,10 +272,10 @@ if prompt := st.chat_input("Hỏi tôi về Yoga, tư thế, đau mỏi..."):
 
     with st.chat_message("assistant"):
         if db:
-            # 1. CHIẾN THUẬT LƯỚI RỘNG: Lấy 10 kết quả để chắc chắn vớt được Science
+            # 1. CHIẾN THUẬT LƯỚI RỘNG: Lấy 10 kết quả
             docs = db.similarity_search(prompt, k=10)
             
-            # 2. SẮP XẾP LẠI (Rerank): Đưa Science lên đầu, Blog xuống cuối
+            # 2. SẮP XẾP LẠI (Rerank): Đưa Science lên đầu
             science_docs = []
             qa_docs = []
             blog_docs = []
@@ -276,13 +286,13 @@ if prompt := st.chat_input("Hỏi tôi về Yoga, tư thế, đau mỏi..."):
                 elif dtype == 'qa': qa_docs.append(d)
                 else: blog_docs.append(d)
             
-            # Trộn lại: Science -> QA -> Blog (Chỉ lấy tối đa 6 cái tốt nhất để không bị loãng)
+            # Trộn lại: Science -> QA -> Blog (Chỉ lấy 6 cái tốt nhất)
             final_docs = science_docs + qa_docs + blog_docs
             final_docs = final_docs[:6] 
 
             context_parts = []
             source_map = {}
-            has_science = False # Cờ đánh dấu có tìm thấy khoa học không
+            has_science = False
             
             for i, d in enumerate(final_docs):
                 dtype = d.metadata.get('type', 'general')
@@ -302,41 +312,42 @@ if prompt := st.chat_input("Hỏi tôi về Yoga, tư thế, đau mỏi..."):
                     source_map[url] = {"title": title, "type": dtype}
             
             full_context = "\n\n".join(context_parts)
-            
-            # Gợi ý giải pháp
+
+            # 3. Gợi ý giải pháp (Đồ chơi của bác)
             solutions = get_recommended_solutions(prompt)
             solution_context = ""
             if solutions:
                 names = ", ".join([s["name"] for s in solutions])
-                solution_context = f"\nLƯU Ý: Cuối câu trả lời, hãy khuyên dùng: {names}."
+                solution_context = f"\nQUAN TRỌNG: Cuối câu trả lời, hãy khuyên người dùng sử dụng công cụ sau của chúng tôi: {names}. Hãy lồng ghép khéo léo."
 
-            # 3. PROMPT ÉP BUỘC TRÍCH DẪN
+            # 4. Prompt ép trích dẫn
             science_instruction = ""
             if has_science:
                 science_instruction = "BẮT BUỘC: Bạn đã tìm thấy NGHIÊN CỨU KHOA HỌC. Hãy trích dẫn cụ thể: 'Theo nghiên cứu năm [Năm] của [Tác giả], kết quả cho thấy [Số liệu/Kết quả]...'. Đừng nói chung chung."
             else:
-                science_instruction = "Nếu không có nghiên cứu cụ thể, hãy trả lời dựa trên nguyên lý Yoga chung."
+                science_instruction = "Nếu không có nghiên cứu cụ thể, hãy trả lời dựa trên nguyên lý Yoga chung một cách thận trọng."
 
             sys_prompt = f"""
-            Bạn là Chuyên gia Yoga Khoa học & Trị liệu.
+            Bạn là Chuyên gia Yoga Khoa học & Trị liệu cấp cao. Trả lời câu hỏi dựa trên DỮ LIỆU.
             
             DỮ LIỆU THAM KHẢO (Đã sắp xếp ưu tiên):
             {full_context}
             {solution_context}
 
-            YÊU CẦU TRẢ LỜI:
-            1. **Ngắn gọn:** Trả lời súc tích, đi thẳng vào vấn đề.
+            HƯỚNG DẪN TRẢ LỜI:
+            1. **Ngắn gọn:** Trả lời súc tích, đi thẳng vào vấn đề. Tối đa 200 từ.
             2. **Bằng chứng:** {science_instruction}
-            3. **Cấu trúc:** - **Kết luận:** (Ngắn gọn 1 câu).
-               - **Khoa học nói gì:** (Dùng dữ liệu Nghiên cứu nếu có).
-               - **Lời khuyên thực hành:** (Dựa trên dữ liệu Chuyên gia).
-            4. **An toàn:** Luôn nhắc lắng nghe cơ thể.
+            3. **Cấu trúc:** - **Kết luận:** (Ngắn gọn 1 câu trả lời trực diện).
+               - **Khoa học/Cơ chế:** (Dùng dữ liệu Nghiên cứu hoặc giải thích cơ chế).
+               - **Lời khuyên thực hành:** (Dựa trên dữ liệu Chuyên gia, chỉ lỗi sai/cách sửa).
+            4. **An toàn:** Luôn nhắc lắng nghe cơ thể (Ahimsa).
+            5. **Đề xuất:** (Nếu có yêu cầu ở trên) Gợi ý dùng công cụ hỗ trợ.
 
             CÂU HỎI: "{prompt}"
             """
             
             try:
-                with st.spinner("🧘 Đang phân tích kỹ thuật và tìm tài liệu..."):
+                with st.spinner("🧘 Đang phân tích dữ liệu khoa học..."):
                     response = model.generate_content(sys_prompt)
                     res_text = response.text
                 
@@ -345,7 +356,7 @@ if prompt := st.chat_input("Hỏi tôi về Yoga, tư thế, đau mỏi..."):
                 # 1. Hiển thị Lời giải của AI
                 st.markdown(res_text, unsafe_allow_html=True)
                 
-                # 2. Hiển thị "THẺ GIẢI PHÁP" (Đồ chơi của bác) - Nổi bật
+                # 2. Hiển thị "THẺ GIẢI PHÁP" - Nổi bật
                 if solutions:
                     for sol in solutions:
                         st.markdown(f"""
@@ -371,7 +382,7 @@ if prompt := st.chat_input("Hỏi tôi về Yoga, tư thế, đau mỏi..."):
                     links_html += "</div></div>"
                     st.markdown(links_html, unsafe_allow_html=True)
                     
-                    # Lưu vào lịch sử (Chỉ lưu text AI để tránh lỗi render HTML phức tạp khi load lại)
+                    # Lưu vào lịch sử
                     db_data[user_key]["history"].append({"role": "assistant", "content": res_text})
                     save_data(db_data)
                 
