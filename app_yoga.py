@@ -149,7 +149,7 @@ def get_remote_ip():
 # =====================================================
 USAGE_DB_FILE = "/tmp/usage_history_db.json"
 DAILY_LIMIT = 25
-TRIAL_LIMIT = 10
+TRIAL_LIMIT = 5
 
 def get_data():
     if not os.path.exists(USAGE_DB_FILE):
@@ -315,7 +315,8 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
 
             YÊU CẦU:
             1. KHÔNG VIẾT HOA TOÀN BỘ TIÊU ĐỀ (Ví dụ: Đừng viết "KẾT LUẬN", hãy viết "Kết luận").
-            2. Trả lời thẳng vào vấn đề, ngắn gọn (dưới 200 từ).
+            1. Tuyệt đối KHÔNG sử dụng Markdown Header lớn. Dùng in đậm nếu cần.
+            2. Trả lời thẳng vào vấn đề, ngắn gọn (dưới 150 từ).
             3. {sci_instruct}
             4. Luôn nhắc nhở lắng nghe cơ thể.
 
