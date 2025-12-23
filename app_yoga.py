@@ -145,7 +145,7 @@ def load_brain():
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         db = FAISS.load_local(vector_db_path, embeddings, allow_dangerous_deserialization=True)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-flash-latest')
         return db, model
     except:
         return None, None
