@@ -40,7 +40,7 @@ YOGA_SOLUTIONS = {
 }
 
 # =====================================================
-# 3. CSS GIAO DIỆN
+# 3. CSS GIAO DIỆN (ĐÃ TỐI ƯU)
 # =====================================================
 st.markdown("""
 <style>
@@ -54,43 +54,54 @@ st.markdown("""
     }
     textarea[data-testid="stChatInputTextArea"] { font-size: 16px !important; background-color: #f0f2f6 !important; border-radius: 20px !important; }
 
-    /* CONTAINER HẾT HẠN - GIAO DIỆN TĨNH ĐẸP */
+    /* CONTAINER HẾT HẠN - UPDATE GIAO DIỆN */
     .limit-container {
-        margin-top: 30px;
-        padding: 40px;
+        margin-top: 20px;
+        padding: 30px 20px;
         border-radius: 20px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         text-align: center;
-        border: 1px solid #e0f2f1;
+        border: 2px solid #e0f2f1;
         background: white;
         margin-left: auto; margin-right: auto;
-        max-width: 500px;
+        max-width: 450px;
     }
-    .limit-icon { font-size: 50px; display: block; margin-bottom: 15px; }
-    .limit-title { font-size: 22px; font-weight: bold; color: #00796b; margin-bottom: 10px; }
-    .limit-desc { font-size: 15px; color: #555; margin-bottom: 25px; line-height: 1.6; }
+    .limit-icon { font-size: 40px; display: block; margin-bottom: 10px; }
+    .limit-title { font-size: 20px; font-weight: 800; color: #00796b; margin-bottom: 8px; }
+    .limit-desc { font-size: 14px; color: #555; margin-bottom: 20px; line-height: 1.5; }
 
-    .solution-card {
-        background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
-        border: 1px solid #009688; border-radius: 10px; padding: 12px; margin-top: 10px;
-        display: flex; align-items: center; justify-content: space-between;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    /* STYLE CHO NGUỒN THAM KHẢO (ĐÃ CHUẨN HÓA) */
+    .source-box { 
+        background-color: #fafafa; 
+        border: 1px solid #eee;
+        padding: 15px; 
+        margin-top: 15px; 
+        border-radius: 10px; 
+        font-size: 0.9em; 
     }
-    .solution-text { font-size: 14px; color: #004d40; font-weight: bold; }
-    .solution-btn {
-        background-color: #00796b; color: white !important; padding: 6px 15px;
-        border-radius: 20px; text-decoration: none; font-size: 12px; font-weight: bold; white-space: nowrap;
+    .source-title {
+        font-weight: bold; color: #333; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;
     }
-    .solution-btn:hover { background-color: #004d40; }
-
-    .source-box { background-color: #f8f9fa; border-left: 4px solid #0f988b; padding: 12px; margin-top: 15px; border-radius: 0 8px 8px 0; font-size: 0.9em; }
-    .tag-science { background-color: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: bold; margin-right: 6px; border: 1px solid #c7d2fe; }
-    .tag-blog { background-color: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: bold; margin-right: 6px; border: 1px solid #bbf7d0; }
-    .tag-qa { background-color: #fef9c3; color: #854d0e; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: bold; margin-right: 6px; border: 1px solid #fde047; }
+    .source-item {
+        display: flex; align-items: flex-start; margin-bottom: 8px; line-height: 1.4;
+    }
+    .tag-badge {
+        font-size: 0.7em; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-right: 8px; white-space: nowrap; margin-top: 2px;
+    }
+    .tag-science { background-color: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
+    .tag-blog { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     
-    .zalo-btn { display: flex !important; align-items: center; justify-content: center; width: 100%; background-color: #0f988b; color: white !important; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; height: 45px !important; text-decoration: none !important; margin-top: 15px !important; box-shadow: 0 4px 10px rgba(15, 152, 139, 0.2); }
-    div[data-testid="stForm"] { border: none !important; padding: 0 !important; }
-    div[data-testid="stForm"] button { height: 45px !important; border-radius: 8px !important; font-weight: 500 !important; color: #31333F !important; width: 100%; background-color: #f0f2f6; }
+    /* BUTTONS STYLE */
+    .zalo-btn { display: flex !important; align-items: center; justify-content: center; width: 100%; background-color: #0f988b; color: white !important; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; height: 45px !important; text-decoration: none !important; margin-top: 10px !important; box-shadow: 0 4px 10px rgba(15, 152, 139, 0.2); }
+    
+    /* Custom style cho nút toggle login */
+    .login-toggle-btn {
+        background: transparent; border: 1px solid #ccc; color: #666; width: 100%; padding: 10px;
+        border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 10px;
+    }
+
+    div[data-testid="stForm"] { border: none !important; padding: 15px !important; background: #f9f9f9; border-radius: 10px; margin-top: 10px;}
+    div[data-testid="stForm"] button { height: 40px !important; border-radius: 6px !important; font-weight: 600 !important; color: white !important; width: 100%; background-color: #333 !important; }
     
     .usage-bar-container { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background-color: #f0f0f0; z-index: 1000000; }
     .usage-bar-fill { height: 100%; background: linear-gradient(90deg, #0f988b 0%, #14b8a6 100%); }
@@ -192,6 +203,9 @@ if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "username" not in st.session_state:
     st.session_state.username = ""
+# Biến trạng thái để bật/tắt form đăng nhập
+if "show_login_form" not in st.session_state:
+    st.session_state.show_login_form = False
 
 user_key = st.session_state.username if st.session_state.authenticated else get_remote_ip()
 today = str(datetime.date.today())
@@ -213,40 +227,58 @@ st.markdown(f"""<div class="usage-bar-container"><div class="usage-bar-fill" sty
 can_chat = used < limit
 
 # =====================================================
-# 6. MÀN HÌNH HẾT HẠN & ĐĂNG NHẬP (TÍCH HỢP)
+# 6. MÀN HÌNH HẾT HẠN & ĐĂNG NHẬP (TỐI ƯU UX/UI)
 # =====================================================
 def render_limit_screen():
     # Ẩn thanh chat
     st.markdown("""<style>div[data-testid="stChatInput"] {display: none !important;}</style>""", unsafe_allow_html=True)
     
-    # Hiển thị Container thông báo
+    # 1. Hiển thị Container thông báo
     st.markdown("""
     <div class="limit-container">
         <span class="limit-icon">🧘‍♀️</span>
-        <div class="limit-title">Đã đạt giới hạn tra cứu miễn phí!</div>
+        <div class="limit-title">Hết lượt dùng thử!</div>
         <div class="limit-desc">
-            Bạn đã dùng hết lượt hỏi hôm nay.<br>
-            Vui lòng đăng nhập Member để tiếp tục sử dụng kho dữ liệu.
+            Bạn đã dùng hết lượt hỏi miễn phí hôm nay.<br>
+            Kết nối Zalo để nhận mã kích hoạt <b>Full Tính Năng</b> hoặc đăng nhập bên dưới.
         </div>
     """, unsafe_allow_html=True)
+
+    # 2. Nút Zalo (Call To Action chính)
+    st.markdown(f"""<a href="https://zalo.me/84963759566" target="_blank" style="text-decoration:none;"><button class="zalo-btn">💬 Nhận mã kích hoạt qua Zalo</button></a>""", unsafe_allow_html=True)
     
-    # Form đăng nhập tích hợp bên trong
-    with st.form("login_form_limit"):
-        u = st.text_input("Tên đăng nhập", placeholder="Username")
-        p = st.text_input("Mật khẩu", type="password", placeholder="Password")
-        submit = st.form_submit_button("ĐĂNG NHẬP NGAY")
-        
-        if submit:
-            if (u=="admin" and p=="yoga888") or (st.secrets["passwords"].get(u)==p):
-                st.session_state.authenticated = True
-                st.session_state.username = u
+    st.markdown("</div>", unsafe_allow_html=True) # Đóng div container để nút login nằm riêng hoặc trong đó tùy chỉnh
+    
+    # 3. Nút Toggle Đăng nhập (Nằm dưới box thông báo một chút cho thoáng)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        # Nếu chưa mở form thì hiện nút "Đăng nhập Member"
+        if not st.session_state.show_login_form:
+            if st.button("🔐 Đăng nhập Member", use_container_width=True):
+                st.session_state.show_login_form = True
                 st.rerun()
-            else:
-                st.error("Sai mật khẩu!")
-    
-    # Nút liên hệ Admin
-    st.markdown(f"""<a href="https://zalo.me/84963759566" target="_blank" style="text-decoration:none;"><button class="zalo-btn">💬 Liên hệ Admin lấy tài khoản</button></a>""", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True) # Đóng div limit-container
+        
+        # Nếu đã ấn nút thì hiện Form
+        if st.session_state.show_login_form:
+             with st.form("login_form_limit"):
+                st.markdown("##### 🔐 Đăng nhập hệ thống")
+                u = st.text_input("Tên đăng nhập", placeholder="Username")
+                p = st.text_input("Mật khẩu", type="password", placeholder="Password")
+                submit = st.form_submit_button("XÁC THỰC")
+                
+                # Nút hủy/đóng form
+                if submit:
+                    if (u=="admin" and p=="yoga888") or (st.secrets["passwords"].get(u)==p):
+                        st.session_state.authenticated = True
+                        st.session_state.username = u
+                        st.session_state.show_login_form = False # Reset lại
+                        st.rerun()
+                    else:
+                        st.error("Sai mật khẩu!")
+
+             if st.button("Quay lại / Đóng", use_container_width=True):
+                 st.session_state.show_login_form = False
+                 st.rerun()
 
 def get_recommended_solutions(user_query):
     query_lower = user_query.lower()
@@ -259,7 +291,10 @@ def get_recommended_solutions(user_query):
 # =====================================================
 # 7. GIAO DIỆN CHÍNH
 # =====================================================
-if not st.session_state.authenticated:
+
+# --- LOGIC QUAN TRỌNG: CHỈ HIỆN QUẢNG CÁO KHI CÒN CHAT ĐƯỢC ---
+# Nếu hết hạn (can_chat = False), ẩn quảng cáo đi để người dùng focus vào màn hình Limit
+if not st.session_state.authenticated and can_chat:
     st.markdown(f"""<div style="position: fixed; bottom: 80px; left: 15px; right: 15px; background: #fff5f0; border: 1px solid #ffccbc; border-radius: 15px; padding: 10px 15px; z-index: 99999; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 15px rgba(255, 87, 34, 0.1);"><div style="display: flex; align-items: center; gap: 10px;"><div style="background: #ff7043; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;"><span style="font-size: 16px;">🎁</span></div><div><div style="color: #bf360c !important; font-size: 13px; font-weight: bold;">Combo Thảm & Freeship!!</div><div style="color: #ff7043 !important; font-size: 11px;">Giảm ngay 30% hôm nay!</div></div></div><a href="https://yogaismylife.vn/cua-hang/" target="_blank" style="background: #ff7043; color: white !important; padding: 8px 15px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 12px; box-shadow: 0 2px 5px rgba(255, 112, 67, 0.3);">Xem ngay</a></div>""", unsafe_allow_html=True)
 
 for m in st.session_state.messages:
@@ -271,7 +306,7 @@ if not can_chat:
     render_limit_screen()
     st.stop()
 
-# XỬ LÝ CHAT (LOGIC V9 - ĐÃ ĐƯỢC DUYỆT)
+# XỬ LÝ CHAT
 if prompt := st.chat_input("Hỏi tôi về Yoga..."):
     db_data[user_key]["count"] += 1
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -280,10 +315,7 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
 
     with st.chat_message("assistant"):
         if db:
-            # 1. Tìm kiếm (80 kết quả)
             docs = db.similarity_search(prompt, k=80)
-            
-            # 2. Logic Lọc & Chấm điểm V9
             user_keywords = [w for w in prompt.lower().split() if len(w) > 2]
             
             science_pool = []
@@ -300,7 +332,6 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
                 dtype = d.metadata.get('type', 'general')
                 title = d.metadata.get('title', '').lower()
                 
-                # Chấm điểm từ khóa
                 score = 0
                 for kw in user_keywords:
                     if kw in title:
@@ -311,12 +342,10 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
                 elif dtype == 'qa': qa_pool.append(item)
                 else: blog_pool.append(item)
             
-            # Sắp xếp
             science_pool.sort(key=lambda x: x[0], reverse=True)
             qa_pool.sort(key=lambda x: x[0], reverse=True)
             blog_pool.sort(key=lambda x: x[0], reverse=True)
 
-            # Chia slot (Science 2, QA 2, Blog 2)
             final_docs = [x[1] for x in science_pool[:2]] + [x[1] for x in qa_pool[:2]] + [x[1] for x in blog_pool[:2]]
 
             context_parts = []
@@ -344,9 +373,8 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
             {full_context}
             {sol_context}
             YÊU CẦU:
-            1. Tuyệt đối KHÔNG sử dụng Markdown Header lớn (như #, ##). Hãy dùng in đậm (**Tiêu đề**) nếu cần.
-            2. KHÔNG viết hoa toàn bộ câu (Vd: Đừng viết "KẾT LUẬN", hãy viết "Kết luận").
-            3. Ngắn gọn, súc tích.
+            1. Trả lời ngắn gọn, chân thành.
+            2. Sử dụng icon hợp lý.
             CÂU HỎI: "{prompt}"
             """
             
@@ -358,20 +386,36 @@ if prompt := st.chat_input("Hỏi tôi về Yoga..."):
                 full_html_content = res_text
                 
                 if solutions:
-                    full_html_content += "<hr>"
+                    full_html_content += "<hr style='margin: 15px 0; border: 0; border-top: 1px solid #eee;'>"
                     for sol in solutions:
                         full_html_content += f"""<div class="solution-card"><div class="solution-text">{sol['name']}</div><a href="{sol['url']}" target="_blank" class="solution-btn">Sử dụng ngay 🚀</a></div>"""
                 
+                # --- PHẦN XỬ LÝ TRÍCH DẪN LINK MỚI (CHUẨN HƠN) ---
                 if source_map:
-                    links_html = "<div class='source-box'><strong>📚 Nguồn tham khảo:</strong><div style='margin-top:8px'>"
-                    # Sắp xếp hiển thị Science lên đầu
+                    links_html = """
+                    <div class='source-box'>
+                        <div class='source-title'>📚 Tài liệu tham khảo</div>
+                        <div>
+                    """
                     sorted_urls = sorted(source_map.items(), key=lambda x: 0 if x[1]['type']=='science' else 1)
                     
                     for url, info in sorted_urls:
-                        tag_html = "<span class='tag-science'>KHOA HỌC</span>" if info['type']=='science' else "<span class='tag-blog'>BÀI VIẾT</span>"
-                        links_html += f"<div style='margin-bottom:6px'>{tag_html} <a href='{url}' target='_blank' style='text-decoration:none; color:#0f988b; font-weight:500'>{info['title']}</a></div>"
+                        # Rút gọn title nếu quá dài để hiển thị đẹp trên mobile
+                        display_title = info['title']
+                        if len(display_title) > 60: display_title = display_title[:57] + "..."
+                        
+                        badge_class = "tag-science" if info['type']=='science' else "tag-blog"
+                        badge_text = "KHOA HỌC" if info['type']=='science' else "BÀI VIẾT"
+                        
+                        links_html += f"""
+                        <div class='source-item'>
+                            <span class='tag-badge {badge_class}'>{badge_text}</span>
+                            <a href='{url}' target='_blank' style='text-decoration:none; color:#333; font-weight:500; font-size: 0.95em;'>{display_title}</a>
+                        </div>
+                        """
                     links_html += "</div></div>"
                     full_html_content += links_html
+                # ------------------------------------------------
                 
                 st.markdown(full_html_content, unsafe_allow_html=True)
                 
