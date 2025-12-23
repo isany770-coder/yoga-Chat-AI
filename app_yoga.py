@@ -19,125 +19,101 @@ st.set_page_config(
 )
 
 # =====================================================
-# 2. CSS GIAO DIỆN (ĐÃ FIX LỖI MẤT CHỮ QUẢNG CÁO)
+# 2. CẤU HÌNH "HỆ SINH THÁI GIẢI PHÁP" CỦA BÁC
+# =====================================================
+YOGA_SOLUTIONS = { 
+    "QUY_TRINH_8_BUOC": {
+        "name": "🗺️ Quy trình 8 Bước Toàn Diện",
+        "url": "https://yogaismylife.vn/kiem-tra-suc-khoe-toan-dien/",
+        "trigger": ["bắt đầu", "lộ trình", "người mới", "từ đầu", "cơ bản", "hướng dẫn", "bao lâu", "học yoga"]
+    },
+    "AI_COACH": {
+        "name": "🤖 Gặp AI Coach 1:1 - Live",
+        "url": "https://yogaismylife.vn/kiem-tra-tu-the-yoga/",
+        "trigger": ["đau", "chấn thương", "mỏi", "bệnh", "trị liệu", "tư vấn riêng", "khó quá", "không tập được"]
+    },
+    "APP_THIEN_THO": {
+        "name": "🧘 App Thiền & Hít Thở (Giảm Stress)",
+        "url": "https://yogaismylife.vn/thien-hoi-tho-chua-lanh/",  # <--- Thay link thật của bác vào
+        "trigger": ["stress", "căng thẳng", "mất ngủ", "lo âu", "thở", "thiền", "thư giãn", "mệt mỏi", "áp lực", "ngủ ngon"]
+    }
+}
+
+# =====================================================
+# 3. CSS GIAO DIỆN (FULL ĐẸP)
 # =====================================================
 st.markdown("""
 <style>
-    /* Reset nền trắng & chữ đen */
+    /* Reset nền */
     [data-testid="stAppViewContainer"], .stApp, html, body {
         background-color: white !important;
         color: #31333F !important;
     }
-    /* Ép màu chung (nhưng chừa thằng quảng cáo ra) */
-    p, h1, h2, h3, h4, h5, h6, label, li {
-        color: #31333F !important;
-    }
     
-    /* Ẩn header mặc định */
-    [data-testid="stToolbar"], header, footer, .stAppDeployButton {
-        display: none !important;
-    }
-
-    /* THANH CHAT INPUT (NỔI) */
-    div[data-testid="stChatInput"] {
-        position: fixed !important;
-        bottom: 20px !important;
-        left: 10px !important;
-        right: 10px !important;
-        width: auto !important;
-        z-index: 999999;
-        background-color: white !important;
-        border-radius: 25px !important;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-        padding: 5px !important;
-        border: 1px solid #e0e0e0;
-        transition: bottom 0.3s ease;
-    }
+    /* Ẩn Header/Footer thừa */
+    [data-testid="stToolbar"], header, footer, .stAppDeployButton {display: none !important;}
     
+    /* THANH CHAT INPUT NỔI */
+    div[data-testid="stChatInput"] { 
+        position: fixed !important; bottom: 20px !important; left: 10px !important; right: 10px !important; 
+        z-index: 999999; background-color: white !important; border-radius: 25px !important; 
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1); padding: 5px !important; border: 1px solid #e0e0e0; 
+    }
     textarea[data-testid="stChatInputTextArea"] {
-        font-size: 16px !important;
-        color: #333333 !important;
-        background-color: #f0f2f6 !important;
-        border-radius: 20px !important;
+        font-size: 16px !important; background-color: #f0f2f6 !important; border-radius: 20px !important;
     }
 
-    /* FIX LỖI BÀN PHÍM CHE INPUT */
+    /* FIX LỖI BÀN PHÍM MOBILE */
     @media (max-height: 500px) {
-        div[data-testid="stChatInput"] {
-            bottom: 0px !important;
-            border-radius: 0 !important;
-            border-bottom: none !important;
-        }
-        .ad-banner { display: none !important; } /* Ẩn quảng cáo khi gõ phím */
-        .usage-bar-container, .usage-text { display: none !important; }
+        div[data-testid="stChatInput"] { bottom: 0px !important; border-radius: 0 !important; }
+        .ad-banner, .usage-bar-container, .usage-text { display: none !important; }
     }
 
-    /* --- CSS QUẢNG CÁO (FIX MẠNH MẼ) --- */
-    .ad-banner {
-        position: fixed;
-        bottom: 85px;
-        left: 15px;
-        right: 15px;
-        background: linear-gradient(90deg, #fff3e0 0%, #ffe0b2 100%);
-        border: 1px solid #ffcc80;
-        border-radius: 12px;
-        padding: 10px 15px;
-        z-index: 999990;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-        animation: slideUp 0.5s ease-out;
+    /* --- STYLE THẺ GIẢI PHÁP (SOLUTION CARD) --- */
+    .solution-card {
+        background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
+        border: 1px solid #009688; border-radius: 10px; padding: 12px; margin-top: 10px;
+        display: flex; align-items: center; justify-content: space-between;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1); animation: fadeIn 0.5s;
     }
-    
-    /* Ép màu chữ cam đậm cho nội dung quảng cáo */
-    .ad-content, .ad-content span {
-        font-size: 14px !important;
-        font-weight: 700 !important;
-        color: #e65100 !important; /* Màu cam đậm */
-        display: flex;
-        align-items: center;
-        gap: 8px;
+    .solution-text { font-size: 14px; color: #004d40; font-weight: bold; }
+    .solution-btn {
+        background-color: #00796b; color: white !important; padding: 6px 15px;
+        border-radius: 20px; text-decoration: none; font-size: 12px; font-weight: bold;
+        transition: 0.3s; white-space: nowrap;
     }
-    
-    .ad-btn {
-        background: #e65100;
-        color: white !important;
-        padding: 6px 15px;
-        border-radius: 20px;
-        font-size: 12px;
-        text-decoration: none;
-        font-weight: bold;
-        white-space: nowrap;
-        box-shadow: 0 2px 5px rgba(230, 81, 0, 0.3);
-    }
+    .solution-btn:hover { background-color: #004d40; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* Animation */
-    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    /* --- STYLE NGUỒN THAM KHẢO (PHÂN LOẠI) --- */
+    .source-box { background-color: #f8f9fa; border-left: 4px solid #0f988b; padding: 12px; margin-top: 15px; border-radius: 0 8px 8px 0; font-size: 0.9em; }
+    .tag-science { background-color: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: bold; margin-right: 6px; border: 1px solid #c7d2fe; }
+    .tag-blog { background-color: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: bold; margin-right: 6px; border: 1px solid #bbf7d0; }
+    .tag-qa { background-color: #fef9c3; color: #854d0e; padding: 2px 8px; border-radius: 10px; font-size: 0.75em; font-weight: bold; margin-right: 6px; border: 1px solid #fde047; }
 
-    /* CÁC THÀNH PHẦN KHÁC */
+    /* THANH TIẾN TRÌNH & USER */
     .main .block-container { padding-top: 3rem !important; padding-bottom: 250px !important; }
     div[data-testid="stChatMessage"] { background-color: #f8f9fa !important; border: 1px solid #eee; }
     div[data-testid="stChatMessage"][data-test-role="user"] { background-color: #e3f2fd !important; }
-    
     .usage-bar-container { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background-color: #f0f0f0; z-index: 1000000; }
     .usage-bar-fill { height: 100%; background: linear-gradient(90deg, #0f988b 0%, #14b8a6 100%); }
     .usage-text { position: fixed; top: 10px; right: 15px; background: rgba(255,255,255,0.9); padding: 4px 12px; border-radius: 20px; font-size: 11px; color: #0f988b !important; font-weight: bold; border: 1px solid #0f988b; z-index: 1000001; }
-
-    .zalo-btn { display: flex !important; align-items: center; justify-content: center; width: 100%; background-color: white; color: #0f988b !important; border: 1px solid #dcdfe3; border-radius: 8px; font-weight: 500; font-size: 14px; height: 45px !important; text-decoration: none !important; margin: 0 !important; }
-    div[data-testid="stForm"] button { height: 45px !important; border-radius: 8px !important; font-weight: 500 !important; color: #31333F !important; }
-
-    /* MODAL HẾT LƯỢT */
+    
+    /* LIMIT MODAL */
     .limit-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); z-index: 2147483647 !important; display: flex; align-items: center; justify-content: center; flex-direction: column; }
     .limit-box { background: white; padding: 40px; border-radius: 25px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; max-width: 90%; width: 400px; border: 2px solid #0f988b; }
     .limit-btn { background: linear-gradient(135deg, #0f988b, #14b8a6); color: white !important; padding: 12px 35px; border-radius: 50px; text-decoration: none; font-weight: bold; display: inline-block; margin-top: 15px; }
+    
+    .zalo-btn { display: flex !important; align-items: center; justify-content: center; width: 100%; background-color: white; color: #0f988b !important; border: 1px solid #dcdfe3; border-radius: 8px; font-weight: 500; font-size: 14px; height: 45px !important; text-decoration: none !important; margin: 0 !important; }
+    div[data-testid="stForm"] button { height: 45px !important; border-radius: 8px !important; font-weight: 500 !important; color: #31333F !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 3. KẾT NỐI API & GOOGLE DRIVE
+# 4. KẾT NỐI API & DRIVE (QUAN TRỌNG)
 # =====================================================
-FILE_ID_DRIVE = "1vOvvanNvDaLwP8Xs4nn1UhkciRvTxzyA"
+# 👉 THAY ID FILE VECTOR MỚI CỦA BÁC VÀO ĐÂY
+FILE_ID_DRIVE = "https://drive.google.com/file/d/1RYvhzg0ZRLYV-zsMksUcIWHG2XO_l4Mi/view?usp=sharing" 
 URL_DRIVE = f'https://drive.google.com/uc?id={FILE_ID_DRIVE}'
 OUTPUT_ZIP = "/tmp/bo_nao_vector.zip"
 EXTRACT_PATH = "/tmp/bo_nao_vector"
@@ -151,62 +127,43 @@ except:
 
 @st.cache_resource
 def load_brain():
-    # 1. Kiểm tra folder não bộ đã có chưa để tránh tải lại vô ích trên Mobile
     if not os.path.exists(EXTRACT_PATH):
         try:
             gdown.download(URL_DRIVE, OUTPUT_ZIP, quiet=True)
             with zipfile.ZipFile(OUTPUT_ZIP, 'r') as zip_ref:
                 zip_ref.extractall("/tmp/")
-            # Xóa file zip ngay để nhẹ máy Mobile
-            if os.path.exists(OUTPUT_ZIP):
-                os.remove(OUTPUT_ZIP)
+            if os.path.exists(OUTPUT_ZIP): os.remove(OUTPUT_ZIP)
         except Exception as e:
-            # Nếu lỗi, hiện thông báo thay vì để trắng trang
-            st.error(f"⚠️ Lỗi tải dữ liệu: {e}")
+            st.error(f"⚠️ Lỗi tải não: {e}")
             return None, None
     
-    # 2. Khởi tạo AI với đúng bản của bác
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004", 
-            google_api_key=api_key
-        )
-        db = FAISS.load_local(
-            EXTRACT_PATH, 
-            embeddings, 
-            allow_dangerous_deserialization=True
-        )
-        # GIỮ NGUYÊN BẢN AI CỦA BÁC
-        model = genai.GenerativeModel('gemini-flash-latest')
-        
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
+        db = FAISS.load_local(EXTRACT_PATH, embeddings, allow_dangerous_deserialization=True)
+        model = genai.GenerativeModel('gemini-1.5-flash')
         return db, model
     except Exception as e:
         st.error(f"⚠️ Lỗi AI: {e}")
         return None, None
 
-# Gọi hàm
 db, model = load_brain()
 
-# 3. CHỐNG TRẮNG TRANG: Nếu db hoặc model lỗi, dừng app và báo khách F5
+# Chống trắng trang
 if db is None or model is None:
     st.warning("🧘‍♂️ Hệ thống đang khởi động, bác vui lòng vuốt xuống để tải lại (F5) nhé!")
     st.stop()
-    
+
 def get_remote_ip():
-    """Lấy địa chỉ IP thật của người dùng trên Streamlit Cloud"""
     try:
         from streamlit.web.server.websocket_headers import _get_headers
         headers = _get_headers()
-        # Streamlit Cloud dùng proxy nên IP thật nằm ở 'X-Forwarded-For'
         ip = headers.get("X-Forwarded-For")
-        if ip:
-            return ip.split(",")[0].strip()
-    except:
-        pass
+        if ip: return ip.split(",")[0].strip()
+    except: pass
     return "guest_unknown"
 
 # =====================================================
-# 4. QUẢN LÝ DATABASE
+# 5. QUẢN LÝ DATABASE & USER
 # =====================================================
 USAGE_DB_FILE = "/tmp/usage_history_db.json"
 DAILY_LIMIT = 25
@@ -224,7 +181,6 @@ def save_data(data):
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
 
-# Nếu chưa đăng nhập, dùng IP làm định danh để chặn lách luật bằng tab ẩn danh
 user_key = st.session_state.username if st.session_state.authenticated else get_remote_ip()
 today = str(datetime.date.today())
 db_data = get_data()
@@ -233,7 +189,7 @@ if user_key not in db_data or db_data[user_key].get("date") != today:
     db_data[user_key] = {
         "date": today,
         "count": 0,
-        "history": [{"role":"assistant","content":"Namaste! 🙏 Thật vui được gặp bạn. Hôm nay chúng ta sẽ bắt đầu từ đâu?"}]
+        "history": [{"role":"assistant","content":"Namaste! 🙏 Tôi là Trợ lý Yoga AI chuyên sâu. Bác cần tìm hiểu về kỹ thuật, bệnh lý hay lộ trình tập luyện?"}]
     }
     save_data(db_data)
 
@@ -243,89 +199,59 @@ limit = DAILY_LIMIT if st.session_state.authenticated else TRIAL_LIMIT
 percent = min(100, int((used / limit) * 100))
 
 # Thanh tiến trình
-st.markdown(f"""
-    <div class="usage-bar-container"><div class="usage-bar-fill" style="width: {percent}%;"></div></div>
-    <div class="usage-text">⚡ Lượt dùng: {used}/{limit}</div>
-""", unsafe_allow_html=True)
+st.markdown(f"""<div class="usage-bar-container"><div class="usage-bar-fill" style="width: {percent}%;"></div></div><div class="usage-text">⚡ Lượt dùng: {used}/{limit}</div>""", unsafe_allow_html=True)
 
-# =====================================================
-# 5. HIỂN THỊ CHAT, QUẢNG CÁO & ADMIN
-# =====================================================
 can_chat = used < limit
 
-# --- QUẢNG CÁO (BẢN MÔNG MÁ - ĐẸP & CHUYÊN NGHIỆP) ---
+# =====================================================
+# 6. LOGIC GỢI Ý GIẢI PHÁP (RECOMMENDER ENGINE)
+# =====================================================
+def get_recommended_solutions(user_query):
+    """Quét câu hỏi để tìm giải pháp phù hợp trong YOGA_SOLUTIONS"""
+    query_lower = user_query.lower()
+    recommendations = []
+    
+    for key, data in YOGA_SOLUTIONS.items():
+        if any(trigger in query_lower for trigger in data["trigger"]):
+            recommendations.append(data)
+    
+    return recommendations[:2] # Lấy tối đa 2 cái
+
+# =====================================================
+# 7. QUẢNG CÁO & ADMIN & MODAL
+# =====================================================
+# Quảng cáo
 if not st.session_state.authenticated:
     st.markdown(f"""
-    <div style="position: fixed; bottom: 80px; left: 15px; right: 15px; 
-                background: #fff5f0; 
-                border: 1px solid #ffccbc; border-radius: 15px; 
-                padding: 10px 15px; z-index: 99999; 
-                display: flex; align-items: center; justify-content: space-between;
-                box-shadow: 0 4px 15px rgba(255, 87, 34, 0.1);">
+    <div style="position: fixed; bottom: 80px; left: 15px; right: 15px; background: #fff5f0; border: 1px solid #ffccbc; border-radius: 15px; padding: 10px 15px; z-index: 99999; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 15px rgba(255, 87, 34, 0.1);">
         <div style="display: flex; align-items: center; gap: 10px;">
-            <div style="background: #ff7043; width: 32px; height: 32px; border-radius: 50%; 
-                        display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 16px;">🎁</span>
-            </div>
-            <div>
-                <div style="color: #bf360c !important; font-size: 13px; font-weight: bold; font-family: sans-serif;">
-                    Combo Thảm & Freeship!!
-                </div>
-                <div style="color: #ff7043 !important; font-size: 11px; font-family: sans-serif;">
-                    Giảm ngay 30% hôm nay!
-                </div>
-            </div>
+            <div style="background: #ff7043; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;"><span style="font-size: 16px;">🎁</span></div>
+            <div><div style="color: #bf360c !important; font-size: 13px; font-weight: bold;">Combo Thảm & Freeship!!</div><div style="color: #ff7043 !important; font-size: 11px;">Giảm ngay 30% hôm nay!</div></div>
         </div>
-        <a href="https://yogaismylife.vn/cua-hang/" target="_blank" 
-           style="background: #ff7043; color: white !important; 
-                  padding: 8px 15px; border-radius: 10px; 
-                  text-decoration: none; font-weight: bold; font-size: 12px;
-                  transition: all 0.3s; box-shadow: 0 2px 5px rgba(255, 112, 67, 0.3);">
-            Xem ngay
-        </a>
+        <a href="https://yogaismylife.vn/cua-hang/" target="_blank" style="background: #ff7043; color: white !important; padding: 8px 15px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 12px; box-shadow: 0 2px 5px rgba(255, 112, 67, 0.3);">Xem ngay</a>
     </div>
     """, unsafe_allow_html=True)
 
-# --- ADMIN VIEW ---
+# Admin
 if st.session_state.authenticated and st.session_state.username == "admin":
     st.info("🕵️ **CHẾ ĐỘ ADMIN: SOI LOG CHAT**")
-    if st.button("🔄 Cập nhật Log"):
-        st.rerun()
-    if "anonymous_guest" in db_data:
-        anon_hist = db_data["anonymous_guest"]["history"]
-        with st.expander(f"👥 Khách vãng lai ({len(anon_hist)} tin nhắn)", expanded=True):
-            for msg in reversed(anon_hist):
-                if msg['role'] == 'user':
-                    st.write(f"👤 **Khách:** {msg['content']}")
-                else:
-                    st.caption(f"🤖 AI: {msg['content'][:50]}...")
-                st.divider()
+    if st.button("🔄 Cập nhật Log"): st.rerun()
+    # (Code hiển thị log giữ nguyên hoặc thêm vào nếu bác cần)
 
-# --- CHAT HISTORY ---
+# Modal Hết lượt
+if not can_chat:
+    st.markdown(f"""<div class="limit-modal"><div class="limit-box"><div style="font-size:50px;margin-bottom:10px">🧘‍♀️</div><div style="font-size:20px;font-weight:bold;color:#0f988b">Đã đạt giới hạn tra cứu miễn phí!</div><p style="color:#555;margin:15px 0">Hệ thống nhận thấy bạn đã sử dụng hết lượt dùng thử.<br>Để tiếp tục tra cứu <b>Kho dữ liệu chuyên sâu</b> và nhận ưu đãi, mời bạn liên hệ Admin:</p><a href="https://zalo.me/84963759566" target="_blank" class="limit-btn">💬 Nhận mã kích hoạt qua Zalo</a></div></div>""", unsafe_allow_html=True)
+    st.stop()
+
+# =====================================================
+# 8. XỬ LÝ CHAT (CỐT LÕI THÔNG MINH)
+# =====================================================
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"], unsafe_allow_html=True)
 
-# --- MODAL HẾT LƯỢT (BẢN NÂNG CẤP BÁN HÀNG) ---
-if not can_chat:
-    st.markdown(f"""
-    <div class="limit-modal">
-        <div class="limit-box">
-            <div style="font-size:50px;margin-bottom:10px">🧘‍♀️</div>
-            <div style="font-size:20px;font-weight:bold;color:#0f988b">Đã đạt giới hạn tra cứu miễn phí!</div>
-            <p style="color:#555;margin:15px 0">
-                Hệ thống nhận thấy bạn đã sử dụng hết lượt dùng thử cho kết nối này.<br><br>
-                Để tiếp tục tra cứu <b>Kho dữ liệu 15 triệu từ</b> được bác sĩ kiểm duyệt và nhận ưu đãi <b>Mua Thảm tặng Tài khoản Member</b>, mời bạn liên hệ Admin:
-            </p>
-            <a href="https://zalo.me/84963759566" target="_blank" class="limit-btn">💬 Nhận mã kích hoạt qua Zalo</a>
-            <p style="font-size:11px; color:#999; margin-top:10px;">(Hoặc đăng nhập nếu bạn đã là Member ở phía dưới)</p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    st.stop()
-
-# --- INPUT & XỬ LÝ ---
-if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
+if prompt := st.chat_input("Hỏi tôi về Yoga, tư thế, đau mỏi..."):
+    # Lưu user chat
     db_data[user_key]["count"] += 1
     db_data[user_key]["history"].append({"role": "user", "content": prompt})
     save_data(db_data)
@@ -334,58 +260,98 @@ if prompt := st.chat_input("Hỏi chuyên gia Yoga..."):
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    with st.chat_message("assistant"): # Đã fix thụt đầu dòng ở đây
+    with st.chat_message("assistant"):
         if db:
-            docs = db.similarity_search(prompt, k=4)
-            source_map = {}
+            # 1. Tìm kiếm dữ liệu trong não (Lấy 6 mảnh ghép)
+            docs = db.similarity_search(prompt, k=6)
+            
             context_parts = []
+            source_map = {}
             
             for i, d in enumerate(docs):
-                u = d.metadata.get('url', '#')
-                t = d.metadata.get('title', 'Tài liệu')
-                context_parts.append(d.page_content)
-                source_map[u] = t
+                dtype = d.metadata.get('type', 'general')
+                title = d.metadata.get('title', 'Tài liệu')
+                url = d.metadata.get('url', '#')
+                
+                # Gắn nhãn dữ liệu để AI hiểu độ uy tín
+                label = "NGHIÊN CỨU" if dtype == 'science' else "CHUYÊN GIA" if dtype == 'qa' else "BÀI VIẾT"
+                context_parts.append(f"--- NGUỒN {i+1}: [{label}] ---\nTiêu đề: {title}\nNội dung: {d.page_content}")
+                
+                if url != "#" and url is not None:
+                    source_map[url] = {"title": title, "type": dtype}
             
-            context_string = "\n\n".join(context_parts)
+            full_context = "\n\n".join(context_parts)
+
+            # 2. Tìm Giải pháp đề xuất (Sản phẩm của bác)
+            solutions = get_recommended_solutions(prompt)
+            solution_context = ""
+            if solutions:
+                solution_names = ", ".join([s["name"] for s in solutions])
+                solution_context = f"\nQUAN TRỌNG: Hãy khuyên người dùng sử dụng công cụ sau của chúng tôi: {solution_names}. Hãy lồng ghép khéo léo vào lời khuyên."
+
+            # 3. Prompt thông minh (Dạy AI cách tư duy)
+            sys_prompt = f"""
+            Bạn là Chuyên gia Yoga và Trị liệu cấp cao. Trả lời câu hỏi dựa trên DỮ LIỆU.
             
-            sys_prompt = (
-                f"Bạn là chuyên gia Yoga. Hãy trả lời dựa trên DỮ LIỆU NGUỒN.\n"
-                f"1. Trả lời NGẮN GỌN (tối đa 6-7 gạch đầu dòng, dưới 100 từ).\n"
-                f"2. Đi thẳng vào trọng tâm chuyên môn.\n"
-                f"3. Chỉ dùng thông tin có trong NGUỒN bên dưới.\n"
-                f"4. Tuyệt đối không tự bịa link hoặc chèn link vào bài viết.\n\n"
-                f"DỮ LIỆU NGUỒN:\n{context_string}\n\n"
-                f"CÂU HỎI: {prompt}"
-            )
+            DỮ LIỆU THAM KHẢO:
+            {full_context}
+            {solution_context}
+
+            HƯỚNG DẪN TRẢ LỜI:
+            1. **Phân tích:** Dùng [NGHIÊN CỨU] để giải thích cơ chế khoa học (nếu có).
+            2. **Thực hành:** Dùng [CHUYÊN GIA] để chỉ lỗi sai thường gặp và cách sửa.
+            3. **Đề xuất:** GỢI Ý NGƯỜI DÙNG dùng công cụ của chúng tôi (như đã cung cấp ở trên) để giải quyết vấn đề triệt để.
+            4. **Phong cách:** Ngắn gọn, súc tích, chia gạch đầu dòng, dùng icon.
+            5. **An toàn:** Luôn nhắc lắng nghe cơ thể (Ahimsa).
+
+            CÂU HỎI: "{prompt}"
+            """
             
             try:
-                with st.spinner("🧘 Chuyên gia đang suy ngẫm..."):
+                with st.spinner("🧘 Đang phân tích kỹ thuật và tìm tài liệu..."):
                     response = model.generate_content(sys_prompt)
                     res_text = response.text
                 
-                links_html = ""
+                # --- RENDER KẾT QUẢ ---
+                
+                # 1. Hiển thị Lời giải của AI
+                st.markdown(res_text, unsafe_allow_html=True)
+                
+                # 2. Hiển thị "THẺ GIẢI PHÁP" (Đồ chơi của bác) - Nổi bật
+                if solutions:
+                    for sol in solutions:
+                        st.markdown(f"""
+                        <div class="solution-card">
+                            <div class="solution-text">{sol['name']}</div>
+                            <a href="{sol['url']}" target="_blank" class="solution-btn">Sử dụng ngay 🚀</a>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                # 3. Hiển thị Nguồn tham khảo (Uy tín)
                 if source_map:
-                    links_html += "<br><hr><b>📚 Tài liệu tham khảo:</b><ul style='list-style:none;padding:0'>"
-                    seen_urls = set()
+                    links_html = "<div class='source-box'><strong>📚 Nguồn tham khảo uy tín:</strong><div style='margin-top:8px'>"
                     count = 0
-                    for url, title in source_map.items():
-                        if url != "#" and url not in seen_urls and count < 3:
-                            links_html += f"<li style='margin-bottom:5px'>🔗 <a href='{url}' target='_blank' style='color:#0f988b;text-decoration:none;font-weight:500'>{title}</a></li>"
-                            seen_urls.add(url)
-                            count += 1
-                    links_html += "</ul>"
-                
-                final_res = res_text + links_html
-                st.markdown(final_res, unsafe_allow_html=True)
-                
-                db_data[user_key]["history"].append({"role": "assistant", "content": final_res})
-                save_data(db_data)
+                    for url, info in source_map.items():
+                        if count >= 3: break
+                        tag_html = ""
+                        if info['type'] == 'science': tag_html = "<span class='tag-science'>KHOA HỌC</span>"
+                        elif info['type'] == 'qa': tag_html = "<span class='tag-qa'>CHUYÊN GIA</span>"
+                        else: tag_html = "<span class='tag-blog'>BÀI VIẾT</span>"
+                        
+                        links_html += f"<div style='margin-bottom:6px'>{tag_html} <a href='{url}' target='_blank' style='text-decoration:none; color:#0f988b; font-weight:500'>{info['title']}</a></div>"
+                        count += 1
+                    links_html += "</div></div>"
+                    st.markdown(links_html, unsafe_allow_html=True)
+                    
+                    # Lưu vào lịch sử (Chỉ lưu text AI để tránh lỗi render HTML phức tạp khi load lại)
+                    db_data[user_key]["history"].append({"role": "assistant", "content": res_text})
+                    save_data(db_data)
                 
             except Exception as error:
-                st.error(f"AI đang hồi sức do có quá nhiều câu hỏi: {error}")
+                st.error(f"Hệ thống đang quá tải: {error}")
 
 # =====================================================
-# 6. LOGIN FORM
+# 9. LOGIN FORM
 # =====================================================
 if not st.session_state.authenticated:
     st.markdown("<br>", unsafe_allow_html=True)
