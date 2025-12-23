@@ -313,16 +313,21 @@ def get_clean_history():
         history_text += f"{role}: {clean_content}\n"
     return history_text
 # -------------------------------------------------------------
+# =====================================================
+# 6. XỬ LÝ CHAT (ĐÃ CĂN CHỈNH LỀ CHUẨN & FIX NÃO AI)
+# =====================================================
 if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
+    # 1. Hiện câu hỏi user
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     increment_usage(user_id)
 
+    # 2. Xử lý AI
     with st.chat_message("assistant"):
-        with st.spinner("Đang tìm kiếm trong kho dữ liệu..."):
+        with st.spinner("Đang tra cứu kho dữ liệu..."):
             try:
-                # 1. TÌM KIẾM
-                docs = db.similarity_search(prompt, k=8)
+                # --- A. TÌM KIẾM DỮ LIỆU ---
+                docs = db.similarity_search(prompt, k=6) # Giảm k xuống 6 để bớt nhiễu
                 
                 context_text = ""
                 source_map = {}
@@ -334,35 +339,42 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                     source_map[doc_id] = {"url": url, "title": title, "type": type_}
                     context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
 
-                # 2. LẤY LỊCH SỬ CHAT (Gọi hàm vừa thêm ở Bước 1)
-                history_text = get_clean_history()
+                # --- B. LẤY LỊCH SỬ (Chỉ lấy 2 câu gần nhất để tránh loạn) ---
+                history_text = ""
+                if len(st.session_state.messages) >= 3:
+                    recent = st.session_state.messages[-3:-1] # Bỏ qua câu hỏi hiện tại, lấy 2 cái trước
+                    for msg in recent:
+                        clean_content = re.sub(r'<[^>]+>', '', msg["content"])
+                        history_text += f"{msg['role']}: {clean_content}\n"
 
-                # 3. PROMPT
+                # --- C. PROMPT (YÊU CẦU AI TẬP TRUNG VÀO CÂU HỎI MỚI) ---
                 sys_prompt = f"""
-                Bạn là chuyên gia Yoga.
+                Bạn là chuyên gia Yoga Y Khoa (Medical Yoga).
                 
-                1. LỊCH SỬ TRÒ CHUYỆN:
-                {history_text}
-                
-                2. DỮ LIỆU TRA CỨU:
+                1. DỮ LIỆU TRA CỨU TỪ KHO (QUAN TRỌNG NHẤT):
                 {context_text}
                 
-                3. CÂU HỎI MỚI: "{prompt}"
+                2. CÂU HỎI CỦA NGƯỜI DÙNG: "{prompt}"
                 
-                YÊU CẦU:
-                - Kết hợp lịch sử và dữ liệu để trả lời.
-                - Nếu dùng ý từ Dữ liệu tra cứu, BẮT BUỘC ghi chú [Ref: X].
-                - Ngắn gọn dưới 150 từ.
+                3. LỊCH SỬ CHAT (Chỉ tham khảo nếu cần):
+                {history_text}
+
+                YÊU CẦU TRẢ LỜI:
+                - ƯU TIÊN SỐ 1: Trả lời đúng trọng tâm "CÂU HỎI CỦA NGƯỜI DÙNG".
+                - Kiểm tra "DỮ LIỆU TRA CỨU": Nếu dữ liệu khớp với câu hỏi, hãy dùng nó và ghi chú [Ref: X].
+                - Nếu "DỮ LIỆU TRA CỨU" không liên quan (ví dụ: hỏi bệnh mà dữ liệu ra triết lý), HÃY BỎ QUA DỮ LIỆU ĐÓ và trả lời bằng kiến thức Yoga Y Khoa chuẩn xác của bạn.
+                - Tuyệt đối không trả lời lung tung. Nếu là bệnh lý (huyết áp, thoát vị...), ưu tiên bài tập nhẹ nhàng, an toàn.
                 """
                 
                 response = model.generate_content(sys_prompt)
                 ai_resp = response.text
                 
-                # 4. HIỂN THỊ TEXT (Sửa regex để bắt Ref chuẩn hơn)
+                # --- D. XỬ LÝ HIỂN THỊ ---
+                # 1. Thay thế [Ref: X] thành icon
                 clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
                 st.markdown(clean_text)
                 
-                # 5. HIỂN THỊ LINK (Sửa regex để bắt Ref chuẩn hơn)
+                # 2. Lọc và hiện Link (Chỉ hiện link nếu AI thực sự dùng)
                 used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
                 unique_used_ids = sorted(list(set(used_ids)))
                 
@@ -380,7 +392,7 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                     html_sources += "</div>"
                     st.markdown(html_sources, unsafe_allow_html=True)
 
-                # 6. UPSELL (Giữ nguyên của bạn)
+                # 3. Upsell (Gợi ý giải pháp)
                 upsell_html = ""
                 recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
                 if recs:
@@ -390,12 +402,14 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                     upsell_html += "</div>"
                     st.markdown(upsell_html, unsafe_allow_html=True)
                 
+                # Lưu lịch sử
                 full_save = clean_text
                 if html_sources: full_save += "\n\n" + html_sources
                 if upsell_html: full_save += "\n\n" + upsell_html
                 st.session_state.messages.append({"role": "assistant", "content": full_save})
 
             except Exception as e:
-                # In lỗi ra log console để debug nếu cần, nhưng báo user nhẹ nhàng
+                # Bắt lỗi êm ái, không văng code ra màn hình
+                st.error("Hệ thống đang bận. Vui lòng thử lại câu hỏi khác.")
                 print(f"Lỗi: {e}")
                 st.error("Hệ thống đang bận. Vui lòng thử lại.")
