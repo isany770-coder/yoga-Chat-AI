@@ -20,12 +20,12 @@ YOGA_SOLUTIONS = {
     "QUY_TRINH_8_BUOC": {
         "name": "🗺️ Quy trình 8 Bước Toàn Diện",
         "url": "https://yogaismylife.vn/kiem-tra-suc-khoe-toan-dien/",
-        "trigger": ["bắt đầu", "lộ trình", "người mới", "từ đầu", "cơ bản", "hướng dẫn", "bao lâu", "học yoga", "nhập môn"]
+        "trigger": ["bắt đầu", "lộ trình", "người mới", "từ đầu", "cơ bản", "hướng dẫn", "bao lâu", "học yoga", "nhập môn", "luân xa", "sức khỏe", "thực đơn"]
     },
     "AI_COACH": {
         "name": "🤖 Gặp AI Coach 1:1",
         "url": "https://yogaismylife.vn/kiem-tra-tu-the-yoga/",
-        "trigger": ["đau", "chấn thương", "mỏi", "bệnh", "trị liệu", "tư vấn riêng", "khó quá", "không tập được", "thoát vị", "đau gối", "lưng", "cổ", "vai", "xương khớp"]
+        "trigger": ["đau", "chấn thương", "mỏi", "bệnh", "trị liệu", "tư vấn riêng", "khó quá", "không tập được", "thoát vị", "đau gối", "lưng", "cổ", "vai", "tư thế", "lỗi sai", "tập đúng", "tập chuẩn", "xương khớp"]
     },
     "APP_THIEN_THO": {
         "name": "🧘 App Thiền & Hít Thở",
