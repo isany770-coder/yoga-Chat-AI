@@ -105,6 +105,7 @@ except:
 # --- CẤU HÌNH ĐƯỜNG DẪN (Đổi thành v3 để ép tải lại file mới nhất) ---
 ZIP_PATH = "/tmp/brain_data_v3.zip" 
 EXTRACT_PATH = "/tmp/brain_data_extracted_v3"
+DB_PATH = "user_usage.db"
 
 @st.cache_resource
 def load_brain_engine():
