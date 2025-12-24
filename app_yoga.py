@@ -406,8 +406,12 @@ if not is_locked:
                     1. DỮ LIỆU: {context_text}
                     2. CÂU HỎI: "{prompt}"
                     YÊU CẦU:
-                    - Nếu có [HÌNH ẢNH], hãy dùng nó để giải thích và MỜI NGƯỜI DÙNG XEM ẢNH BÊN DƯỚI.
-                    - Trả lời ngắn gọn, súc tích.
+                    - Nếu câu hỏi KHÔNG liên quan đến Yoga, sức khỏe, hoặc bệnh lý (ví dụ: bóng đá, người mẫu, showbiz, chính trị...): chỉ trả lời duy nhất từ khóa "OFFTOPIC".
+                    - ƯU TIÊN SỐ 1: Trả lời đúng trọng tâm "CÂU HỎI CỦA NGƯỜI DÙNG".
+                    - Kiểm tra "DỮ LIỆU TRA CỨU": Nếu thấy có [HÌNH ẢNH], hãy mời người dùng xem ảnh minh họa bên dưới. Ghi chú nguồn [Ref: X].
+                    - Nếu "DỮ LIỆU TRA CỨU" không liên quan (ví dụ: hỏi bệnh mà dữ liệu ra triết lý), HÃY BỎ QUA DỮ LIỆU ĐÓ và trả lời bằng kiến thức Yoga Y Khoa chuẩn xác của bạn.
+                    - Tuyệt đối không trả lời lung tung. Nếu là bệnh lý (huyết áp, thoát vị...), ưu tiên bài tập nhẹ nhàng, an toàn.
+                    - Tối đa 150 từ.
                     """
                     
                     response = model.generate_content(sys_prompt)
