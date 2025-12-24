@@ -87,7 +87,7 @@ st.markdown("""
     .source-link:hover { background-color: #dcedc8; }
     .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-right: 8px; font-weight: bold; text-transform: uppercase; border: 1px solid; }
     
-    .bottom-spacer { height: 100px; }
+    .bottom-spacer { height: 200px; }
 </style>
 """, unsafe_allow_html=True)
 
