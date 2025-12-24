@@ -182,7 +182,7 @@ def increment_usage(user_id):
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Tôi là Trợ lý Yoga.\nBạn cần tìm bài tập hay tư vấn bệnh lý gì hôm nay?"}]
+    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Tôi là Trợ lý YIML AI.\nHôm nay chúng ta nên bắt đầu từ đâu?"}]
 
 def get_user_id():
     if st.session_state.authenticated: return st.session_state.username
@@ -379,7 +379,7 @@ if not is_locked:
         increment_usage(user_id)
 
         with st.chat_message("assistant"):
-            with st.spinner("Đang tra cứu..."):
+            with st.spinner("Đang tra cứu từ kho dữ liệu..."):
                 try:
                     # 1. TÌM KIẾM
                     docs_text = db_text.similarity_search(prompt, k=4)
@@ -509,6 +509,6 @@ st.markdown("""
     background-color: rgba(255,255,255,0.9); 
     z-index: 999; 
     pointer-events: none;">
-    Trợ lý AI có thể mắc sai sót, vì vậy, nhớ xác minh câu trả lời, và tham khảo ý kiến chuyên gia.
+    Trợ lý AI có thể mắc sai sót, vì vậy, nhớ xác minh câu trả lời.
 </div>
 """, unsafe_allow_html=True)
