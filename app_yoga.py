@@ -455,41 +455,19 @@ if not is_locked:
                         if found_images:
                             st.markdown("---")
                             st.markdown("##### 🖼️ Minh họa chi tiết:")
-                            
-                            # Chia cột (3 ảnh 1 hàng)
                             cols = st.columns(3)
                             for i, img in enumerate(found_images):
-                                # Logic chia cột: Ảnh 1 vào cột 1, Ảnh 2 vào cột 2...
-                                col = cols[i % 3]
-                                
-                                with col:
-                                    # 1. Hiển thị ảnh Thumbnail (Cắt cho đều nhau)
-                                    # Dùng HTML để ép chiều cao 150px, nhìn cho đều đội hình
-                                    st.markdown(
-                                        f"""
-                                        <div style="
-                                            height: 150px; 
-                                            overflow: hidden; 
-                                            border-radius: 10px; 
-                                            border: 1px solid #ddd;
-                                            display: flex; 
-                                            align-items: center; 
-                                            justify-content: center;
-                                            background: #f9f9f9;">
-                                            <img src="{img['url']}" style="width: 100%; height: 100%; object-fit: cover;">
-                                        </div>
-                                        """, 
-                                        unsafe_allow_html=True
-                                    )
-                                    
-                                    # 2. Tính năng ZOOM (Nút xem chi tiết)
-                                    # Bấm vào nó sẽ xổ xuống cái ảnh to đùng, sắc nét
-                                    with st.expander(f"🔍 Phóng to ảnh {i+1}"):
+                                with cols[i % 3]:
+                                    st.markdown(f"""<div style="height:150px;overflow:hidden;border-radius:10px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;background:#f9f9f9;"><img src="{img['url']}" style="width:100%;height:100%;object-fit:cover;"></div>""", unsafe_allow_html=True)
+                                    with st.expander(f"🔍 Phóng to {i+1}"):
                                         st.image(img['url'], caption=img['title'], use_container_width=True)
                                         st.markdown(f"[Tải ảnh về máy]({img['url']})")
-                        # ----------------------------------------------
+                        
+                        # --- KHỞI TẠO BIẾN (QUAN TRỌNG ĐỂ KHÔNG BỊ LỖI SYSTEM BUSY) ---
+                        html_src = ""
+                        upsell_html = ""
 
-                        # Hiển thị nguồn
+                        # 1. Xử lý Nguồn tham khảo
                         used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
                         if used_ids:
                             html_src = "<div class='source-box'><b>📚 Nguồn:</b>"
@@ -499,18 +477,27 @@ if not is_locked:
                                 if info['url'] != '#' and info['url'] not in seen:
                                     seen.add(info['url'])
                                     html_src += f" <a href='{info['url']}' target='_blank' class='source-link'>{info['title']}</a>"
-                           # --- ĐOẠN CẦN SỬA: LƯU VÀO BỘ NHỚ ---
-                        
-                        # 1. Gộp nội dung chữ + Nguồn + Upsell vào một cục
+                            html_src += "</div>"
+                            st.markdown(html_src, unsafe_allow_html=True)
+
+                        # 2. Xử lý Upsell (Gợi ý lộ trình)
+                        recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
+                        if recs:
+                            upsell_html += "<div style='margin-top:15px'>"
+                            for r in recs[:2]:
+                                 upsell_html += f"""<div style="background:#e0f2f1; padding:10px; border-radius:10px; margin-bottom:8px; border:1px solid #009688; display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold; color:#004d40; font-size:14px">{r['name']}</span><a href="{r['url']}" target="_blank" style="background:#00796b; color:white; padding:5px 10px; border-radius:15px; text-decoration:none; font-size:12px; font-weight:bold;">Xem ngay</a></div>"""
+                            upsell_html += "</div>"
+                            st.markdown(upsell_html, unsafe_allow_html=True)
+
+                        # 3. LƯU VÀO BỘ NHỚ (GIỜ ĐÃ AN TOÀN)
                         full_content_to_save = clean_text
                         if html_src: full_content_to_save += "\n\n" + html_src
                         if upsell_html: full_content_to_save += "\n\n" + upsell_html
                         
-                        # 2. Lưu vào lịch sử (Kèm theo danh sách ảnh found_images)
                         st.session_state.messages.append({
                             "role": "assistant", 
                             "content": full_content_to_save,
-                            "images": found_images if found_images else [] # <--- QUAN TRỌNG: Lưu danh sách ảnh
+                            "images": found_images if found_images else [] 
                         })
 
                 except Exception as e:
