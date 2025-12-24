@@ -335,7 +335,7 @@ if st.session_state.lock_until:
         st.session_state.lock_until = None
         st.session_state.spam_count = 0
 
-# --- C. LOGIC XỬ LÝ CHAT CHÍNH ---
+# --- C. LOGIC XỬ LÝ CHAT CHÍNH (ĐÃ NÂNG CẤP HIỂN THỊ ẢNH) ---
 if not is_locked:
     if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
         # 1. Hiện câu hỏi user
@@ -360,7 +360,7 @@ if not is_locked:
                         title = d.metadata.get('title', 'Tài liệu Yoga')
                         type_ = d.metadata.get('type', 'blog')
                         
-                        # Lấy link ảnh từ metadata
+                        # Lấy link ảnh từ metadata (QUAN TRỌNG)
                         img_url = d.metadata.get('image_url', '')
 
                         # Lưu nguồn
@@ -368,8 +368,9 @@ if not is_locked:
                         
                         # Xử lý nội dung context
                         if type_ == 'image' and img_url:
+                            # Lưu ảnh vào danh sách để tí hiển thị
                             found_images.append({"url": img_url, "title": title})
-                            # Ghi chú cho AI biết có ảnh
+                            # Ghi chú cho AI biết có ảnh để nó mời khách xem
                             context_text += f"\n[Nguồn {doc_id} - HÌNH ẢNH MINH HỌA]: {title}. (Hệ thống sẽ tự động hiển thị ảnh này, bạn hãy nhắc người dùng xem bên dưới).\nNội dung ảnh: {d.page_content}\n"
                         else:
                             context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
@@ -395,11 +396,9 @@ if not is_locked:
                     {history_text}
 
                     YÊU CẦU TRẢ LỜI:
-                    - Nếu câu hỏi KHÔNG liên quan đến Yoga, sức khỏe, hoặc bệnh lý (ví dụ: bóng đá, người mẫu, showbiz, chính trị...): chỉ trả lời duy nhất từ khóa "OFFTOPIC".
-                    - ƯU TIÊN SỐ 1: Trả lời đúng trọng tâm "CÂU HỎI CỦA NGƯỜI DÙNG".
-                    - Kiểm tra "DỮ LIỆU TRA CỨU": Nếu thấy có [HÌNH ẢNH], hãy mời người dùng xem ảnh minh họa bên dưới. Ghi chú nguồn [Ref: X].
-                    - Nếu "DỮ LIỆU TRA CỨU" không liên quan (ví dụ: hỏi bệnh mà dữ liệu ra triết lý), HÃY BỎ QUA DỮ LIỆU ĐÓ và trả lời bằng kiến thức Yoga Y Khoa chuẩn xác của bạn.
-                    - Tuyệt đối không trả lời lung tung. Nếu là bệnh lý (huyết áp, thoát vị...), ưu tiên bài tập nhẹ nhàng, an toàn.
+                    - Nếu câu hỏi KHÔNG liên quan đến Yoga/Sức khỏe: trả lời "OFFTOPIC".
+                    - Nếu trong dữ liệu tra cứu có [HÌNH ẢNH MINH HỌA], hãy dùng thông tin đó để trả lời và MỜI NGƯỜI DÙNG XEM ẢNH MINH HỌA BÊN DƯỚI.
+                    - Trích dẫn nguồn bằng [Ref: X].
                     - Tối đa 150 từ.
                     """
                     
@@ -422,14 +421,16 @@ if not is_locked:
                         clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
                         st.markdown(clean_text)
                         
-                        # --- [QUAN TRỌNG] HIỂN THỊ ẢNH ---
+                        # --- [QUAN TRỌNG] HIỂN THỊ ẢNH RA MÀN HÌNH ---
                         if found_images:
-                            # Hiển thị tối đa 2 ảnh
-                            cols = st.columns(min(len(found_images), 2))
-                            for idx, img in enumerate(found_images[:2]):
+                            st.markdown("---") # Đường kẻ ngang cho đẹp
+                            st.markdown("**🖼️ Ảnh minh họa:**")
+                            # Hiển thị tối đa 3 ảnh đẹp nhất
+                            cols = st.columns(min(len(found_images), 3))
+                            for idx, img in enumerate(found_images[:3]):
                                 with cols[idx]:
                                     st.image(img['url'], caption=img['title'], use_container_width=True)
-                        # ---------------------------------
+                        # -----------------------------------------------
 
                         # Hiện Link tham khảo (Text)
                         used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
@@ -459,8 +460,7 @@ if not is_locked:
                             upsell_html += "</div>"
                             st.markdown(upsell_html, unsafe_allow_html=True)
                         
-                        # Lưu lịch sử (Lưu cả thẻ ảnh nếu muốn, hoặc chỉ text)
-                        # Ở đây ta lưu text thôi để tránh nặng file log
+                        # Lưu lịch sử (Chỉ lưu text để nhẹ data)
                         full_save = clean_text
                         if html_sources: full_save += "\n\n" + html_sources
                         if upsell_html: full_save += "\n\n" + upsell_html
