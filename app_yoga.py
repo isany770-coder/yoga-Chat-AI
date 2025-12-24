@@ -307,8 +307,22 @@ if not st.session_state.authenticated:
 # --- VÒNG LẶP HIỂN THỊ LỊCH SỬ (ĐÃ NÂNG CẤP) ---
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        # 1. Hiện nội dung chữ + nguồn
+        # 1. Hiện nội dung chữ (đã bao gồm nguồn + upsell)
         st.markdown(msg["content"], unsafe_allow_html=True)
+        
+        # 2. Hiện lại ảnh (Nếu tin nhắn đó có chứa ảnh)
+        if "images" in msg and msg["images"]:
+            st.markdown("---")
+            st.markdown("##### 🖼️ Minh họa chi tiết:")
+            cols = st.columns(3)
+            for i, img in enumerate(msg["images"]):
+                with cols[i % 3]:
+                    # Thumbnail
+                    st.markdown(f"""<div style="height:150px;overflow:hidden;border-radius:10px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;background:#f9f9f9;"><img src="{img['url']}" style="width:100%;height:100%;object-fit:cover;"></div>""", unsafe_allow_html=True)
+                    # Zoom
+                    with st.expander(f"🔍 Phóng to {i+1}"):
+                        st.image(img['url'], caption=img['title'], use_container_width=True)
+                        st.markdown(f"[Tải ảnh]({img['url']})")
         
         # 2. Hiện lại ảnh (Nếu tin nhắn đó có lưu ảnh)
         if "images" in msg and msg["images"]:
