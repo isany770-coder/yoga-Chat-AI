@@ -352,9 +352,7 @@ if not is_locked:
                     
                     context_text = ""
                     source_map = {}
-                    
-                    # Biến chứa danh sách ảnh tìm được
-                    found_images = [] 
+                    found_images = [] # Danh sách chứa ảnh tìm được
 
                     for i, d in enumerate(docs):
                         doc_id = i + 1
@@ -362,22 +360,17 @@ if not is_locked:
                         title = d.metadata.get('title', 'Tài liệu Yoga')
                         type_ = d.metadata.get('type', 'blog')
                         
-                        # Lấy link ảnh (nếu có)
+                        # Lấy link ảnh từ metadata
                         img_url = d.metadata.get('image_url', '')
 
-                        # Lưu vào map để tí dùng
-                        source_map[doc_id] = {
-                            "url": url, 
-                            "title": title, 
-                            "type": type_, 
-                            "image": img_url
-                        }
+                        # Lưu nguồn
+                        source_map[doc_id] = {"url": url, "title": title, "type": type_}
                         
-                        # Nếu là ảnh thì ưu tiên đưa vào danh sách hiển thị
+                        # Xử lý nội dung context
                         if type_ == 'image' and img_url:
                             found_images.append({"url": img_url, "title": title})
-                            # Mẹo: Ghi chú vào context để AI biết là có ảnh này
-                            context_text += f"\n[Nguồn {doc_id} - HÌNH ẢNH]: {title}. (Hệ thống sẽ tự hiển thị ảnh này cho người dùng).\nNội dung ảnh: {d.page_content}\n"
+                            # Ghi chú cho AI biết có ảnh
+                            context_text += f"\n[Nguồn {doc_id} - HÌNH ẢNH MINH HỌA]: {title}. (Hệ thống sẽ tự động hiển thị ảnh này, bạn hãy nhắc người dùng xem bên dưới).\nNội dung ảnh: {d.page_content}\n"
                         else:
                             context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
 
@@ -417,29 +410,28 @@ if not is_locked:
                     if "OFFTOPIC" in ai_resp.upper():
                         st.session_state.spam_count += 1
                         if st.session_state.spam_count >= 2:
-                            st.session_state.lock_until = time.time() + 300  # Khóa 5 phút
+                            st.session_state.lock_until = time.time() + 300
                             st.error("🚫 Bạn đã vi phạm 2 lần. Hệ thống tạm dừng trả lời trong 5 phút.")
                             st.rerun()
                         else:
-                            st.warning("🙏 Tôi chỉ hỗ trợ các vấn đề về Yoga và Sức khỏe. Vui lòng không hỏi các chủ đề khác.")
+                            st.warning("🙏 Tôi chỉ hỗ trợ các vấn đề về Yoga và Sức khỏe.")
                     else:
-                        # Nếu trả lời đúng chủ đề, reset bộ đếm vi phạm
                         st.session_state.spam_count = 0
                         
                         # Thay thế [Ref: X] thành icon
                         clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
                         st.markdown(clean_text)
-
-                        # --- [MỚI] HIỂN THỊ ẢNH MINH HỌA (NẾU CÓ) ---
+                        
+                        # --- [QUAN TRỌNG] HIỂN THỊ ẢNH ---
                         if found_images:
-                            # Chỉ lấy tối đa 2 ảnh đẹp nhất để không bị rối
+                            # Hiển thị tối đa 2 ảnh
                             cols = st.columns(min(len(found_images), 2))
                             for idx, img in enumerate(found_images[:2]):
                                 with cols[idx]:
-                                    st.image(img['url'], caption=img['title'], use_column_width=True)
-                        # --------------------------------------------
-                        
-                        # Hiện Link tham khảo
+                                    st.image(img['url'], caption=img['title'], use_container_width=True)
+                        # ---------------------------------
+
+                        # Hiện Link tham khảo (Text)
                         used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
                         unique_used_ids = sorted(list(set(used_ids)))
                         
@@ -467,7 +459,8 @@ if not is_locked:
                             upsell_html += "</div>"
                             st.markdown(upsell_html, unsafe_allow_html=True)
                         
-                        # Lưu lịch sử
+                        # Lưu lịch sử (Lưu cả thẻ ảnh nếu muốn, hoặc chỉ text)
+                        # Ở đây ta lưu text thôi để tránh nặng file log
                         full_save = clean_text
                         if html_sources: full_save += "\n\n" + html_sources
                         if upsell_html: full_save += "\n\n" + upsell_html
