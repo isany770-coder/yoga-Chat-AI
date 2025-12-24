@@ -423,14 +423,43 @@ if not is_locked:
                         clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
                         st.markdown(clean_text)
                         
-                        # --- HIỂN THỊ ẢNH (BẮT BUỘC RA) ---
+                        # --- HIỂN THỊ ẢNH (GIAO DIỆN GALLERY ĐẸP) ---
                         if found_images:
                             st.markdown("---")
-                            cols = st.columns(min(len(found_images), 3))
-                            for idx, img in enumerate(found_images):
-                                with cols[idx]:
-                                    st.image(img['url'], caption=img['title'], use_container_width=True)
-                        # ----------------------------------
+                            st.markdown("##### 🖼️ Minh họa chi tiết:")
+                            
+                            # Chia cột (3 ảnh 1 hàng)
+                            cols = st.columns(3)
+                            for i, img in enumerate(found_images):
+                                # Logic chia cột: Ảnh 1 vào cột 1, Ảnh 2 vào cột 2...
+                                col = cols[i % 3]
+                                
+                                with col:
+                                    # 1. Hiển thị ảnh Thumbnail (Cắt cho đều nhau)
+                                    # Dùng HTML để ép chiều cao 150px, nhìn cho đều đội hình
+                                    st.markdown(
+                                        f"""
+                                        <div style="
+                                            height: 150px; 
+                                            overflow: hidden; 
+                                            border-radius: 10px; 
+                                            border: 1px solid #ddd;
+                                            display: flex; 
+                                            align-items: center; 
+                                            justify-content: center;
+                                            background: #f9f9f9;">
+                                            <img src="{img['url']}" style="width: 100%; height: 100%; object-fit: cover;">
+                                        </div>
+                                        """, 
+                                        unsafe_allow_html=True
+                                    )
+                                    
+                                    # 2. Tính năng ZOOM (Nút xem chi tiết)
+                                    # Bấm vào nó sẽ xổ xuống cái ảnh to đùng, sắc nét
+                                    with st.expander(f"🔍 Phóng to ảnh {i+1}"):
+                                        st.image(img['url'], caption=img['title'], use_container_width=True)
+                                        st.markdown(f"[Tải ảnh về máy]({img['url']})")
+                        # ----------------------------------------------
 
                         # Hiển thị nguồn
                         used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
