@@ -96,15 +96,14 @@ st.markdown("""
 # =====================================================
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
-    file_id = st.secrets["DRIVE_FILE_ID"]
+    file_id = st.secrets["DRIVE_FILE_ID"] # ID của file brain_data.zip mới
     genai.configure(api_key=api_key)
 except:
     st.error("❌ Chưa cấu hình secrets.toml")
     st.stop()
 
-ZIP_PATH = "/tmp/brain_data_new.zip"  # <--- Đổi tên
-EXTRACT_PATH = "/tmp/brain_data_extracted_new" # <--- Đổi tên
-DB_PATH = "user_usage.db"
+ZIP_PATH = "/tmp/brain_data_v2.zip" # Đổi tên để ép tải mới
+EXTRACT_PATH = "/tmp/brain_data_extracted_v2"
 
 @st.cache_resource
 def load_brain_engine():
@@ -113,26 +112,29 @@ def load_brain_engine():
             url = f'https://drive.google.com/uc?id={file_id}'
             gdown.download(url, ZIP_PATH, quiet=True)
             with zipfile.ZipFile(ZIP_PATH, 'r') as z: z.extractall(EXTRACT_PATH)
-            if os.path.exists(ZIP_PATH): os.remove(ZIP_PATH)
         except: return None, None, "Lỗi tải dữ liệu"
     
-    vector_path = None
-    for root, _, files in os.walk(EXTRACT_PATH):
-        for f in files:
-            if f.endswith(".faiss"): vector_path = root; break
-        if vector_path: break
+    # 1. Tìm não chữ (Text DB)
+    text_db_path = os.path.join(EXTRACT_PATH, "vector_db")
+    # 2. Tìm não ảnh (Image DB)
+    image_db_path = os.path.join(EXTRACT_PATH, "vector_db_images")
     
-    if not vector_path: return None, None, "Không tìm thấy vector"
-
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
-        db = FAISS.load_local(vector_path, embeddings, allow_dangerous_deserialization=True)
+        
+        # Load cả 2 não
+        db_text = FAISS.load_local(text_db_path, embeddings, allow_dangerous_deserialization=True)
+        db_image = FAISS.load_local(image_db_path, embeddings, allow_dangerous_deserialization=True)
+        
+        # Gộp não ảnh vào não chữ để thành 1 siêu não
+        db_text.merge_from(db_image)
+        
         model = genai.GenerativeModel('gemini-flash-latest')
-        return db, model, "OK"
+        return db_text, model, "OK"
     except Exception as e: return None, None, str(e)
 
 db, model, status = load_brain_engine()
-if status != "OK": st.stop()
+if status != "OK": st.error(f"Lỗi não bộ: {status}"); st.stop()
 
 # =====================================================
 # 3. QUẢN LÝ USER & GIỚI HẠN
