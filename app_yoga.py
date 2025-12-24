@@ -499,10 +499,7 @@ if not is_locked:
                                 if info['url'] != '#' and info['url'] not in seen:
                                     seen.add(info['url'])
                                     html_src += f" <a href='{info['url']}' target='_blank' class='source-link'>{info['title']}</a>"
-                            html_src += "</div>"
-                            st.markdown(html_src, unsafe_allow_html=True)
-                        
-                        # --- ĐOẠN CẦN SỬA: LƯU VÀO BỘ NHỚ ---
+                           # --- ĐOẠN CẦN SỬA: LƯU VÀO BỘ NHỚ ---
                         
                         # 1. Gộp nội dung chữ + Nguồn + Upsell vào một cục
                         full_content_to_save = clean_text
@@ -517,5 +514,7 @@ if not is_locked:
                         })
 
                 except Exception as e:
+                    st.error("Hệ thống đang bận. Xin vui lòng thử lại sau.")
+                    print(f"Lỗi: {e}")
                     st.error("Hệ thống đang bận. Xin vui lòng thử lại sau.")
                     print(f"Lỗi: {e}")
