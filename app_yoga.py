@@ -102,9 +102,9 @@ except:
     st.error("❌ Chưa cấu hình secrets.toml")
     st.stop()
 
-# --- CẤU HÌNH ĐƯỜNG DẪN (Đổi thành v3 để ép tải lại file mới nhất) ---
+# --- CẤU HÌNH ĐƯỜNG DẪN (Vẫn giữ v3 hoặc đổi v5 để ép tải lại nếu cần) ---
 ZIP_PATH = "/tmp/brain_data_v3.zip" 
-EXTRACT_PATH = "/tmp/brain_data_extracted_v3"
+EXTRACT_PATH = "/tmp/brain_data_extracted_v5"
 DB_PATH = "user_usage.db"
 
 @st.cache_resource
@@ -117,47 +117,45 @@ def load_brain_engine():
             with zipfile.ZipFile(ZIP_PATH, 'r') as z: z.extractall(EXTRACT_PATH)
         except: return None, None, "Lỗi tải dữ liệu từ Drive"
     
-    # 2. HÀM TÌM KIẾM THÔNG MINH (Tự động đi tìm file index.faiss dù bị lồng folder)
+    # 2. Hàm tìm đường dẫn
     def find_db_path(target_folder_name):
         for root, dirs, files in os.walk(EXTRACT_PATH):
             if target_folder_name in dirs:
                 check_path = os.path.join(root, target_folder_name)
-                # Kiểm tra chắc chắn có file index.faiss bên trong
                 if "index.faiss" in os.listdir(check_path):
                     return check_path
         return None
 
-    # 3. Xác định vị trí thực tế của 2 bộ não
     text_db_path = find_db_path("vector_db")
     image_db_path = find_db_path("vector_db_images")
     
-    # Debug: In ra để kiểm tra nếu cần
-    print(f"👉 Text DB found at: {text_db_path}")
-    print(f"👉 Image DB found at: {image_db_path}")
+    if not text_db_path: return None, None, "Lỗi: Không tìm thấy não chữ (vector_db)"
 
-    if not text_db_path: 
-        return None, None, "Lỗi cấu trúc Zip. Không tìm thấy 'vector_db'."
-    
-    # 4. Load não và Hợp nhất
+    # 3. Load riêng biệt 2 não
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         
-        # Load Não Chữ (Gốc)
+        # Não Chữ
         db_text = FAISS.load_local(text_db_path, embeddings, allow_dangerous_deserialization=True)
         
-        # Load Não Ảnh (Nếu tìm thấy thì gộp vào)
+        # Não Ảnh (Nếu có)
+        db_image = None
         if image_db_path:
             db_image = FAISS.load_local(image_db_path, embeddings, allow_dangerous_deserialization=True)
-            db_text.merge_from(db_image) # Gộp sức mạnh
-            print("✅ Đã kích hoạt vùng não hình ảnh!")
+            print("✅ Đã load thành công não ảnh riêng biệt!")
 
         model = genai.GenerativeModel('gemini-flash-latest')
-        return db_text, model, "OK"
+        
+        # TRẢ VỀ CẢ 2 NÃO RIÊNG BIỆT (KHÔNG GỘP)
+        return (db_text, db_image), model, "OK"
     except Exception as e: return None, None, str(e)
 
-db, model, status = load_brain_engine()
-if status != "OK": st.error(f"Lỗi khởi động: {status}"); st.stop()
+# --- QUAN TRỌNG: CÁCH LẤY DỮ LIỆU RA ---
+databases, model, status = load_brain_engine()
+if status != "OK": st.error(f"Lỗi: {status}"); st.stop()
 
+# Tách ra để dùng ở dưới
+db_text, db_image = databases
 # =====================================================
 # 3. QUẢN LÝ USER & GIỚI HẠN
 # =====================================================
@@ -359,139 +357,93 @@ if st.session_state.lock_until:
         st.session_state.lock_until = None
         st.session_state.spam_count = 0
 
-# --- C. LOGIC XỬ LÝ CHAT CHÍNH (ĐÃ NÂNG CẤP HIỂN THỊ ẢNH) ---
+# --- C. LOGIC XỬ LÝ CHAT CHÍNH (TÌM KIẾM SONG SONG) ---
 if not is_locked:
     if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
-        # 1. Hiện câu hỏi user
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
         increment_usage(user_id)
 
-        # 2. Xử lý AI
         with st.chat_message("assistant"):
-            with st.spinner("Đang tra cứu kho dữ liệu..."):
+            with st.spinner("Đang tra cứu..."):
                 try:
-                    # --- A. TÌM KIẾM DỮ LIỆU ---
-                    docs = db.similarity_search(prompt, k=8)
+                    # 1. TÌM KIẾM "CHIA ĐỂ TRỊ"
+                    # Tìm 4 bài viết hay nhất từ não chữ
+                    docs_text = db_text.similarity_search(prompt, k=4)
                     
+                    # Tìm 2 ảnh hay nhất từ não ảnh (nếu có)
+                    docs_img = []
+                    if db_image:
+                        docs_img = db_image.similarity_search(prompt, k=2)
+                    
+                    # Gộp lại: Chắc chắn sẽ có 4 chữ + 2 ảnh
+                    docs = docs_text + docs_img
+                    
+                    # 2. Xử lý hiển thị
                     context_text = ""
                     source_map = {}
-                    found_images = [] # Danh sách chứa ảnh tìm được
+                    found_images = []
 
                     for i, d in enumerate(docs):
                         doc_id = i + 1
                         url = d.metadata.get('url', '#')
                         title = d.metadata.get('title', 'Tài liệu Yoga')
                         type_ = d.metadata.get('type', 'blog')
-                        
-                        # Lấy link ảnh từ metadata (QUAN TRỌNG)
                         img_url = d.metadata.get('image_url', '')
 
-                        # Lưu nguồn
                         source_map[doc_id] = {"url": url, "title": title, "type": type_}
                         
-                        # Xử lý nội dung context
                         if type_ == 'image' and img_url:
-                            # Lưu ảnh vào danh sách để tí hiển thị
+                            # Lưu ảnh vào danh sách
                             found_images.append({"url": img_url, "title": title})
-                            # Ghi chú cho AI biết có ảnh để nó mời khách xem
-                            context_text += f"\n[Nguồn {doc_id} - HÌNH ẢNH MINH HỌA]: {title}. (Hệ thống sẽ tự động hiển thị ảnh này, bạn hãy nhắc người dùng xem bên dưới).\nNội dung ảnh: {d.page_content}\n"
+                            context_text += f"\n[Nguồn {doc_id} - HÌNH ẢNH]: {title}. (Hệ thống sẽ hiển thị ảnh này bên dưới).\nNội dung ảnh: {d.page_content}\n"
                         else:
                             context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
 
-                    # --- B. LẤY LỊCH SỬ ---
-                    history_text = ""
-                    if len(st.session_state.messages) >= 3:
-                        recent = st.session_state.messages[-3:-1]
-                        for msg in recent:
-                            clean_content = re.sub(r'<[^>]+>', '', msg["content"])
-                            history_text += f"{msg['role']}: {clean_content}\n"
-
-                    # --- C. PROMPT TỐI ƯU ---
+                    # 3. Prompt AI
                     sys_prompt = f"""
-                    Bạn là chuyên gia Yoga Y Khoa (Medical Yoga).
-                    
-                    1. DỮ LIỆU TRA CỨU TỪ KHO (QUAN TRỌNG NHẤT):
-                    {context_text}
-                    
-                    2. CÂU HỎI CỦA NGƯỜI DÙNG: "{prompt}"
-                    
-                    3. LỊCH SỬ CHAT (Chỉ tham khảo nếu cần):
-                    {history_text}
-
-                    YÊU CẦU TRẢ LỜI:
-                    - Nếu câu hỏi KHÔNG liên quan đến Yoga, sức khỏe, hoặc bệnh lý (ví dụ: bóng đá, người mẫu, showbiz, chính trị...): chỉ trả lời duy nhất từ khóa "OFFTOPIC".
-                    - ƯU TIÊN SỐ 1: Trả lời đúng trọng tâm "CÂU HỎI CỦA NGƯỜI DÙNG".
-                    - Kiểm tra "DỮ LIỆU TRA CỨU": Nếu thấy có [HÌNH ẢNH], hãy mời người dùng xem ảnh minh họa bên dưới. Ghi chú nguồn [Ref: X].
-                    - Nếu "DỮ LIỆU TRA CỨU" không liên quan (ví dụ: hỏi bệnh mà dữ liệu ra triết lý), HÃY BỎ QUA DỮ LIỆU ĐÓ và trả lời bằng kiến thức Yoga Y Khoa chuẩn xác của bạn.
-                    - Tuyệt đối không trả lời lung tung. Nếu là bệnh lý (huyết áp, thoát vị...), ưu tiên bài tập nhẹ nhàng, an toàn.
-                    - Tối đa 150 từ.
+                    Bạn là chuyên gia Yoga Y Khoa.
+                    1. DỮ LIỆU: {context_text}
+                    2. CÂU HỎI: "{prompt}"
+                    YÊU CẦU:
+                    - Nếu có [HÌNH ẢNH], hãy dùng nó để giải thích và MỜI NGƯỜI DÙNG XEM ẢNH BÊN DƯỚI.
+                    - Trả lời ngắn gọn, súc tích.
                     """
                     
                     response = model.generate_content(sys_prompt)
                     ai_resp = response.text.strip()
 
-                    # --- D. KIỂM TRA VI PHẠM (OFFTOPIC) ---
                     if "OFFTOPIC" in ai_resp.upper():
-                        st.session_state.spam_count += 1
-                        if st.session_state.spam_count >= 2:
-                            st.session_state.lock_until = time.time() + 300
-                            st.error("🚫 Bạn đã vi phạm 2 lần. Hệ thống tạm dừng trả lời trong 5 phút.")
-                            st.rerun()
-                        else:
-                            st.warning("🙏 Tôi chỉ hỗ trợ các vấn đề về Yoga và Sức khỏe.")
+                        st.warning("Tôi chỉ hỗ trợ Yoga.")
                     else:
-                        st.session_state.spam_count = 0
-                        
-                        # Thay thế [Ref: X] thành icon
                         clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
                         st.markdown(clean_text)
                         
-                        # --- [QUAN TRỌNG] HIỂN THỊ ẢNH RA MÀN HÌNH ---
+                        # --- HIỂN THỊ ẢNH (BẮT BUỘC RA) ---
                         if found_images:
-                            st.markdown("---") # Đường kẻ ngang cho đẹp
-                            st.markdown("**🖼️ Ảnh minh họa:**")
-                            # Hiển thị tối đa 3 ảnh đẹp nhất
+                            st.markdown("---")
                             cols = st.columns(min(len(found_images), 3))
-                            for idx, img in enumerate(found_images[:3]):
+                            for idx, img in enumerate(found_images):
                                 with cols[idx]:
                                     st.image(img['url'], caption=img['title'], use_container_width=True)
-                        # -----------------------------------------------
+                        # ----------------------------------
 
-                        # Hiện Link tham khảo (Text)
+                        # Hiển thị nguồn
                         used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
-                        unique_used_ids = sorted(list(set(used_ids)))
-                        
-                        html_sources = ""
-                        if unique_used_ids:
-                            html_sources += "<div class='source-box'><b>📚 Nguồn tham khảo:</b>"
-                            seen_urls = set()
-                            for uid in unique_used_ids:
+                        if used_ids:
+                            html_src = "<div class='source-box'><b>📚 Nguồn:</b>"
+                            seen = set()
+                            for uid in used_ids:
                                 info = source_map[uid]
-                                if info['url'] != '#' and info['url'] not in seen_urls:
-                                    seen_urls.add(info['url'])
-                                    color = "#e3f2fd" if info['type']=='science' else "#e8f5e9"
-                                    lbl = "NGHIÊN CỨU" if info['type']=='science' else "BÀI VIẾT"
-                                    html_sources += f"""<a href="{info['url']}" target="_blank" class="source-link"><span class="tag" style="background:{color}">{lbl}</span>{info['title']}</a>"""
-                            html_sources += "</div>"
-                            st.markdown(html_sources, unsafe_allow_html=True)
-
-                        # Upsell
-                        upsell_html = ""
-                        recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
-                        if recs:
-                            upsell_html += "<div style='margin-top:15px'>"
-                            for r in recs[:2]:
-                                 upsell_html += f"""<div style="background:#e0f2f1; padding:10px; border-radius:10px; margin-bottom:8px; border:1px solid #009688; display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold; color:#004d40; font-size:14px">{r['name']}</span><a href="{r['url']}" target="_blank" style="background:#00796b; color:white; padding:5px 10px; border-radius:15px; text-decoration:none; font-size:12px; font-weight:bold;">Xem ngay</a></div>"""
-                            upsell_html += "</div>"
-                            st.markdown(upsell_html, unsafe_allow_html=True)
+                                if info['url'] != '#' and info['url'] not in seen:
+                                    seen.add(info['url'])
+                                    html_src += f" <a href='{info['url']}' target='_blank' class='source-link'>{info['title']}</a>"
+                            html_src += "</div>"
+                            st.markdown(html_src, unsafe_allow_html=True)
                         
-                        # Lưu lịch sử (Chỉ lưu text để nhẹ data)
-                        full_save = clean_text
-                        if html_sources: full_save += "\n\n" + html_sources
-                        if upsell_html: full_save += "\n\n" + upsell_html
-                        st.session_state.messages.append({"role": "assistant", "content": full_save})
+                        # Lưu lịch sử
+                        st.session_state.messages.append({"role": "assistant", "content": clean_text})
 
                 except Exception as e:
-                    st.error("Hệ thống đang bận. Vui lòng thử lại câu hỏi khác.")
+                    st.error("Hệ thống đang bận. Xin vui lòng thử lại sau.")
                     print(f"Lỗi: {e}")
