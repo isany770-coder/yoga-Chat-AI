@@ -516,5 +516,3 @@ if not is_locked:
                 except Exception as e:
                     st.error("Hệ thống đang bận. Xin vui lòng thử lại sau.")
                     print(f"Lỗi: {e}")
-                    st.error("Hệ thống đang bận. Xin vui lòng thử lại sau.")
-                    print(f"Lỗi: {e}")
