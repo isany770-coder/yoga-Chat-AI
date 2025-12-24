@@ -509,6 +509,6 @@ st.markdown("""
     background-color: rgba(255,255,255,0.9); 
     z-index: 999; 
     pointer-events: none;">
-    Gemini có thể mắc sai sót, vì vậy, nhớ xác minh câu trả lời của Gemini.
+    Trợ lý AI có thể mắc sai sót, vì vậy, nhớ xác minh câu trả lời, và tham khảo ý kiến chuyên gia.
 </div>
 """, unsafe_allow_html=True)
