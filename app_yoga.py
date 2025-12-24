@@ -386,7 +386,7 @@ if st.session_state.lock_until:
         st.session_state.lock_until = None
         st.session_state.spam_count = 0
 
-# --- C. LOGIC XỬ LÝ CHAT CHÍNH (TÌM KIẾM SONG SONG) ---
+# --- C. LOGIC XỬ LÝ CHAT CHÍNH (CHUẨN: LỌC TRÙNG & BIẾN AN TOÀN) ---
 if not is_locked:
     if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
         st.chat_message("user").markdown(prompt)
@@ -396,22 +396,17 @@ if not is_locked:
         with st.chat_message("assistant"):
             with st.spinner("Đang tra cứu..."):
                 try:
-                    # 1. TÌM KIẾM "CHIA ĐỂ TRỊ"
-                    # Tìm 4 bài viết hay nhất từ não chữ
+                    # 1. TÌM KIẾM
                     docs_text = db_text.similarity_search(prompt, k=4)
-                    
-                    # Tìm 2 ảnh hay nhất từ não ảnh (nếu có)
                     docs_img = []
                     if db_image:
                         docs_img = db_image.similarity_search(prompt, k=2)
                     
-                    # Gộp lại: Chắc chắn sẽ có 4 chữ + 2 ảnh
                     docs = docs_text + docs_img
                     
-                    # 2. Xử lý hiển thị
                     context_text = ""
                     source_map = {}
-                    found_images = []
+                    temp_images = [] # Danh sách ảnh thô (có thể bị trùng)
 
                     for i, d in enumerate(docs):
                         doc_id = i + 1
@@ -419,14 +414,24 @@ if not is_locked:
                         title = d.metadata.get('title', 'Tài liệu Yoga')
                         type_ = d.metadata.get('type', 'blog')
                         img_url = d.metadata.get('image_url', '')
+                        
                         source_map[doc_id] = {"url": url, "title": title, "type": type_}
                         
                         if type_ == 'image' and img_url:
-                            # Lưu ảnh vào danh sách
-                            found_images.append({"url": img_url, "title": title})
-                            context_text += f"\n[Nguồn {doc_id} - HÌNH ẢNH]: {title}. (Hệ thống sẽ hiển thị ảnh này bên dưới).\nNội dung ảnh: {d.page_content}\n"
+                            # Lưu tạm vào danh sách
+                            temp_images.append({"url": img_url, "title": title})
+                            context_text += f"\n[Nguồn {doc_id} - HÌNH ẢNH]: {title}.\n"
                         else:
                             context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
+
+                    # --- QUAN TRỌNG: LỌC TRÙNG ẢNH (DEDUPLICATE) ---
+                    found_images = []
+                    seen_urls = set()
+                    for img in temp_images:
+                        if img['url'] not in seen_urls:
+                            found_images.append(img)
+                            seen_urls.add(img['url'])
+                    # -----------------------------------------------
 
                     # 3. Prompt AI
                     sys_prompt = f"""
@@ -451,7 +456,7 @@ if not is_locked:
                         clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
                         st.markdown(clean_text)
                         
-                        # --- HIỂN THỊ ẢNH (GIAO DIỆN GALLERY ĐẸP) ---
+                        # --- HIỂN THỊ ẢNH (GALLERY) ---
                         if found_images:
                             st.markdown("---")
                             st.markdown("##### 🖼️ Minh họa chi tiết:")
@@ -462,12 +467,12 @@ if not is_locked:
                                     with st.expander(f"🔍 Phóng to {i+1}"):
                                         st.image(img['url'], caption=img['title'], use_container_width=True)
                                         st.markdown(f"[Tải ảnh về máy]({img['url']})")
-                        
-                        # --- KHỞI TẠO BIẾN (QUAN TRỌNG ĐỂ KHÔNG BỊ LỖI SYSTEM BUSY) ---
+
+                        # --- KHỞI TẠO BIẾN AN TOÀN (TRÁNH LỖI HỆ THỐNG BẬN) ---
                         html_src = ""
                         upsell_html = ""
 
-                        # 1. Xử lý Nguồn tham khảo
+                        # 1. Xử lý Nguồn
                         used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
                         if used_ids:
                             html_src = "<div class='source-box'><b>📚 Nguồn:</b>"
@@ -480,7 +485,7 @@ if not is_locked:
                             html_src += "</div>"
                             st.markdown(html_src, unsafe_allow_html=True)
 
-                        # 2. Xử lý Upsell (Gợi ý lộ trình)
+                        # 2. Xử lý Upsell
                         recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
                         if recs:
                             upsell_html += "<div style='margin-top:15px'>"
@@ -489,7 +494,7 @@ if not is_locked:
                             upsell_html += "</div>"
                             st.markdown(upsell_html, unsafe_allow_html=True)
 
-                        # 3. LƯU VÀO BỘ NHỚ (GIỜ ĐÃ AN TOÀN)
+                        # 3. LƯU VÀO BỘ NHỚ (ĐẢM BẢO CHỈ LƯU 1 LẦN)
                         full_content_to_save = clean_text
                         if html_src: full_content_to_save += "\n\n" + html_src
                         if upsell_html: full_content_to_save += "\n\n" + upsell_html
@@ -501,5 +506,4 @@ if not is_locked:
                         })
 
                 except Exception as e:
-                    st.error("Hệ thống đang bận. Xin vui lòng thử lại sau.")
-                    print(f"Lỗi: {e}")
+                    st.error(f"Lỗi: {e}")
