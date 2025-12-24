@@ -15,7 +15,6 @@ from langchain_community.vectorstores import FAISS
 # 1. CẤU HÌNH TRANG & CSS (CHUẨN UI/UX MOBILE)
 # =====================================================
 st.set_page_config(
-    DB_PATH = "user_usage.db"  # <--- BẮT BUỘC PHẢI CÓ DÒNG NÀY
     page_title="Yoga Assistant Pro",
     page_icon="🧘",
     layout="wide",
