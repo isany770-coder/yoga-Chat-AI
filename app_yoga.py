@@ -492,3 +492,23 @@ if not is_locked:
 
                 except Exception as e:
                     st.error(f"Lỗi: {e}")
+
+                    # =====================================================
+# 7. DISCLAIMER (CHÂN TRANG CỐ ĐỊNH)
+# =====================================================
+st.markdown("""
+<div style="
+    position: fixed; 
+    bottom: 0; 
+    left: 0; 
+    width: 100%; 
+    text-align: center; 
+    color: #888; 
+    font-size: 11px; 
+    padding: 5px 0; 
+    background-color: rgba(255,255,255,0.9); 
+    z-index: 999; 
+    pointer-events: none;">
+    Gemini có thể mắc sai sót, vì vậy, nhớ xác minh câu trả lời của Gemini.
+</div>
+""", unsafe_allow_html=True)
