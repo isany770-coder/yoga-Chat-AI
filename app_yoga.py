@@ -15,6 +15,7 @@ from langchain_community.vectorstores import FAISS
 # 1. CẤU HÌNH TRANG & CSS (CHUẨN UI/UX MOBILE)
 # =====================================================
 st.set_page_config(
+    DB_PATH = "user_usage.db"  # <--- BẮT BUỘC PHẢI CÓ DÒNG NÀY
     page_title="Yoga Assistant Pro",
     page_icon="🧘",
     layout="wide",
@@ -96,13 +97,13 @@ st.markdown("""
 # =====================================================
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
-    file_id = st.secrets["DRIVE_FILE_ID"] # ID của file brain_data.zip mới
+    file_id = st.secrets["DRIVE_FILE_ID"]
     genai.configure(api_key=api_key)
 except:
     st.error("❌ Chưa cấu hình secrets.toml")
     st.stop()
 
-# --- CẤU HÌNH ĐƯỜNG DẪN (Đổi tên v3 để ép tải mới) ---
+# --- CẤU HÌNH ĐƯỜNG DẪN (Đổi thành v3 để ép tải lại file mới nhất) ---
 ZIP_PATH = "/tmp/brain_data_v3.zip" 
 EXTRACT_PATH = "/tmp/brain_data_extracted_v3"
 
@@ -116,43 +117,39 @@ def load_brain_engine():
             with zipfile.ZipFile(ZIP_PATH, 'r') as z: z.extractall(EXTRACT_PATH)
         except: return None, None, "Lỗi tải dữ liệu từ Drive"
     
-    # 2. HÀM TÌM KIẾM THÔNG MINH (Tự động đi tìm kho báu)
+    # 2. HÀM TÌM KIẾM THÔNG MINH (Tự động đi tìm file index.faiss dù bị lồng folder)
     def find_db_path(target_folder_name):
-        # Đi lùng sục khắp nơi trong thư mục giải nén
         for root, dirs, files in os.walk(EXTRACT_PATH):
             if target_folder_name in dirs:
-                # Kiểm tra kỹ xem bên trong có file index.faiss không
                 check_path = os.path.join(root, target_folder_name)
+                # Kiểm tra chắc chắn có file index.faiss bên trong
                 if "index.faiss" in os.listdir(check_path):
                     return check_path
         return None
 
-    # 3. Xác định vị trí thực tế
+    # 3. Xác định vị trí thực tế của 2 bộ não
     text_db_path = find_db_path("vector_db")
     image_db_path = find_db_path("vector_db_images")
     
-    # Debug: In ra log để kiểm tra
+    # Debug: In ra để kiểm tra nếu cần
     print(f"👉 Text DB found at: {text_db_path}")
     print(f"👉 Image DB found at: {image_db_path}")
 
     if not text_db_path: 
-        # Nếu không tìm thấy, liệt kê ra xem có cái gì để debug
-        return None, None, f"Lỗi cấu trúc Zip. Không tìm thấy 'vector_db'. Trong zip có: {os.listdir(EXTRACT_PATH)}"
+        return None, None, "Lỗi cấu trúc Zip. Không tìm thấy 'vector_db'."
     
-    # 4. Load não
+    # 4. Load não và Hợp nhất
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         
-        # Load Não Chữ (Bắt buộc)
+        # Load Não Chữ (Gốc)
         db_text = FAISS.load_local(text_db_path, embeddings, allow_dangerous_deserialization=True)
         
-        # Load Não Ảnh (Nếu có thì gộp vào)
+        # Load Não Ảnh (Nếu tìm thấy thì gộp vào)
         if image_db_path:
             db_image = FAISS.load_local(image_db_path, embeddings, allow_dangerous_deserialization=True)
             db_text.merge_from(db_image) # Gộp sức mạnh
             print("✅ Đã kích hoạt vùng não hình ảnh!")
-        else:
-            print("⚠️ Cảnh báo: Không tìm thấy não ảnh, chỉ chạy text.")
 
         model = genai.GenerativeModel('gemini-flash-latest')
         return db_text, model, "OK"
