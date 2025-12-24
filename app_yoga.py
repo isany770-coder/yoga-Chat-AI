@@ -102,8 +102,8 @@ except:
     st.error("❌ Chưa cấu hình secrets.toml")
     st.stop()
 
-ZIP_PATH = "/tmp/brain_data.zip"
-EXTRACT_PATH = "/tmp/brain_data_extracted"
+ZIP_PATH = "/tmp/brain_data_new.zip"  # <--- Đổi tên
+EXTRACT_PATH = "/tmp/brain_data_extracted_new" # <--- Đổi tên
 DB_PATH = "user_usage.db"
 
 @st.cache_resource
@@ -348,7 +348,7 @@ if not is_locked:
             with st.spinner("Đang tra cứu kho dữ liệu..."):
                 try:
                     # --- A. TÌM KIẾM DỮ LIỆU ---
-                    docs = db.similarity_search(prompt, k=6)
+                    docs = db.similarity_search(prompt, k=8)
                     
                     context_text = ""
                     source_map = {}
