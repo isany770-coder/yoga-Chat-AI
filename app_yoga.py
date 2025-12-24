@@ -294,21 +294,36 @@ if is_limit_reached:
         </div>
         """, unsafe_allow_html=True)
 # =====================================================
-# 5. GIAO DIỆN CHAT CHÍNH
+# 5. GIAO DIỆN CHAT & XỬ LÝ (CÓ LƯU LẠI ẢNH)
 # =====================================================
-
-# Banner quảng cáo (Chỉ hiện khi chưa login)
 if not st.session_state.authenticated:
     st.markdown("""
     <div class="promo-banner">
-        <div class="promo-text">🎁 Combo Thảm tập + Freeship + tài khoản VIP giảm 30% hôm nay!</div>
+        <div class="promo-text">🎁 Combo Thảm tập + Freeship + tài khoản VIP giảm 30%!</div>
         <a href="https://yogaismylife.vn/cua-hang/" target="_blank" class="promo-btn">Xem Ngay 🚀</a>
     </div>
     """, unsafe_allow_html=True)
 
-# Hiển thị tin nhắn
+# --- VÒNG LẶP HIỂN THỊ LỊCH SỬ (ĐÃ NÂNG CẤP) ---
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]): st.markdown(msg["content"], unsafe_allow_html=True)
+    with st.chat_message(msg["role"]):
+        # 1. Hiện nội dung chữ + nguồn
+        st.markdown(msg["content"], unsafe_allow_html=True)
+        
+        # 2. Hiện lại ảnh (Nếu tin nhắn đó có lưu ảnh)
+        if "images" in msg and msg["images"]:
+            st.markdown("---")
+            st.markdown("##### 🖼️ Minh họa chi tiết:")
+            cols = st.columns(3)
+            for i, img in enumerate(msg["images"]):
+                col = cols[i % 3]
+                with col:
+                    # Thumbnail
+                    st.markdown(f"""<div style="height:150px;overflow:hidden;border-radius:10px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;background:#f9f9f9;"><img src="{img['url']}" style="width:100%;height:100%;object-fit:cover;"></div>""", unsafe_allow_html=True)
+                    # Zoom
+                    with st.expander(f"🔍 Phóng to {i+1}"):
+                        st.image(img['url'], caption=img['title'], use_container_width=True)
+                        st.markdown(f"[Tải ảnh]({img['url']})")
 
 st.markdown('<div class="bottom-spacer"></div>', unsafe_allow_html=True)
 
