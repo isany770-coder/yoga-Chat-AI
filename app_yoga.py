@@ -388,6 +388,10 @@ if not is_locked:
                         docs_img = db_image.similarity_search(prompt, k=2)
                     
                     docs = docs_text + docs_img
+                    # --- CHÈN ĐOẠN NÀY VÀO ĐÂY ---
+                    # Lấy 4 câu hội thoại gần nhất để AI nhớ bối cảnh
+                    history_text = get_clean_history() 
+                    # -----------------------------
                     
                     context_text = ""
                     source_map = {}
@@ -422,7 +426,8 @@ if not is_locked:
                     sys_prompt = f"""
                     Bạn là chuyên gia Yoga Y Khoa.
                     1. DỮ LIỆU: {context_text}
-                    2. CÂU HỎI: "{prompt}"
+                    2. LỊCH SỬ TRÒ CHUYỆN (Bối cảnh):{history_text}
+                    3. CÂU HỎI: "{prompt}"
                     YÊU CẦU:
                     - Nếu câu hỏi KHÔNG liên quan đến Yoga, sức khỏe, hoặc bệnh lý (ví dụ: bóng đá, người mẫu, showbiz, chính trị...): chỉ trả lời duy nhất từ khóa "OFFTOPIC".
                     - ƯU TIÊN SỐ 1: Trả lời đúng trọng tâm "CÂU HỎI CỦA NGƯỜI DÙNG".
