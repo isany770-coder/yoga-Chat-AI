@@ -390,6 +390,7 @@ if not is_locked:
                         title = d.metadata.get('title', 'Tài liệu Yoga')
                         type_ = d.metadata.get('type', 'blog')
                         img_url = d.metadata.get('image_url', '')
+                        
                         # --- FIX LỖI LINK (Ép về HTTPS) ---
                         if img_url and img_url.startswith("http://"):
                         img_url = img_url.replace("http://", "https://")
