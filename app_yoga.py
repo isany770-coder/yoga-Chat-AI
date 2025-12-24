@@ -352,13 +352,34 @@ if not is_locked:
                     
                     context_text = ""
                     source_map = {}
+                    
+                    # Biến chứa danh sách ảnh tìm được
+                    found_images = [] 
+
                     for i, d in enumerate(docs):
                         doc_id = i + 1
                         url = d.metadata.get('url', '#')
                         title = d.metadata.get('title', 'Tài liệu Yoga')
                         type_ = d.metadata.get('type', 'blog')
-                        source_map[doc_id] = {"url": url, "title": title, "type": type_}
-                        context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
+                        
+                        # Lấy link ảnh (nếu có)
+                        img_url = d.metadata.get('image_url', '')
+
+                        # Lưu vào map để tí dùng
+                        source_map[doc_id] = {
+                            "url": url, 
+                            "title": title, 
+                            "type": type_, 
+                            "image": img_url
+                        }
+                        
+                        # Nếu là ảnh thì ưu tiên đưa vào danh sách hiển thị
+                        if type_ == 'image' and img_url:
+                            found_images.append({"url": img_url, "title": title})
+                            # Mẹo: Ghi chú vào context để AI biết là có ảnh này
+                            context_text += f"\n[Nguồn {doc_id} - HÌNH ẢNH]: {title}. (Hệ thống sẽ tự hiển thị ảnh này cho người dùng).\nNội dung ảnh: {d.page_content}\n"
+                        else:
+                            context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
 
                     # --- B. LẤY LỊCH SỬ ---
                     history_text = ""
@@ -383,7 +404,7 @@ if not is_locked:
                     YÊU CẦU TRẢ LỜI:
                     - Nếu câu hỏi KHÔNG liên quan đến Yoga, sức khỏe, hoặc bệnh lý (ví dụ: bóng đá, người mẫu, showbiz, chính trị...): chỉ trả lời duy nhất từ khóa "OFFTOPIC".
                     - ƯU TIÊN SỐ 1: Trả lời đúng trọng tâm "CÂU HỎI CỦA NGƯỜI DÙNG".
-                    - Kiểm tra "DỮ LIỆU TRA CỨU": Nếu dữ liệu khớp với câu hỏi, hãy dùng nó và ghi chú [Ref: X].
+                    - Kiểm tra "DỮ LIỆU TRA CỨU": Nếu thấy có [HÌNH ẢNH], hãy mời người dùng xem ảnh minh họa bên dưới. Ghi chú nguồn [Ref: X].
                     - Nếu "DỮ LIỆU TRA CỨU" không liên quan (ví dụ: hỏi bệnh mà dữ liệu ra triết lý), HÃY BỎ QUA DỮ LIỆU ĐÓ và trả lời bằng kiến thức Yoga Y Khoa chuẩn xác của bạn.
                     - Tuyệt đối không trả lời lung tung. Nếu là bệnh lý (huyết áp, thoát vị...), ưu tiên bài tập nhẹ nhàng, an toàn.
                     - Tối đa 150 từ.
@@ -408,6 +429,15 @@ if not is_locked:
                         # Thay thế [Ref: X] thành icon
                         clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
                         st.markdown(clean_text)
+
+                        # --- [MỚI] HIỂN THỊ ẢNH MINH HỌA (NẾU CÓ) ---
+                        if found_images:
+                            # Chỉ lấy tối đa 2 ảnh đẹp nhất để không bị rối
+                            cols = st.columns(min(len(found_images), 2))
+                            for idx, img in enumerate(found_images[:2]):
+                                with cols[idx]:
+                                    st.image(img['url'], caption=img['title'], use_column_width=True)
+                        # --------------------------------------------
                         
                         # Hiện Link tham khảo
                         used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
