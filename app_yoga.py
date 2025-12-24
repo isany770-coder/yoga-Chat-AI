@@ -502,8 +502,19 @@ if not is_locked:
                             html_src += "</div>"
                             st.markdown(html_src, unsafe_allow_html=True)
                         
-                        # Lưu lịch sử
-                        st.session_state.messages.append({"role": "assistant", "content": clean_text})
+                        # --- ĐOẠN CẦN SỬA: LƯU VÀO BỘ NHỚ ---
+                        
+                        # 1. Gộp nội dung chữ + Nguồn + Upsell vào một cục
+                        full_content_to_save = clean_text
+                        if html_src: full_content_to_save += "\n\n" + html_src
+                        if upsell_html: full_content_to_save += "\n\n" + upsell_html
+                        
+                        # 2. Lưu vào lịch sử (Kèm theo danh sách ảnh found_images)
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": full_content_to_save,
+                            "images": found_images if found_images else [] # <--- QUAN TRỌNG: Lưu danh sách ảnh
+                        })
 
                 except Exception as e:
                     st.error("Hệ thống đang bận. Xin vui lòng thử lại sau.")
