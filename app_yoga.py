@@ -102,39 +102,64 @@ except:
     st.error("❌ Chưa cấu hình secrets.toml")
     st.stop()
 
-ZIP_PATH = "/tmp/brain_data_v2.zip" # Đổi tên để ép tải mới
-EXTRACT_PATH = "/tmp/brain_data_extracted_v2"
+# --- CẤU HÌNH ĐƯỜNG DẪN (Đổi tên v3 để ép tải mới) ---
+ZIP_PATH = "/tmp/brain_data_v3.zip" 
+EXTRACT_PATH = "/tmp/brain_data_extracted_v3"
 
 @st.cache_resource
 def load_brain_engine():
+    # 1. Tải và giải nén
     if not os.path.exists(EXTRACT_PATH):
         try:
             url = f'https://drive.google.com/uc?id={file_id}'
             gdown.download(url, ZIP_PATH, quiet=True)
             with zipfile.ZipFile(ZIP_PATH, 'r') as z: z.extractall(EXTRACT_PATH)
-        except: return None, None, "Lỗi tải dữ liệu"
+        except: return None, None, "Lỗi tải dữ liệu từ Drive"
     
-    # 1. Tìm não chữ (Text DB)
-    text_db_path = os.path.join(EXTRACT_PATH, "vector_db")
-    # 2. Tìm não ảnh (Image DB)
-    image_db_path = os.path.join(EXTRACT_PATH, "vector_db_images")
+    # 2. HÀM TÌM KIẾM THÔNG MINH (Tự động đi tìm kho báu)
+    def find_db_path(target_folder_name):
+        # Đi lùng sục khắp nơi trong thư mục giải nén
+        for root, dirs, files in os.walk(EXTRACT_PATH):
+            if target_folder_name in dirs:
+                # Kiểm tra kỹ xem bên trong có file index.faiss không
+                check_path = os.path.join(root, target_folder_name)
+                if "index.faiss" in os.listdir(check_path):
+                    return check_path
+        return None
+
+    # 3. Xác định vị trí thực tế
+    text_db_path = find_db_path("vector_db")
+    image_db_path = find_db_path("vector_db_images")
     
+    # Debug: In ra log để kiểm tra
+    print(f"👉 Text DB found at: {text_db_path}")
+    print(f"👉 Image DB found at: {image_db_path}")
+
+    if not text_db_path: 
+        # Nếu không tìm thấy, liệt kê ra xem có cái gì để debug
+        return None, None, f"Lỗi cấu trúc Zip. Không tìm thấy 'vector_db'. Trong zip có: {os.listdir(EXTRACT_PATH)}"
+    
+    # 4. Load não
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         
-        # Load cả 2 não
+        # Load Não Chữ (Bắt buộc)
         db_text = FAISS.load_local(text_db_path, embeddings, allow_dangerous_deserialization=True)
-        db_image = FAISS.load_local(image_db_path, embeddings, allow_dangerous_deserialization=True)
         
-        # Gộp não ảnh vào não chữ để thành 1 siêu não
-        db_text.merge_from(db_image)
-        
+        # Load Não Ảnh (Nếu có thì gộp vào)
+        if image_db_path:
+            db_image = FAISS.load_local(image_db_path, embeddings, allow_dangerous_deserialization=True)
+            db_text.merge_from(db_image) # Gộp sức mạnh
+            print("✅ Đã kích hoạt vùng não hình ảnh!")
+        else:
+            print("⚠️ Cảnh báo: Không tìm thấy não ảnh, chỉ chạy text.")
+
         model = genai.GenerativeModel('gemini-flash-latest')
         return db_text, model, "OK"
     except Exception as e: return None, None, str(e)
 
 db, model, status = load_brain_engine()
-if status != "OK": st.error(f"Lỗi não bộ: {status}"); st.stop()
+if status != "OK": st.error(f"Lỗi khởi động: {status}"); st.stop()
 
 # =====================================================
 # 3. QUẢN LÝ USER & GIỚI HẠN
