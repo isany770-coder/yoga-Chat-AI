@@ -27,7 +27,7 @@ st.markdown("""
     footer {display: none !important;}
     header {display: none !important;}
 
-    /* 2. CỐ ĐỊNH DISCLAIMER Ở ĐÁY CÙNG */
+    /* 2. CỐ ĐỊNH DISCLAIMER Ở ĐÁY CÙNG (Làm mờ tinh tế) */
     .disclaimer-text {
         position: fixed !important;
         bottom: 5px !important;
@@ -37,31 +37,36 @@ st.markdown("""
         color: #bbb;
         font-size: 10px;
         z-index: 999;
-        background: rgba(255,255,255,0.8); /* Làm nền mờ để không đè chữ */
+        pointer-events: none;
     }
 
-    /* 3. NÂNG THANH CHAT LÊN VỪA ĐỦ (Cách đáy 40px) */
+    /* 3. NÂNG THANH CHAT & TRẢ LẠI KHUNG TRẮNG BO TRÒN XỊN SÒ */
     div[data-testid="stChatInput"] {
         position: fixed !important;
-        bottom: 40px !important; /* Không cần lên 60-100px làm gì cho dính chữ */
+        bottom: 35px !important; /* Đẩy lên để không đè Disclaimer */
         left: 50% !important;
         transform: translateX(-50%) !important;
         z-index: 1000 !important;
         width: 95% !important;
+        max-width: 800px !important;
+        background-color: white !important; /* Trả lại nền trắng */
+        border-radius: 30px !important; /* Trả lại khung bo tròn */
+        border: 1px solid #e0e0e0 !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+        padding: 5px !important;
     }
 
-    /* 4. CHÌA KHÓA: ĐẨY TOÀN BỘ NỘI DUNG CHAT LÊN CAO */
-    /* Thay vì spacer, mình ép cái khung chứa tin nhắn phải có đáy cực rộng */
+    /* 4. CHÌA KHÓA: ĐẨY NỘI DUNG LÊN (FIX LỖI HỞ BỤNG & DÍNH CHỮ) */
     .stMainBlockContainer {
-        padding-bottom: 200px !important; 
+        padding-top: 1rem !important; /* Thu hẹp khoảng trống sau câu chào */
+        padding-bottom: 180px !important; /* Đẩy nội dung qua mặt Input */
     }
     
-    /* 3. Giãn cách giữa các bong bóng chat */
     [data-testid="stChatMessage"] {
         margin-bottom: 10px !important;
     }
 
-    /* 4. Thanh Quảng Cáo (Banner) */
+    /* 5. CÁC MỤC QUAN TRỌNG CỦA BÁC (GIỮ NGUYÊN 100%) */
     .promo-banner {
         background: linear-gradient(90deg, #e0f2f1 0%, #b2dfdb 100%);
         padding: 10px 15px; margin-bottom: 20px; border-radius: 10px;
@@ -75,7 +80,6 @@ st.markdown("""
         white-space: nowrap;
     }
 
-    /* 5. Màn hình Hết Hạn */
     .limit-overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(255, 255, 255, 0.95); z-index: 9999;
@@ -98,14 +102,12 @@ st.markdown("""
     }
     .login-link { color: #00796b; font-size: 13px; cursor: pointer; text-decoration: underline;}
 
-    /* 6. Hiển thị nguồn (Citation) */
     .source-box { background-color: #f1f8e9; border: 1px solid #c5e1a5; border-radius: 10px; padding: 12px; margin-top: 10px; }
     .source-link { display: block; color: #33691e; text-decoration: none; font-size: 14px; margin-bottom: 6px; padding: 5px; border-radius: 5px; transition: 0.2s; }
     .source-link:hover { background-color: #dcedc8; }
     .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-right: 8px; font-weight: bold; text-transform: uppercase; border: 1px solid; }
     
-    /* 7. Khoảng trống đệm cuối trang (Tăng lên để đẩy nội dung qua mặt Input) */
-    .bottom-spacer { height: 220px; }
+    .bottom-spacer { height: 0px !important; } /* Xóa spacer cũ để tránh hở thêm */
 </style>
 """, unsafe_allow_html=True)
 
@@ -519,19 +521,4 @@ if not is_locked:
                     # =====================================================
 # 7. DISCLAIMER (CHÂN TRANG CỐ ĐỊNH)
 # =====================================================
-st.markdown("""
-<div style="
-    position: fixed; 
-    bottom: 0; 
-    left: 0; 
-    width: 100%; 
-    text-align: center; 
-    color: #888; 
-    font-size: 11px; 
-    padding: 5px 0; 
-    background-color: rgba(255,255,255,0.9); 
-    z-index: 999; 
-    pointer-events: none;">
-    Trợ lý AI có thể mắc sai sót, vì vậy, nhớ xác minh câu trả lời.
-</div>
-""", unsafe_allow_html=True)
+st.markdown('<div class="disclaimer-text">Trợ lý AI có thể mắc sai sót, vì vậy, nhớ xác minh câu trả lời.</div>', unsafe_allow_html=True)
