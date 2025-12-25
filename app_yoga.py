@@ -402,7 +402,8 @@ if not is_locked:
                     model = genai.GenerativeModel('models/gemini-1.5-flash')
                     
                     docs = db_text.similarity_search(prompt, k=6)
-                    if db_image: docs += db_image.similarity_search(prompt, k=2)
+                    if db_image: 
+                        docs += db_image.similarity_search(prompt, k=2)
                     
                     context_text = ""
                     source_map = {}
@@ -439,7 +440,8 @@ if not is_locked:
                         st.markdown("---")
                         cols = st.columns(3)
                         for i, img in enumerate(found_images):
-                            with cols[i % 3]: st.image(img['url'], caption=img['title'])
+                            with cols[i % 3]: 
+                                st.image(img['url'], caption=img['title'])
 
                     used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
                     html_src = ""
@@ -450,7 +452,12 @@ if not is_locked:
                         html_src += "</div>"
                         st.markdown(html_src, unsafe_allow_html=True)
 
-                    st.session_state.messages.append({"role": "assistant", "content": clean_text + html_src, "images": found_images})
+                    # Lưu vào session state
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": clean_text + html_src, 
+                        "images": found_images
+                    })
                     log_chat_to_db(safe_id, prompt, clean_text)
 
                 except Exception as e:
