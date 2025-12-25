@@ -212,24 +212,11 @@ if is_limit_reached:
                 with c2:
                     if st.button("✕"): st.session_state.hide_limit_modal = True; st.rerun()
                 
-                  st.markdown("""
+                st.markdown("""
                     <div style="text-align: center;">
-                        <div style="font-size: 60px; margin-bottom: 10px;">🧘‍♀️</div>
-                        <h3 style="color: #00897b; margin: 0; font-weight: 800;">ĐÃ ĐẠT GIỚI HẠN!</h3>
-                        <p style="color: #555; font-size: 15px; margin-top: 10px; line-height: 1.5;">
-                            Hệ thống nhận thấy bạn đã dùng hết lượt thử. Hãy quay lại vào ngày mai<br>
-                            Để tra cứu <b>Kho dữ liệu 15 triệu từ</b> và nhận ưu đãi 
-                            <b>Mua Thảm tặng Tài khoản Member</b>, mời bạn liên hệ Admin:
-                        </p>
-                        <a href="https://zalo.me/84963759566" target="_blank" 
-                           style="display: inline-block; width: 100%; background-color: #009688; 
-                                  color: white; padding: 12px 0; border-radius: 30px; 
-                                  text-decoration: none; font-weight: bold; font-size: 16px;
-                                  margin: 15px 0 25px 0; box-shadow: 0 4px 10px rgba(0,150,136,0.3);">
-                           💬 Nhận mã kích hoạt qua Zalo
-                        </a>
-                        <div style="border-top: 1px dashed #ccc; margin: 10px 0;"></div>
-                        <p style="font-size: 13px; color: #666; margin-top: 10px;">Hoặc đăng nhập thành viên:</p>
+                        <h3 style="color: #00897b;">ĐÃ ĐẠT GIỚI HẠN!</h3>
+                        <p>Vui lòng quay lại ngày mai hoặc đăng nhập.</p>
+                        <a href="https://zalo.me/84963759566" target="_blank" style="display:block;width:100%;background:#009688;color:white;padding:10px;border-radius:20px;text-decoration:none;margin-bottom:15px;">💬 Nhận mã Zalo</a>
                     </div>
                 """, unsafe_allow_html=True)
 
