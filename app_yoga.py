@@ -37,7 +37,7 @@ st.markdown("""
     /* 2. Khung Chat Input (Đẩy lên cao để không dính Disclaimer) */
     div[data-testid="stChatInput"] {
         position: fixed; 
-        bottom: 85px; /* Tăng lên 85px để thoáng hẳn mobile */
+        bottom: 60px; /* Tăng lên 85px để thoáng hẳn mobile */
         left: 50%; transform: translateX(-50%);
         width: 95%; max-width: 800px; z-index: 1000;
         background-color: white; border-radius: 30px;
