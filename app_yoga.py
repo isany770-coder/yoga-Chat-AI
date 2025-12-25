@@ -163,10 +163,33 @@ db_text, db_image = data_result
 # =====================================================
 # 3. QUẢN LÝ USER & GIỚI HẠN (GIỮ NGUYÊN BẢN GỐC)
 # =====================================================
+# --- [SỬA] CẬP NHẬT DATABASE ĐỂ LƯU CHAT ---
 def init_db():
     conn = sqlite3.connect(DB_PATH)
+    # Bảng đếm lượt (Cũ)
     conn.execute('CREATE TABLE IF NOT EXISTS usage (user_id TEXT, date TEXT, count INTEGER, PRIMARY KEY (user_id, date))')
+    # [MỚI] Bảng lưu nội dung chat
+    conn.execute('CREATE TABLE IF NOT EXISTS chat_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, user_id TEXT, question TEXT, answer TEXT)')
     conn.commit(); conn.close()
+
+# --- [THÊM] HÀM GHI & ĐỌC LOG CHAT ---
+def log_chat_to_db(user_id, question, answer):
+    """Ghi lại ai vừa hỏi gì"""
+    try:
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+        c.execute("INSERT INTO chat_logs (timestamp, user_id, question, answer) VALUES (?, ?, ?, ?)", (now, user_id, question, answer))
+        conn.commit(); conn.close()
+    except: pass
+
+def get_chat_logs(limit=20):
+    """Lấy log cho Admin xem"""
+    conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+    c.execute("SELECT timestamp, user_id, question, answer FROM chat_logs ORDER BY id DESC LIMIT ?", (limit,))
+    data = c.fetchall(); conn.close()
+    return data
+
+# Gọi lại init để tạo bảng mới nếu chưa có
 init_db()
 
 def check_usage(user_id):
@@ -196,6 +219,47 @@ if "authenticated" not in st.session_state: st.session_state.authenticated = Fal
 if "username" not in st.session_state: st.session_state.username = ""
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Tôi là Trợ lý Yoga.\nBạn cần tìm bài tập hay tư vấn bệnh lý gì hôm nay?"}]
+
+# =====================================================
+# [MỚI] SIDEBAR: ĐĂNG NHẬP & ADMIN
+# =====================================================
+with st.sidebar:
+    st.title("🔐 Khu Vực VIP")
+    
+    if st.session_state.authenticated:
+        st.success(f"Hi: **{st.session_state.username}**")
+        if st.button("Đăng xuất", type="primary"):
+            st.session_state.authenticated = False
+            st.session_state.username = ""
+            st.rerun()
+            
+        # --- SOi LOG CHAT (CHỈ ADMIN THẤY) ---
+        if st.session_state.username == "admin":
+            st.markdown("---")
+            st.subheader("🕵️ Soi Log Chat")
+            if st.button("🔄 Làm mới Log"): st.rerun()
+            
+            logs = get_chat_logs(15) # Xem 15 câu gần nhất
+            for l in logs:
+                # l[0]: Time, l[1]: User, l[2]: Hỏi, l[3]: Trả lời
+                with st.expander(f"[{l[0]}] {l[1]}"):
+                    st.markdown(f"**🗣️:** {l[2]}")
+                    st.info(f"**🤖:** {l[3][:100]}...") # Hiện 100 ký tự đầu câu trả lời
+    else:
+        st.markdown("Dành cho khách có tài khoản riêng:")
+        with st.form("sb_login"):
+            u = st.text_input("User")
+            p = st.text_input("Pass", type="password")
+            if st.form_submit_button("Đăng Nhập"):
+                # Lấy pass từ secrets.toml
+                real_pass = st.secrets["passwords"].get(u)
+                if real_pass and real_pass == p:
+                    st.session_state.authenticated = True
+                    st.session_state.username = u
+                    st.success("OK!")
+                    time.sleep(0.5); st.rerun()
+                else:
+                    st.error("Sai thông tin!")
 
 def get_user_id():
     if st.session_state.authenticated: return st.session_state.username
@@ -450,6 +514,9 @@ if not is_locked:
 
                         # Lưu lịch sử (Kèm ảnh để hiển thị lại)
                         st.session_state.messages.append({"role": "assistant", "content": clean_text + ("\n\n" + html_src if 'html_src' in locals() else "") + upsell_html, "images": found_images})
+
+                        # [MỚI] GHI VÀO SỔ NAM TÀO
+                        log_chat_to_db(user_id, prompt, clean_text)
 
                 except Exception as e:
                     st.error("Hệ thống đang bận. Xin vui lòng thử lại sau.")
