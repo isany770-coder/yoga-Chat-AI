@@ -379,7 +379,7 @@ YOGA_SOLUTIONS = {
 # =====================================================
 # 6. XỬ LÝ CHAT (ĐOẠN CUỐI CÙNG - ĐÃ FIX BIẾN)
 # =====================================================
-if not is_locked:
+is_locked = False
     # 1. Nhận câu hỏi
     if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
         st.chat_message("user").markdown(prompt)
