@@ -234,8 +234,9 @@ if is_limit_reached:
                         <div style="font-size: 60px; margin-bottom: 10px;">🧘‍♀️</div>
                         <h3 style="color: #00897b; margin: 0; font-weight: 800;">ĐÃ ĐẠT GIỚI HẠN!</h3>
                         <p style="color: #555; font-size: 15px; margin-top: 10px; line-height: 1.5;">
-                            Hệ thống nhận thấy bạn đã dùng hết lượt thử.<br>
-                            Để tra cứu không giới hạn, mời bạn liên hệ Admin:
+                            Hệ thống nhận thấy bạn đã dùng hết lượt thử. Hãy quay lại vào ngày mai<br>
+                            Để tra cứu <b>Kho dữ liệu 15 triệu từ</b> và nhận ưu đãi 
+                            <b>Mua Thảm tặng Tài khoản Member</b>, mời bạn liên hệ Admin:
                         </p>
                         <a href="https://zalo.me/84963759566" target="_blank" 
                            style="display: inline-block; width: 100%; background-color: #009688; 
