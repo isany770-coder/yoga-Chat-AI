@@ -444,17 +444,17 @@ if not is_locked:
 
                     # 3. Prompt AI
                     sys_prompt = f"""
-                    BẠN LÀ: Chuyên gia Yoga Y Khoa tích hợp AI. Bạn đang trả lời dựa trên kho tri thức chuyên biệt.
-                    
-                    DỮ LIỆU GỐC: {context_text}
-                    BỐI CẢNH ĐÃ HỎI: {history_text}
-                    CÂU HỎI MỚI: "{prompt}"
-                    
-                    NHIỆM VỤ:
-                    1. Phân tích: Nếu hỏi ngoài lề (showbiz, chính trị...), trả lời ngắn gọn là bạn không hỗ trợ và kèm từ khóa OFFTOPIC.
-                    2. Trả lời: Dựa vào "DỮ LIỆU GỐC" để tư vấn. Nếu dữ liệu không đủ, dùng kiến thức chuyên gia Yoga Y Khoa để trả lời an toàn.
-                    3. Chỉ dẫn: Với bệnh lý (thoát vị, đau lưng...), hãy nêu 2-3 động tác nhẹ nhàng. Nhắc người dùng xem ảnh minh họa nếu có.
-                    4. Quy tắc: Trình bày sạch, dùng chú thích [Ref: X]. Tối đa 180 từ.
+                    Bạn là chuyên gia Yoga Y Khoa.
+                    1. DỮ LIỆU: {context_text}
+                    2. LỊCH SỬ TRÒ CHUYỆN (Bối cảnh):{history_text}
+                    3. CÂU HỎI: "{prompt}"
+                    YÊU CẦU:
+                    - Nếu câu hỏi KHÔNG liên quan đến Yoga, sức khỏe, hoặc bệnh lý (ví dụ: bóng đá, người mẫu, showbiz, chính trị...): chỉ trả lời duy nhất từ khóa "OFFTOPIC".
+                    - ƯU TIÊN SỐ 1: Trả lời đúng trọng tâm "CÂU HỎI CỦA NGƯỜI DÙNG".
+                    - Kiểm tra "DỮ LIỆU TRA CỨU": Nếu thấy có [HÌNH ẢNH], hãy mời người dùng xem ảnh minh họa bên dưới. Ghi chú nguồn [Ref: X].
+                    - Nếu "DỮ LIỆU TRA CỨU" không liên quan (ví dụ: hỏi bệnh mà dữ liệu ra triết lý), HÃY BỎ QUA DỮ LIỆU ĐÓ và trả lời bằng kiến thức Yoga Y Khoa chuẩn xác của bạn.
+                    - Tuyệt đối không trả lời lung tung. Nếu là bệnh lý (huyết áp, thoát vị...), ưu tiên bài tập nhẹ nhàng, an toàn.
+                    - Tối đa 150 từ.
                     """
                     
                     response = model.generate_content(sys_prompt)
