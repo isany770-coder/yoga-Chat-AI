@@ -206,6 +206,13 @@ def increment_usage(user):
     conn.commit(); conn.close()
 
 init_db()
+def get_all_usage_logs():
+    try:
+        conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+        c.execute("SELECT date, user_id, count FROM usage ORDER BY date DESC")
+        data = c.fetchall(); conn.close()
+        return data
+    except: return []
 
 # --- B. XỬ LÝ COOKIE & ĐỊNH DANH ---
 cookie_manager = stx.CookieManager(key="yoga_pro_manager")
@@ -283,15 +290,6 @@ if st.session_state.authenticated and st.session_state.username == "admin":
         st.markdown("| Ngày | User ID | Số câu hỏi |\n|---|---|---|")
         for log in logs:
             st.markdown(f"| {log[0]} | {log[1]} | {log[2]} |")
-
-def get_all_usage_logs():
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute("SELECT date, user_id, count FROM usage ORDER BY date DESC, count DESC LIMIT 50")
-        data = c.fetchall(); conn.close()
-        return data
-    except: return []
 
 # =====================================================
 # 4. GIAO DIỆN HẾT HẠN (GIỮ NGUYÊN BẢN GỐC - KHÔNG SỬA)
@@ -388,7 +386,6 @@ YOGA_SOLUTIONS = {
 # =====================================================
 # 6. XỬ LÝ CHAT (BẢN FIX CHUẨN KHÔNG LỖI)
 # =====================================================
-is_locked = False 
 
 if not is_locked:
     if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
