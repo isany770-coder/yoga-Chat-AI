@@ -399,109 +399,97 @@ if not is_locked:
         increment_usage(user_id)
 
         with st.chat_message("assistant"):
-            with st.spinner("Đang tra cứu từ kho dữ liệu..."):
+            # Dùng spinner nhẹ nhàng để user biết app đang chạy
+            with st.spinner("Đang tra cứu dữ liệu..."):
                 try:
-                    if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
-        st.chat_message("user").markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        increment_usage(user_id)
+                    # =========================================================
+                    # 1. CẤU HÌNH "FLASH SIÊU TỐC" (ĐẢM BẢO KHÔNG TREO APP)
+                    # =========================================================
+                    # Temperature 0.3: Giảm độ "phiêu" để AI bớt bịa chuyện
+                    generation_config = {
+                        "temperature": 0.3,
+                        "max_output_tokens": 1000,
+                    }
+                    # Quay về Flash: Nhanh, Nhẹ, Ổn định
+                    model = genai.GenerativeModel('gemini-1.5-flash', generation_config=generation_config)
 
-        with st.chat_message("assistant"):
-            with st.spinner("Đang phân tích hồ sơ y khoa..."):
-                try:
-                    # --- BƯỚC 1: TRA CỨU DỮ LIỆU (RETRIEVAL) ---
-                    # Tăng k=10 cho Text (Pro xử lý được nhiều dữ liệu hơn Flash)
-                    docs_text = db_text.similarity_search(prompt, k=10)
+                    # =========================================================
+                    # 2. TÌM KIẾM DỮ LIỆU (TĂNG SỐ LƯỢNG ĐỂ BÙ CHO ĐỘ THÔNG MINH)
+                    # =========================================================
+                    # Flash đọc nhanh nên ta ném cho nó 20 bài (thay vì 5) để nó có đủ dữ liệu
+                    docs_text = db_text.similarity_search(prompt, k=20)
                     
-                    # Tìm ảnh
                     docs_img = []
                     if db_image:
-                        docs_img = db_image.similarity_search(prompt, k=5)
+                        docs_img = db_image.similarity_search(prompt, k=10)
                     
-                    # --- BƯỚC 2: XÂY DỰNG BỐI CẢNH (CONTEXT BUILDING) ---
-                    # Lấy lịch sử chat để nhớ "câu trước câu sau"
-                    history_text = ""
-                    # Lấy 6 câu gần nhất thay vì 4 để nhớ lâu hơn
-                    recent_msgs = st.session_state.messages[-6:] 
-                    for msg in recent_msgs:
-                        role = "User" if msg["role"] == "user" else "AI"
-                        clean_content = re.sub(r'<[^>]+>', '', msg["content"]) # Bỏ HTML
-                        history_text += f"{role}: {clean_content}\n"
+                    # =========================================================
+                    # 3. XỬ LÝ DỮ LIỆU ĐẦU VÀO
+                    # =========================================================
+                    history_text = get_clean_history()
 
-                    # Chuẩn bị dữ liệu Text
                     context_text_prompt = ""
                     source_map = {}
                     current_id = 1
                     
+                    # Gom text
                     for d in docs_text:
                         url = d.metadata.get('url', '#')
                         title = d.metadata.get('title', 'Tài liệu Y Khoa')
                         source_map[current_id] = {"url": url, "title": title}
-                        context_text_prompt += f"[Nguồn {current_id}]: {title}\nNội dung: {d.page_content}\n----------------\n"
+                        context_text_prompt += f"--- NGUỒN [{current_id}] ---\nTiêu đề: {title}\nNội dung: {d.page_content}\n"
                         current_id += 1
 
-                    # Chuẩn bị dữ liệu Ảnh
+                    # Gom ảnh (Map ID)
                     image_map = {}
                     context_img_prompt = ""
                     img_start_id = 100
-                    seen_img_keys = set()
                     
+                    # Lọc sơ bộ ảnh
+                    seen_urls = set()
                     for d in docs_img:
                         img_url = d.metadata.get('image_url', '')
                         img_title = d.metadata.get('title', 'Ảnh minh họa')
-                        unique_key = f"{img_url}_{img_title}"
-                        
-                        if img_url and unique_key not in seen_img_keys:
+                        # Chỉ lấy nếu chưa có trong danh sách
+                        if img_url and img_url not in seen_urls:
                             image_map[img_start_id] = {"url": img_url, "title": img_title}
-                            context_img_prompt += f"[ID: {img_start_id}] {img_title}\n"
-                            seen_img_keys.add(unique_key)
+                            context_img_prompt += f"[ID ẢNH: {img_start_id}] {img_title}\n"
+                            seen_urls.add(img_url)
                             img_start_id += 1
 
-                    # --- DEBUG: HIỆN DỮ LIỆU TÌM ĐƯỢC (ĐỂ BẠN KIỂM TRA) ---
-                    # Phần này giúp bạn biết chắc chắn DB có trả về gì không
-                    with st.expander("🕵️‍♂️ Debug: Dữ liệu AI tìm thấy"):
-                        st.write(f"Tìm thấy {len(docs_text)} đoạn văn bản.")
-                        if len(docs_text) > 0:
-                            st.text(docs_text[0].page_content[:200] + "...")
-                        else:
-                            st.warning("Không tìm thấy text nào khớp!")
-
-                    # --- BƯỚC 3: PROMPT (MÔ HÌNH PRO 1.5) ---
+                    # =========================================================
+                    # 4. PROMPT "CẦM TAY CHỈ VIỆC" (STEP-BY-STEP)
+                    # =========================================================
                     sys_prompt = f"""
-                    Bạn là Chuyên gia Yoga Trị liệu cao cấp (YIML AI).
+                    Bạn là Trợ lý Yoga Y Khoa (YIML AI).
                     
-                    === LỊCH SỬ HỘI THOẠI (QUAN TRỌNG ĐỂ HIỂU NGỮ CẢNH) ===
-                    {history_text}
-                    ========================================================
+                    1. DỮ LIỆU CUNG CẤP:
+                    - Lịch sử chat: {history_text}
+                    - Tài liệu tham khảo: {context_text_prompt}
+                    - Kho ảnh: {context_img_prompt}
 
-                    === DỮ LIỆU NGHIÊN CỨU TÌM ĐƯỢC (TEXT) ===
-                    {context_text_prompt}
+                    2. CÂU HỎI: "{prompt}"
+
+                    3. YÊU CẦU TRẢ LỜI (TUÂN THỦ TUYỆT ĐỐI):
+                    - **Bước 1:** Đọc "Tài liệu tham khảo". Tìm thông tin trả lời câu hỏi.
+                    - **Bước 2:** Viết câu trả lời NGẮN GỌN, dùng gạch đầu dòng (-).
+                    - **Bước 3:** Nếu thông tin lấy từ "Tài liệu tham khảo", hãy ghi chú [1], [2] ở cuối câu. Nếu tự trả lời bằng kiến thức riêng thì KHÔNG ghi nguồn.
+                    - **Bước 4 (Ảnh):** Chọn duy nhất 1 ID ảnh phù hợp nhất từ "Kho ảnh".
+
+                    4. ĐỊNH DẠNG OUTPUT:
+                    [Nội dung trả lời...]
                     
-                    === KHO ẢNH (IMAGE) ===
-                    {context_img_prompt}
-
-                    === YÊU CẦU XỬ LÝ ===
-                    Người dùng hỏi: "{prompt}"
-
-                    1. **Phân tích:** - Đọc kỹ "LỊCH SỬ HỘI THOẠI" để hiểu người dùng đang nói về vấn đề gì trước đó.
-                       - Đọc "DỮ LIỆU NGHIÊN CỨU". Nếu có thông tin khớp, hãy trả lời dựa trên đó và trích dẫn [1], [2].
-                       - Nếu "DỮ LIỆU NGHIÊN CỨU" không khớp (ví dụ hỏi Đau Lưng mà dữ liệu toàn Mất Ngủ), hãy dùng kiến thức chuyên gia của bạn để trả lời. **Tuyệt đối không bịa nguồn nếu tự trả lời.**
-                    
-                    2. **Hình ảnh:**
-                       - Chọn 1 ảnh duy nhất trong "KHO ẢNH" thực sự liên quan. 
-                       - Nếu không có ảnh khớp, bỏ qua.
-
-                    3. **Định dạng:**
-                       - Trả lời ngắn gọn, súc tích, đi thẳng vào vấn đề.
-                       - Dùng gạch đầu dòng (-).
-                       - Cuối cùng: |||IMAGES||| [ID ảnh] (nếu có).
+                    |||IMAGES|||
+                    [ID ảnh]
                     """
 
-                    # --- BƯỚC 4: GỌI MODEL & HIỂN THỊ ---
+                    # =========================================================
+                    # 5. GỌI AI & XỬ LÝ KẾT QUẢ (CẮT ẢNH CỨNG)
+                    # =========================================================
                     response = model.generate_content(sys_prompt)
                     raw_resp = response.text.strip()
 
-                    # Xử lý kết quả trả về (Tách ảnh và text)
+                    # Tách phần Text và Ảnh
                     if "|||IMAGES|||" in raw_resp:
                         parts = raw_resp.split("|||IMAGES|||")
                         main_content = parts[0].strip()
@@ -510,7 +498,7 @@ if not is_locked:
                         main_content = raw_resp
                         img_part = ""
 
-                    # Lấy ảnh (Chỉ 1 cái)
+                    # --- LOGIC CẮT ẢNH CỰC ĐOAN (CHỈ LẤY 1) ---
                     selected_images = []
                     if img_part:
                         found_ids = re.findall(r'\d+', img_part)
@@ -518,18 +506,19 @@ if not is_locked:
                             fid = int(fid)
                             if fid in image_map:
                                 selected_images.append(image_map[fid])
-                                break # Lấy được 1 cái là nghỉ
-
+                                break # <--- LỆNH QUAN TRỌNG: Thấy 1 cái là DỪNG NGAY.
+                    
                     # Hiển thị nội dung
                     st.markdown(main_content)
 
-                    # Hiển thị ảnh
+                    # Hiển thị 1 ảnh duy nhất (To & Rõ)
                     if selected_images:
                         img = selected_images[0]
                         st.markdown("---")
+                        # Dùng st.image với use_container_width=True để ảnh to full chiều ngang
                         st.image(img['url'], caption=f"Minh họa: {img['title']}", use_container_width=True)
 
-                    # Hiển thị nguồn (Chỉ khi AI có trích dẫn)
+                    # Hiển thị Nguồn (Chỉ hiện nguồn ĐÚNG)
                     used_ref_ids = set([int(m) for m in re.findall(r'\[(\d+)\]', main_content)])
                     html_src = ""
                     if used_ref_ids:
@@ -549,7 +538,7 @@ if not is_locked:
                             html_src += "</div>"
                             st.markdown(html_src, unsafe_allow_html=True)
 
-                    # Upsell
+                    # Upsell & Save History
                     upsell_html = ""
                     recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
                     if recs:
@@ -559,7 +548,6 @@ if not is_locked:
                         upsell_html += "</div>"
                         st.markdown(upsell_html, unsafe_allow_html=True)
 
-                    # Lưu lịch sử
                     full_content_to_save = main_content
                     if html_src: full_content_to_save += "\n\n" + html_src
                     if upsell_html: full_content_to_save += "\n\n" + upsell_html
