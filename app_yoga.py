@@ -164,18 +164,7 @@ def load_brain_engine():
             db_image = FAISS.load_local(image_db_path, embeddings, allow_dangerous_deserialization=True)
             print("✅ Đã load thành công não ảnh riêng biệt!")
 
-        # Cấu hình độ chính xác cho AI
-        generation_config = {
-          "temperature": 0.2, # Càng thấp càng chính xác, tránh trả lời lan man
-          "top_p": 0.95,
-          "top_k": 40,
-          "max_output_tokens": 1024,
-        }
-
-        model = genai.GenerativeModel(
-            model_name='gemini-flash-latest',
-            generation_config=generation_config
-        )
+        model = genai.GenerativeModel('gemini-flash-latest')
         
         # TRẢ VỀ CẢ 2 NÃO RIÊNG BIỆT (KHÔNG GỘP)
         return (db_text, db_image), model, "OK"
