@@ -27,94 +27,62 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* 1. CẤU HÌNH CHUNG & XỬ LÝ KHOẢNG TRẮNG */
-    .stApp { background-color: #ffffff; }
+    /* 1. Ẩn Header/Footer thừa */
+    header[data-testid="stHeader"], footer, .stDeployButton { display: none !important; }
     
-    header, footer, [data-testid="stToolbar"] { display: none !important; }
-
-    /* Thu hẹp lề trên & lề dưới (Fix lỗi khoảng trắng to) */
+    /* 2. Tinh chỉnh khoảng cách nội dung (Để không bị thanh chat che) */
     .main .block-container {
-        padding-top: 1rem !important; 
-        padding-bottom: 120px !important; /* Vừa đủ để không bị thanh chat che, không quá hở */
-        max-width: 100%;
+        padding-top: 2rem !important;
+        padding-bottom: 150px !important; /* Khoảng trống an toàn dưới đáy */
     }
 
-    .stChatMessage {
-        padding-top: 0.5rem !important;
-        padding-bottom: 0.5rem !important;
+    /* 3. TẠO CHỖ TRỐNG TRONG Ô NHẬP LIỆU (Để nút Mic không che chữ) */
+    /* Chúng ta không can thiệp vị trí khung chat, chỉ can thiệp nội dung bên trong */
+    [data-testid="stChatInput"] textarea {
+        padding-right: 60px !important; /* Thụt lề phải text để chừa chỗ cho mic */
     }
 
-    /* 2. THANH CHAT INPUT (CỐ ĐỊNH) */
-    div[data-testid="stChatInput"] {
-        position: fixed !important;
-        bottom: 20px !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        width: 95% !important;
-        max-width: 800px !important;
-        z-index: 1000 !important;
-        background-color: white !important;
-        border-radius: 30px !important;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important;
-        border: 1px solid #e0e0e0 !important;
-        padding: 3px !important;
-        padding-right: 55px !important; /* Chừa đúng 55px cho nút Mic */
-    }
-
-    /* 3. ĐỊNH VỊ NÚT MICRO (CÔNG THỨC TOÁN HỌC CHUẨN) */
-    .mic-fixed-container {
-        position: fixed !important;
-        z-index: 1002 !important; /* Phải cao hơn thanh chat (1000) */
-        bottom: 28px !important; /* Canh giữa theo chiều dọc của thanh chat */
+    /* 4. ĐỊNH VỊ NÚT MIC (Nổi lên trên mọi thứ) */
+    .mic-floating {
+        position: fixed;
+        z-index: 99999 !important;
+        bottom: 25px; /* Canh chỉnh theo chiều cao mặc định của thanh chat */
         
-        /* DESKTOP: Thanh chat rộng 800px -> Một nửa là 400px. 
-           Nút Gửi chiếm ~50px bên phải. 
-           => Nút Mic phải nằm ở vị trí: Giữa + 400px - 50px = +350px 
-           Tôi để 345px để nó hở ra 1 chút cho đẹp */
-        left: 50% !important;
-        transform: translateX(340px) !important; 
+        /* MẶC ĐỊNH (DESKTOP): Căn giữa + Dịch sang phải */
+        left: 50%;
+        transform: translateX(340px); /* 800px/2 - 60px */
         
-        width: 35px !important;
-        height: 35px !important;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        width: 40px;
+        height: 40px;
+        display: flex; align-items: center; justify-content: center;
+        pointer-events: auto; /* Đảm bảo bấm được */
     }
 
-    /* Style nút bấm */
-    .mic-fixed-container button {
+    /* Style nút bấm cho đẹp */
+    .mic-floating button {
         background: transparent !important;
         border: none !important;
         color: #e11d48 !important; 
-        padding: 0 !important;
-        margin: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        font-size: 1.1rem !important;
-        box-shadow: none !important;
+        font-size: 1.4rem !important;
+        padding: 0 !important; margin: 0 !important;
+        width: 100% !important; height: 100% !important;
+        display: flex !important; align-items: center !important; justify-content: center !important;
     }
-    .mic-fixed-container button:hover {
-        background: rgba(225, 29, 72, 0.05) !important;
+    .mic-floating button:hover {
+        background: rgba(225, 29, 72, 0.1) !important;
         border-radius: 50%;
         transform: scale(1.1);
     }
 
-    /* 4. MOBILE RESPONSIVE (MÀN HÌNH NHỎ) */
-    @media (max-width: 820px) {
-        .mic-fixed-container {
-            /* Trên mobile, thanh chat rộng 95% màn hình.
-               Nút gửi của Streamlit luôn dính sát lề phải.
-               Ta ghim nút Mic cách lề phải 55px là khớp lệnh. */
+    /* 5. MOBILE (Màn hình nhỏ) */
+    @media (max-width: 800px) {
+        .mic-floating {
             left: auto !important;
-            right: 55px !important; 
-            transform: none !important; /* Bỏ căn giữa của Desktop */
-            bottom: 28px !important;
+            transform: none !important;
+            right: 60px !important; /* Ghim chặt vào bên phải, cạnh nút Gửi */
+            bottom: 22px !important; /* Tinh chỉnh lại chút cho khớp mobile */
         }
     }
-
     /* 5. CÁC THÀNH PHẦN KHÁC (GIỮ NGUYÊN) */
     .promo-banner {
         background: linear-gradient(90deg, #e0f2f1 0%, #b2dfdb 100%);
