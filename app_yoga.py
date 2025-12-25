@@ -214,20 +214,23 @@ def get_all_usage_logs():
         return data
     except: return []
 
-# --- B. XỬ LÝ ĐỊNH DANH (KHÔNG DÙNG COOKIE ĐỂ TRÁNH TRẮNG TRANG) ---
+# --- B. XỬ LÝ ĐỊNH DANH ---
 if "user_id" not in st.session_state:
-    # Tạo một ID ngẫu nhiên cho phiên làm việc này
     st.session_state.user_id = str(uuid.uuid4())[:8]
 
-current_user_id = st.session_state.user_id
-
-# --- C. KIỂM TRA ĐĂNG NHẬP (DÙNG SESSION STATE) ---
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-# Nếu đã đăng nhập thành công, ghi đè ID bằng Username để lấy đúng lịch sử VIP
-if st.session_state.authenticated:
-    current_user_id = st.session_state.username
+current_user_id = st.session_state.username if st.session_state.authenticated else st.session_state.user_id
+
+# --- C. KHỞI TẠO TIN NHẮN & LOAD LỊCH SỬ (QUAN TRỌNG) ---
+if "messages" not in st.session_state:
+    # Lấy 10 câu cũ từ DB để AI có trí nhớ
+    history = load_chat_history(current_user_id)
+    if not history:
+        st.session_state.messages = [{"role": "assistant", "content": f"Namaste {current_user_id}! 🙏"}]
+    else:
+        st.session_state.messages = history
 
 # --- D. TÍNH TOÁN BIẾN HỆ THỐNG ---
 used = check_usage(current_user_id)
@@ -378,52 +381,53 @@ YOGA_SOLUTIONS = {
     "THIEN": {"name": "🧘 App Thiền Chữa Lành", "url": "https://yogaismylife.vn/thien-hoi-tho-chua-lanh/", "key": ["stress","căng thẳng","áp lực","lo âu","bất an","mệt mỏi tinh thần","ngủ","giấc ngủ","mất ngủ","ngủ sâu","ngủ không ngon","nghỉ ngơi","thiền","thiền định","chánh niệm","tĩnh tâm","an trú","thở","hít thở","điều hòa hơi thở"]}
 }
 
-# =====================================================
-# 6. XỬ LÝ CHAT (BẢN FIX CHUẨN KHÔNG LỖI)
-# =====================================================
-
 if not is_locked:
     if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
-        
-        safe_id = current_user_id if 'current_user_id' in globals() else "guest"
-        increment_usage(safe_id)
+        increment_usage(current_user_id)
 
         with st.chat_message("assistant"):
             with st.spinner("Đang tra cứu..."):
                 try:
                     model = genai.GenerativeModel('models/gemini-1.5-flash')
-                    docs = db_text.similarity_search(prompt, k=6)
-                    if db_image: docs += db_image.similarity_search(prompt, k=2)
                     
-                    context_text = ""
-                    source_map = {}
-                    found_images = []
+                    # 1. Lấy bối cảnh từ Vector DB
+                    docs = db_text.similarity_search(prompt, k=5)
+                    context_data = "\n".join([d.page_content for d in docs])
+                    
+                    # 2. Lấy 3-4 câu hội thoại gần nhất để AI hiểu mạch đang nói gì
+                    chat_context = ""
+                    for m in st.session_state.messages[-4:-1]:
+                        chat_context += f"{m['role']}: {m['content']}\n"
 
-                    for i, d in enumerate(docs):
-                        doc_id = i + 1
-                        meta = d.metadata
-                        source_map[doc_id] = {"url": meta.get('url', '#'), "title": meta.get('title', 'Tài liệu')}
-                        if meta.get('type') == 'image' and meta.get('image_url'):
-                            found_images.append({"url": meta['image_url'], "title": meta.get('title', '')})
-                        context_text += f"\n[Nguồn {doc_id}]: {d.page_content}\n"
-
-                    sys_prompt = f"Bạn là chuyên gia Yoga Y Khoa.\nDỮ LIỆU: {context_text}\nCÂU HỎI: {prompt}\nTrả lời ngắn gọn, đúng trọng tâm dưới 150 từ."
-                    response = model.generate_content(sys_prompt)
+                    # 3. Prompt tổng hợp: Kiến thức + Lịch sử hội thoại
+                    full_prompt = f"""
+                    Bạn là chuyên gia Yoga Y Khoa. 
+                    LỊCH SỬ CHAT GẦN ĐÂY:
+                    {chat_context}
+                    
+                    DỮ LIỆU KIẾN THỨC:
+                    {context_data}
+                    
+                    CÂU HỎI MỚI NHẤT: "{prompt}"
+                
+                    YÊU CẦU:
+                    - Nếu câu hỏi KHÔNG liên quan đến Yoga/Sức khỏe: trả lời "OFFTOPIC".
+                    - Trả lời đúng trọng tâm.
+                    - Ưu tiên. Kiểm tra dữ liệu: Nếu có [HÌNH ẢNH], hãy mời xem ảnh bên dưới. Ghi nguồn [Ref: X].
+                    - Nếu dữ liệu không khớp, tự trả lời bằng kiến thức Yoga chuẩn (nhưng không bịa nguồn).
+                    - Tối đa 150 từ. Sử dụng gạch đầu dòng.
+                    """
+                    
+                    response = model.generate_content(full_prompt)
                     ai_resp = response.text.strip()
                     
-                    clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
-                    st.markdown(clean_text)
+                    st.markdown(ai_resp)
                     
-                    if found_images:
-                        st.markdown("---")
-                        cols = st.columns(3)
-                        for i, img in enumerate(found_images):
-                            with cols[i % 3]: st.image(img['url'], caption=img['title'])
-
-                    st.session_state.messages.append({"role": "assistant", "content": clean_text, "images": found_images})
-                    log_chat_to_db(safe_id, prompt, clean_text)
+                    # Lưu cả câu trả lời vào session để câu sau nó nhớ
+                    st.session_state.messages.append({"role": "assistant", "content": ai_resp})
+                    log_chat_to_db(current_user_id, prompt, ai_resp)
 
                 except Exception as e:
-                    st.error("Hệ thống bận, vui lòng thử lại.")
+                    st.error(f"Lỗi: {str(e)}")
