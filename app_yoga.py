@@ -23,20 +23,33 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* 1. Tối ưu khung nền */
+    /* 1. Tối ưu khung nền & Khoảng cách đầu trang */
     .stApp { background-color: #ffffff; }
     header[data-testid="stHeader"], footer {display: none;}
     .stDeployButton {display:none;}
+    
+    /* Kéo nội dung lên sát phía trên */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+    }
 
-    /* 2. Khung Chat Input (Hiện đại, bo tròn) */
+    /* 2. Khung Chat Input (Đẩy lên cao để không dính Disclaimer) */
     div[data-testid="stChatInput"] {
-        position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
+        position: fixed; 
+        bottom: 85px; /* Tăng lên 85px để thoáng hẳn mobile */
+        left: 50%; transform: translateX(-50%);
         width: 95%; max-width: 800px; z-index: 1000;
         background-color: white; border-radius: 30px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.08); padding: 5px; border: 1px solid #e0e0e0;
     }
     
-    /* 3. Thanh Quảng Cáo (Banner) */
+    /* 3. Giãn cách giữa các bong bóng chat */
+    [data-testid="stChatMessage"] {
+        margin-bottom: 25px !important;
+    }
+
+    /* 4. Thanh Quảng Cáo (Banner) */
     .promo-banner {
         background: linear-gradient(90deg, #e0f2f1 0%, #b2dfdb 100%);
         padding: 10px 15px; margin-bottom: 20px; border-radius: 10px;
@@ -50,7 +63,7 @@ st.markdown("""
         white-space: nowrap;
     }
 
-    /* 4. Màn hình Hết Hạn (Limit Screen - Chuẩn mẫu ảnh) */
+    /* 5. Màn hình Hết Hạn */
     .limit-overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(255, 255, 255, 0.95); z-index: 9999;
@@ -59,16 +72,11 @@ st.markdown("""
     }
     .limit-card {
         background: white; width: 90%; max-width: 400px;
-        padding: 30px 20px; border-radius: 20px;
-        text-align: center;
-        border: 2px solid #26a69a; /* Viền xanh như ảnh */
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        padding: 30px 20px; border-radius: 20px; text-align: center;
+        border: 2px solid #26a69a; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     }
     .limit-icon { font-size: 50px; margin-bottom: 15px; display: block; }
-    .limit-title { 
-        font-size: 18px; font-weight: bold; color: #00897b; 
-        margin-bottom: 10px; text-transform: uppercase;
-    }
+    .limit-title { font-size: 18px; font-weight: bold; color: #00897b; margin-bottom: 10px; text-transform: uppercase; }
     .limit-desc { font-size: 14px; color: #555; line-height: 1.5; margin-bottom: 25px; }
     .zalo-btn-limit {
         display: block; width: 100%; padding: 12px;
@@ -78,16 +86,14 @@ st.markdown("""
     }
     .login-link { color: #00796b; font-size: 13px; cursor: pointer; text-decoration: underline;}
 
-    /* 5. Hiển thị nguồn (Citation) */
+    /* 6. Hiển thị nguồn (Citation) */
     .source-box { background-color: #f1f8e9; border: 1px solid #c5e1a5; border-radius: 10px; padding: 12px; margin-top: 10px; }
-    .source-link { 
-        display: block; color: #33691e; text-decoration: none; font-size: 14px; 
-        margin-bottom: 6px; padding: 5px; border-radius: 5px; transition: 0.2s;
-    }
+    .source-link { display: block; color: #33691e; text-decoration: none; font-size: 14px; margin-bottom: 6px; padding: 5px; border-radius: 5px; transition: 0.2s; }
     .source-link:hover { background-color: #dcedc8; }
     .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-right: 8px; font-weight: bold; text-transform: uppercase; border: 1px solid; }
     
-    .bottom-spacer { height: 200px; }
+    /* 7. Khoảng trống đệm cuối trang (Tăng lên để đẩy nội dung qua mặt Input) */
+    .bottom-spacer { height: 220px; }
 </style>
 """, unsafe_allow_html=True)
 
