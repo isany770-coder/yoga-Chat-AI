@@ -34,15 +34,20 @@ st.markdown("""
         padding-bottom: 0rem !important;
     }
 
-    /* 2. Khung Chat Input (Đẩy lên cao để không dính Disclaimer) */
+    /* NÂNG CẤP: Ép thanh Chat bay cao và ẩn Footer */
     div[data-testid="stChatInput"] {
-        position: fixed; 
-        bottom: 40px; /* Tăng lên 85px để thoáng hẳn mobile */
-        left: 50%; transform: translateX(-50%);
-        width: 95%; max-width: 800px; z-index: 1000;
-        background-color: white; border-radius: 30px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08); padding: 5px; border: 1px solid #e0e0e0;
+        position: fixed !important;
+        bottom: 100px !important; /* Đẩy lên 100px để không dính Disclaimer */
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 95% !important;
+        max-width: 800px !important;
+        z-index: 1000 !important;
     }
+
+    /* ẨN TRIỆT ĐỂ THANH FOOTER (Built with Streamlit) */
+    footer { visibility: hidden !important; height: 0 !important; padding: 0 !important; }
+    header { visibility: hidden !important; }
     
     /* 3. Giãn cách giữa các bong bóng chat */
     [data-testid="stChatMessage"] {
