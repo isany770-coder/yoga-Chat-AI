@@ -416,7 +416,7 @@ if not is_locked:
                     docs_text = db_text.similarity_search(prompt, k=6)
                     docs_img = []
                     if db_image:
-                        docs_img = db_image.similarity_search(prompt, k=3)
+                        docs_img = db_image.similarity_search(prompt, k=2)
                     
                     docs = docs_text + docs_img
                     # --- CHÈN ĐOẠN NÀY VÀO ĐÂY ---
