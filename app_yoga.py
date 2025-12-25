@@ -247,10 +247,6 @@ LIMIT = 50 if st.session_state.authenticated else 5
 is_limit_reached = used >= LIMIT
 is_locked = False
 
-# --- E. KHỞI TẠO TIN NHẮN ---
-if "messages" not in st.session_state:
-    welcome = f"Namaste {current_user_id}! 🙏"
-    st.session_state.messages = [{"role": "assistant", "content": welcome}] + load_chat_history(current_user_id)
 
 # =====================================================
 # 4. SIDEBAR GIAO DIỆN
