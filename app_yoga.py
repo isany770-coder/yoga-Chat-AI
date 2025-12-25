@@ -23,12 +23,17 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* 1. Tối ưu khung nền */
-    .stApp { background-color: #ffffff; }
-    header[data-testid="stHeader"], footer {display: none;}
-    .stDeployButton {display:none;}
+    /* Ẩn Header/Footer mặc định cho gọn */
+    header, footer, [data-testid="stToolbar"], .stDeployButton { display: none !important; }
 
-    /* 2. Khung Chat Input (Hiện đại, bo tròn) */
+    /* --- QUAN TRỌNG: ĐẨY NỘI DUNG LÊN SÁT MÉP TRÊN --- */
+    .main .block-container {
+        padding-top: 0rem !important; /* Ép sát lên trên */
+        padding-bottom: 120px !important; /* Chừa chỗ cho thanh chat */
+        max-width: 100%;
+    }
+
+    /* Giữ nguyên style khung chat cũ của bác */
     div[data-testid="stChatInput"] {
         position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
         width: 95%; max-width: 800px; z-index: 1000;
