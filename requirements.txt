@@ -1,6 +1,6 @@
 streamlit
-google-generativeai
-langchain-google-genai
+google-generativeai>=0.7.0
+langchain-google-genai>=1.0.3
 langchain-community
 faiss-cpu
 extra-streamlit-components
