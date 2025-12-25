@@ -7,6 +7,7 @@ import datetime
 import gc
 import re
 import time
+import uuid
 import extra_streamlit_components as stx
 import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -241,31 +242,47 @@ def get_all_usage_logs():
 # =====================================================
 # [MỚI] XỬ LÝ COOKIE (AUTO LOGIN)
 # =====================================================
+import uuid # <--- Nhớ thêm dòng này lên đầu file cùng các import khác
+
+# =====================================================
+# [SỬA] XỬ LÝ COOKIE & ĐỊNH DANH NGƯỜI DÙNG (VIP + KHÁCH)
+# =====================================================
 def get_manager():
     return stx.CookieManager()
 
 cookie_manager = get_manager()
-cookie_user = cookie_manager.get(cookie="yoga_vip_user")
+vip_user = cookie_manager.get(cookie="yoga_vip_user")
+guest_id = cookie_manager.get(cookie="yoga_guest_id")
 
-# Nếu có Cookie -> Tự động đăng nhập luôn
-if cookie_user and "authenticated" not in st.session_state:
+# 1. Nếu chưa có mã khách -> Tạo mới và lưu ngay
+if not vip_user and not guest_id:
+    guest_id = str(uuid.uuid4())[:8] # Tạo mã ngẫu nhiên ngắn
+    expires = datetime.datetime.now() + datetime.timedelta(days=3)
+    cookie_manager.set("yoga_guest_id", guest_id, expires_at=expires)
+    time.sleep(0.1) 
+
+# 2. Xác định danh tính hiện tại (Ưu tiên VIP -> Khách)
+current_user_id = vip_user if vip_user else guest_id
+
+# 3. Tự động đăng nhập nếu là VIP
+if vip_user and not st.session_state.get("authenticated", False):
     st.session_state.authenticated = True
-    st.session_state.username = cookie_user
-    # st.toast(f"👋 Chào mừng trở lại, {cookie_user}!")
+    st.session_state.username = vip_user
 
-if "authenticated" not in st.session_state: st.session_state.authenticated = False
-if "username" not in st.session_state: st.session_state.username = ""
-
-# --- [SỬA] KHỞI TẠO TIN NHẮN (CÓ HỒI PHỤC) ---
+# --- [SỬA] KHỞI TẠO TIN NHẮN (CHO CẢ KHÁCH VÀ VIP) ---
 if "messages" not in st.session_state:
-    # 1. Mặc định là câu chào
-    initial_msg = [{"role": "assistant",  "content": "Namaste! 🙏 Tôi là Trợ lý Yoga.\nBạn cần tìm bài tập hay tư vấn bệnh lý gì hôm nay?"}]
-    
-    # 2. Nếu đã đăng nhập (do Cookie hoặc vừa nhập pass), thử tải lại lịch sử cũ
+    # Câu chào
+    welcome_text = "Namaste! 🙏 Tôi là Trợ lý Yoga. Bạn cần tìm bài tập hay tư vấn bệnh lý gì hôm nay?"
     if st.session_state.authenticated:
-        old_chats = load_chat_history(st.session_state.username)
+        welcome_text = f"Namaste {st.session_state.username}! 🙏 Mừng bạn quay lại."
+    
+    initial_msg = [{"role": "assistant", "content": welcome_text}]
+    
+    # Luôn thử tải lịch sử từ DB dựa trên current_user_id
+    # (Dù là khách hay VIP thì đều có ID để tra cứu)
+    if current_user_id:
+        old_chats = load_chat_history(current_user_id)
         if old_chats:
-            # Nếu có lịch sử, nối câu chào vào đầu (hoặc chỉ hiện lịch sử)
             st.session_state.messages = initial_msg + old_chats
         else:
             st.session_state.messages = initial_msg
@@ -281,11 +298,12 @@ with st.sidebar:
     if st.session_state.authenticated:
         st.success(f"Hi: **{st.session_state.username}**")
         
-        # [SỬA] Nút Đăng xuất -> Xóa Cookie
+        # [SỬA] Nút Đăng xuất -> Xóa sạch Cookie
         if st.button("Đăng xuất", type="primary"):
-            cookie_manager.delete("yoga_vip_user") # Xóa cookie
+            cookie_manager.delete("yoga_vip_user") # Xóa cookie trình duyệt
             st.session_state.authenticated = False
             st.session_state.username = ""
+            st.session_state.messages = [] # Xóa màn hình chat
             st.rerun()
             
         # ... (Đoạn code Admin Log cũ giữ nguyên) ...
@@ -305,32 +323,32 @@ with st.sidebar:
         with st.form("sb_login"):
             u = st.text_input("User")
             p = st.text_input("Pass", type="password")
+            
+            # [SỬA] Bắt sự kiện nút bấm trực tiếp
             if st.form_submit_button("Đăng Nhập"):
-                # Lấy pass từ secrets.toml
                 real_pass = st.secrets["passwords"].get(u)
                 if real_pass and real_pass == p:
-                    # [SỬA] Đăng nhập thành công -> Ghi Cookie (Lưu 7 ngày)
+                    # 1. Ghi Cookie VIP
                     expires = datetime.datetime.now() + datetime.timedelta(days=7)
                     cookie_manager.set("yoga_vip_user", u, expires_at=expires)
                     
+                    # 2. Xóa Cookie khách (để dọn dẹp)
+                    cookie_manager.delete("yoga_guest_id")
+                    
                     st.session_state.authenticated = True
                     st.session_state.username = u
-
-                    # [THÊM DÒNG NÀY] Lập tức tải lại lịch sử cũ ngay khi đăng nhập
-                    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Mừng bạn quay lại!"}] + load_chat_history(u)
-                    
-                    st.success("OK! Đã lưu đăng nhập 7 ngày.")
-                    time.sleep(1)
+                    st.success("Đăng nhập thành công!")
+                    time.sleep(0.5)
                     st.rerun()
                 else:
                     st.error("Sai thông tin!")
 
+# [SỬA] Hàm lấy ID chuẩn để trừ lượt dùng
 def get_user_id():
-    if st.session_state.authenticated: return st.session_state.username
-    try:
-        from streamlit.web.server.websocket_headers import _get_headers
-        return _get_headers().get("X-Forwarded-For", "guest").split(",")[0]
-    except: return "guest"
+    # Trả về ID đang dùng (VIP hoặc Guest ID)
+    if 'current_user_id' in globals() and current_user_id:
+        return current_user_id
+    return "unknown_guest"
 
 user_id = get_user_id()
 used = check_usage(user_id)
