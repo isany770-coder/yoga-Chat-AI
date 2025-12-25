@@ -182,6 +182,15 @@ def increment_usage(user_id):
     c.execute("INSERT OR IGNORE INTO usage (user_id, date, count) VALUES (?, ?, 0)", (user_id, today))
     c.execute("UPDATE usage SET count = count + 1 WHERE user_id=? AND date=?", (user_id, today))
     conn.commit(); conn.close()
+def get_all_usage_logs():
+    """Hàm lấy nhật ký cho Admin"""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    # Lấy 50 dòng mới nhất
+    c.execute("SELECT date, user_id, count FROM usage ORDER BY date DESC, count DESC LIMIT 50")
+    data = c.fetchall()
+    conn.close()
+    return data
 
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
@@ -214,6 +223,15 @@ st.markdown(f"""
     </div>
 </div>
 """, unsafe_allow_html=True)
+# --- HIỂN THỊ LOG ADMIN (Chỉ hiện khi user là admin) ---
+if st.session_state.authenticated and st.session_state.username == "admin":
+    with st.expander("🕵️ NHẬT KÝ ADMIN (LOGS)"):
+        logs = get_all_usage_logs()
+        st.write(f"**Tổng số bản ghi:** {len(logs)}")
+        # Vẽ bảng markdown cho nhẹ
+        st.markdown("| Ngày | User ID | Số câu hỏi |\n|---|---|---|")
+        for log in logs:
+            st.markdown(f"| {log[0]} | {log[1]} | {log[2]} |")
 
 # =====================================================
 # 4. GIAO DIỆN HẾT HẠN (GIỮ NGUYÊN BẢN GỐC - KHÔNG SỬA)
