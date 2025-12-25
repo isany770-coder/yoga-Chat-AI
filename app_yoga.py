@@ -572,8 +572,7 @@ if not is_locked:
 
                 except Exception as e:
                     st.error(f"Lỗi hệ thống: {str(e)}")
-                except Exception as e:
-                    st.error(f"Lỗi: {e}")
+                
 
                     # =====================================================
 # 7. DISCLAIMER (CHÂN TRANG CỐ ĐỊNH)
