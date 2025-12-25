@@ -451,7 +451,7 @@ if not is_locked:
                     YÊU CẦU:
                     - Nếu câu hỏi KHÔNG liên quan đến Yoga, sức khỏe, hoặc bệnh lý (ví dụ: bóng đá, người mẫu, showbiz, chính trị...): chỉ trả lời duy nhất từ khóa "OFFTOPIC".
                     - ƯU TIÊN SỐ 1: Trả lời đúng trọng tâm "CÂU HỎI CỦA NGƯỜI DÙNG".
-                    - Kiểm tra "DỮ LIỆU TRA CỨU": Nếu thấy có [HÌNH ẢNH], hãy mời người dùng xem ảnh minh họa bên dưới. Ghi chú nguồn [Ref: X].
+                    - Kiểm tra "DỮ LIỆU TRA CỨU": Nếu thấy có chuẩn xác [HÌNH ẢNH], hãy mời người dùng xem ảnh minh họa bên dưới. Ghi chú nguồn [Ref: X].
                     - Nếu "DỮ LIỆU TRA CỨU" không liên quan (ví dụ: hỏi bệnh mà dữ liệu ra triết lý), HÃY BỎ QUA DỮ LIỆU ĐÓ và trả lời bằng kiến thức Yoga Y Khoa chuẩn xác của bạn.
                     - Tuyệt đối không trả lời lung tung. Nếu là bệnh lý (huyết áp, thoát vị...), ưu tiên bài tập nhẹ nhàng, an toàn.
                     - Tối đa 150 từ.
@@ -461,7 +461,7 @@ if not is_locked:
                     ai_resp = response.text.strip()
 
                     if "OFFTOPIC" in ai_resp.upper():
-                        st.warning("Tôi chỉ hỗ trợ Yoga.")
+                        st.warning("Vui lòng đặt câu hỏi liên quan.")
                     else:
                         clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
                         st.markdown(clean_text)
