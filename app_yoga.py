@@ -404,20 +404,19 @@ if not is_locked:
                     # --- BƯỚC 1: TRA CỨU & CHUẨN BỊ DATA ---
                     # Tìm kiếm dữ liệu từ Vector DB
                     docs_text = db_text.similarity_search(prompt, k=5)
+                    
+                    # Lấy ảnh (Lấy nhiều hơn để lọc)
                     docs_img = []
                     if db_image:
-                        # Lấy nhiều ảnh hơn một chút để AI có quyền lựa chọn (k=5)
-                        docs_img = db_image.similarity_search(prompt, k=5)
+                        docs_img = db_image.similarity_search(prompt, k=6)
                     
-                    # Lấy lịch sử chat sạch
                     history_text = get_clean_history()
 
-                    # Biến để xây dựng Prompt
-                    context_text_prompt = ""   # Dành cho kiến thức text
-                    context_img_prompt = ""    # Dành cho danh sách ảnh để AI chọn
+                    context_text_prompt = ""
+                    context_img_prompt = ""
                     
-                    source_map = {}            # Map ID -> Link để hiển thị nguồn Text
-                    image_map = {}             # Map ID -> Link để hiển thị Ảnh
+                    source_map = {}
+                    image_map = {} # Map ID -> Data ảnh
 
                     # A. Xử lý Text Sources
                     current_id = 1
@@ -425,56 +424,49 @@ if not is_locked:
                         url = d.metadata.get('url', '#')
                         title = d.metadata.get('title', 'Tài liệu Yoga')
                         source_map[current_id] = {"url": url, "title": title}
-                        
-                        # Đưa vào prompt dạng: [1] Tiêu đề: Nội dung...
                         context_text_prompt += f"[{current_id}] Tiêu đề: {title}\nNội dung: {d.page_content}\n\n"
                         current_id += 1
 
-                    # B. Xử lý Image Candidates (Ứng viên ảnh)
-                    img_start_id = 100 # Bắt đầu ID ảnh từ 100 để không nhầm với text
+                    # B. Xử lý Image Candidates (QUAN TRỌNG: Lọc trùng URL ngay từ đầu vào)
+                    img_start_id = 100
+                    seen_input_urls = set() # Set để kiểm tra trùng đầu vào
+                    
                     for d in docs_img:
                         img_url = d.metadata.get('image_url', '')
                         img_title = d.metadata.get('title', 'Ảnh minh họa')
                         
-                        if img_url:
+                        # Chỉ thêm vào Prompt nếu URL này chưa từng xuất hiện trong danh sách gửi cho AI
+                        if img_url and img_url not in seen_input_urls:
                             image_map[img_start_id] = {"url": img_url, "title": img_title}
-                            # Đưa vào prompt mô tả ảnh để AI hiểu ảnh nói về cái gì
-                            context_img_prompt += f"[ID: {img_start_id}] Mô tả ảnh: {img_title}\n"
+                            context_img_prompt += f"[ID: {img_start_id}] Mô tả: {img_title}\n"
+                            seen_input_urls.add(img_url)
                             img_start_id += 1
 
-                    # --- BƯỚC 2: TẠO PROMPT "THÔNG MINH" ---
+                    # --- BƯỚC 2: TẠO PROMPT "THÉP" (SIẾT FORMAT) ---
                     sys_prompt = f"""
-                    Bạn là chuyên gia Yoga Y Khoa (YIML AI).
+                    Bạn là Trợ lý Yoga Y Khoa (YIML AI).
                     
-                    1. NHIỆM VỤ:
-                    Trả lời câu hỏi người dùng dựa trên "DỮ LIỆU THAM KHẢO" bên dưới.
-                    
-                    2. DỮ LIỆU THAM KHẢO:
-                    {context_text_prompt}
-                    
-                    3. DANH SÁCH ẢNH CÓ SẴN (Chỉ chọn nếu phù hợp):
+                    1. DỮ LIỆU CUNG CẤP:
+                    - Kiến thức: {context_text_prompt}
+                    - Ảnh có sẵn (ID & Mô tả):
                     {context_img_prompt}
+                    - Lịch sử chat: {history_text}
 
-                    4. LỊCH SỬ CHAT:
-                    {history_text}
+                    2. LUẬT TRẢ LỜI (BẮT BUỘC TUÂN THỦ):
+                    - **KHÔNG VIẾT ĐOẠN VĂN:** Tuyệt đối không viết một khối chữ dài.
+                    - **FORMAT:** Bắt buộc dùng Gạch đầu dòng (-) cho từng ý.
+                    - **NGẮN GỌN:** Mỗi gạch đầu dòng không quá 2 câu. Tổng thể không quá 200 từ.
+                    - **TRÍCH DẪN:** Dùng [1], [2] ngay cuối câu chứa thông tin tham khảo.
+                    - **HÌNH ẢNH:** Nếu trong "Ảnh có sẵn" có ID khớp nội dung, hãy liệt kê ID đó xuống cuối.
 
-                    4. YÊU CẦU BẮT BUỘC VỀ TRÌNH BÀY:
-                    - **Cấu trúc:** Trả lời trực tiếp, gãy gọn. TUYỆT ĐỐI KHÔNG viết thành đoạn văn dài lê thê.
-                    - **Định dạng:** BẮT BUỘC dùng gạch đầu dòng (-) cho các bước thực hiện hoặc các ý chính.
-                    - **Nhấn mạnh:** Dùng in đậm (**từ khóa**) cho tên động tác, huyệt đạo hoặc lưu ý quan trọng.
-                    - **Độ dài:** Tối đa 150 từ. Đi thẳng vào vấn đề.
-
-                    5. YÊU CẦU VỀ TRÍCH DẪN & ẢNH:
-                    - **Nội dung:** Phải có dẫn chứng [1], [2] ngay sau câu thông tin lấy từ dữ liệu.
-                    - **Hình ảnh:** Cuối bài, nếu trong "DANH SÁCH ẢNH CÓ SẴN" có ảnh khớp với bài tập bạn vừa chỉ, hãy liệt kê ID.
-                    - **Cấu trúc trả về:**
-                      [Nội dung ngắn gọn, gạch đầu dòng, có in đậm]
-                      
-                      |||IMAGES|||
-                      [ID ảnh 1]
-                      [ID ảnh 2]
+                    3. CẤU TRÚC PHẢN HỒI MẪU:
+                    Chào bạn, về vấn đề này:
+                    - Ý chính 1... [1]
+                    - **Từ khóa quan trọng**: giải thích ngắn [2]
+                    - Bài tập gợi ý: Tên bài tập [3]
                     
-                    Nếu câu hỏi không liên quan sức khỏe/yoga, chỉ trả lời: "OFFTOPIC".
+                    |||IMAGES|||
+                    [ID ảnh] [ID ảnh]
 
                     CÂU HỎI: "{prompt}"
                     """
@@ -486,57 +478,63 @@ if not is_locked:
                     if "OFFTOPIC" in raw_resp.upper():
                         st.warning("Vui lòng đặt câu hỏi liên quan đến Yoga & Sức khỏe.")
                     else:
-                        # 1. Tách phần Nội dung và Phần Ảnh (dựa vào từ khóa |||IMAGES|||)
+                        # 1. Tách phần Nội dung và Phần Ảnh
                         parts = raw_resp.split("|||IMAGES|||")
                         main_content = parts[0].strip()
                         
-                        # 2. Xử lý Ảnh được AI chọn
+                        # 2. Xử lý Ảnh (LOGIC LỌC TRÙNG KÉP - ĐẢM BẢO KHÔNG LẶP)
                         selected_images = []
+                        seen_output_urls = set() # Set kiểm tra trùng đầu ra
+
                         if len(parts) > 1:
                             img_part = parts[1].strip()
-                            # Tìm tất cả các con số trong phần này (ví dụ 100, 101)
                             found_ids = re.findall(r'\d+', img_part)
+                            
                             for fid in found_ids:
                                 fid = int(fid)
                                 if fid in image_map:
-                                    # Lọc trùng ảnh (nếu AI lặp lại)
-                                    if image_map[fid] not in selected_images:
-                                        selected_images.append(image_map[fid])
+                                    img_data = image_map[fid]
+                                    # Kiểm tra URL thêm lần nữa để chắc chắn 100%
+                                    if img_data['url'] not in seen_output_urls:
+                                        selected_images.append(img_data)
+                                        seen_output_urls.add(img_data['url'])
 
-                        # 3. Hiển thị Nội dung chính (đã có [1], [2] từ AI)
+                        # 3. Hiển thị Nội dung (Text)
                         st.markdown(main_content)
 
-                        # 4. Hiển thị Gallery Ảnh (Chỉ những ảnh AI đã chọn)
+                        # 4. Hiển thị Gallery Ảnh (Đã lọc sạch)
                         if selected_images:
                             st.markdown("---")
-                            st.markdown("##### 🖼️ Minh họa được AI đề xuất:")
+                            st.markdown("##### 🖼️ Minh họa chi tiết:")
                             cols = st.columns(3)
                             for i, img in enumerate(selected_images):
                                 with cols[i % 3]:
                                     st.markdown(f"""<div style="height:150px;overflow:hidden;border-radius:10px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;background:#f9f9f9;"><img src="{img['url']}" style="width:100%;height:100%;object-fit:cover;"></div>""", unsafe_allow_html=True)
-                                    with st.expander(f"🔍 Chi tiết"):
+                                    with st.expander(f"🔍 Xem rõ hơn"):
                                         st.image(img['url'], caption=img['title'], use_container_width=True)
                         
-                        # 5. Xử lý Nguồn tham khảo (Chỉ hiện những nguồn AI thực sự dùng)
-                        # Quét trong bài viết xem AI có ghi [1], [2] không
+                        # 5. Xử lý Nguồn tham khảo (Chỉ hiện nguồn Text được dùng)
                         used_ref_ids = set([int(m) for m in re.findall(r'\[(\d+)\]', main_content)])
-                        
                         html_src = ""
+                        
                         if used_ref_ids:
                             valid_sources = []
+                            seen_src_urls = set() # Lọc trùng link nguồn text
                             for uid in used_ref_ids:
                                 if uid in source_map:
-                                    valid_sources.append(source_map[uid])
+                                    src = source_map[uid]
+                                    if src['url'] != '#' and src['url'] not in seen_src_urls:
+                                        valid_sources.append(src)
+                                        seen_src_urls.add(src['url'])
                             
                             if valid_sources:
                                 html_src = "<div class='source-box'><b>📚 Tài liệu tham khảo:</b><br>"
                                 for src in valid_sources:
-                                    if src['url'] != '#':
-                                        html_src += f"• <a href='{src['url']}' target='_blank' class='source-link' style='display:inline;'>{src['title']}</a><br>"
+                                    html_src += f"• <a href='{src['url']}' target='_blank' class='source-link' style='display:inline;'>{src['title']}</a><br>"
                                 html_src += "</div>"
                                 st.markdown(html_src, unsafe_allow_html=True)
 
-                        # 6. Xử lý Upsell (Giữ nguyên logic cũ)
+                        # 6. Upsell & Save History
                         upsell_html = ""
                         recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
                         if recs:
@@ -546,7 +544,6 @@ if not is_locked:
                             upsell_html += "</div>"
                             st.markdown(upsell_html, unsafe_allow_html=True)
 
-                        # 7. Lưu vào session state (Để lịch sử hiển thị đúng)
                         full_content_to_save = main_content
                         if html_src: full_content_to_save += "\n\n" + html_src
                         if upsell_html: full_content_to_save += "\n\n" + upsell_html
@@ -554,7 +551,7 @@ if not is_locked:
                         st.session_state.messages.append({
                             "role": "assistant", 
                             "content": full_content_to_save,
-                            "images": selected_images # Lưu danh sách ảnh chuẩn để hiển thị lại
+                            "images": selected_images
                         })
 
                 except Exception as e:
