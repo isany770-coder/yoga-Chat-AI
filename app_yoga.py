@@ -366,7 +366,7 @@ def get_clean_history():
     return history_text
 # -------------------------------------------------------------
 # =====================================================
-# 6. XỬ LÝ CHAT - PHIÊN BẢN GEMINI PRO (SIÊU BỀN)
+# 6. XỬ LÝ CHAT (TỰ ĐỘNG CHỌN MODEL CÓ SẴN)
 # =====================================================
 if not is_locked:
     if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
@@ -375,165 +375,86 @@ if not is_locked:
         increment_usage(user_id)
 
         with st.chat_message("assistant"):
-            with st.spinner("Đang tra cứu dữ liệu..."):
+            with st.spinner("Đang xử lý..."):
                 try:
-                    # =========================================================
-                    # 1. CẤU HÌNH MODEL: DÙNG 'GEMINI-PRO' (KHÔNG DÙNG FLASH NỮA)
-                    # =========================================================
-                    # 'gemini-pro' là mã định danh chuẩn nhất, không bao giờ lỗi 404
-                    generation_config = {
-                        "temperature": 0.3,
-                        "max_output_tokens": 1000,
-                    }
-                    model = genai.GenerativeModel('gemini-pro', generation_config=generation_config)
-
-                    # =========================================================
-                    # 2. TÌM KIẾM DỮ LIỆU
-                    # =========================================================
-                    # db_text đã được load từ Section 2
-                    docs_text = db_text.similarity_search(prompt, k=15)
+                    # --- THUẬT TOÁN TỰ TÌM MODEL (KHÔNG GÕ TAY NỮA) ---
+                    valid_model = None
+                    # Lấy danh sách model mà Server hỗ trợ
+                    try:
+                        for m in genai.list_models():
+                            if 'generateContent' in m.supported_generation_methods:
+                                valid_model = m.name
+                                break # Lấy ngay cái đầu tiên tìm thấy
+                    except: pass
                     
+                    # Nếu vẫn không tìm được, dùng cái tên cổ điển nhất
+                    if not valid_model: valid_model = 'models/gemini-pro'
+
+                    # Khởi tạo model với cái tên vừa tìm được
+                    model = genai.GenerativeModel(valid_model)
+
+                    # --- TÌM KIẾM DỮ LIỆU ---
+                    docs_text = db_text.similarity_search(prompt, k=10)
                     docs_img = []
-                    if db_image:
-                        docs_img = db_image.similarity_search(prompt, k=10)
+                    if db_image: docs_img = db_image.similarity_search(prompt, k=5)
                     
-                    # =========================================================
-                    # 3. CHUẨN BỊ DỮ LIỆU ĐẦU VÀO
-                    # =========================================================
-                    history_text = get_clean_history()
-
-                    context_text_prompt = ""
+                    # --- XỬ LÝ TEXT ---
+                    context_text = ""
                     source_map = {}
-                    current_id = 1
-                    
-                    for d in docs_text:
-                        url = d.metadata.get('url', '#')
-                        title = d.metadata.get('title', 'Tài liệu Yoga')
-                        source_map[current_id] = {"url": url, "title": title}
-                        context_text_prompt += f"--- DỮ LIỆU [{current_id}] ---\nTiêu đề: {title}\nNội dung: {d.page_content}\n"
-                        current_id += 1
+                    for i, d in enumerate(docs_text):
+                        context_text += f"[Nguồn {i+1}]: {d.page_content}\n"
+                        source_map[i+1] = {"url": d.metadata.get('url','#'), "title": d.metadata.get('title','Link')}
 
-                    # Map Ảnh
-                    image_map = {}
-                    context_img_prompt = ""
-                    img_start_id = 100
+                    # --- XỬ LÝ ẢNH ---
+                    img_map = {}
+                    context_img = ""
+                    idx_img = 100
                     seen_urls = set()
-                    
                     for d in docs_img:
-                        img_url = d.metadata.get('image_url', '')
-                        img_title = d.metadata.get('title', 'Ảnh minh họa')
-                        # Lọc trùng
-                        if img_url and img_url not in seen_urls:
-                            image_map[img_start_id] = {"url": img_url, "title": img_title}
-                            context_img_prompt += f"[ID: {img_start_id}] {img_title}\n"
-                            seen_urls.add(img_url)
-                            img_start_id += 1
+                        url = d.metadata.get('image_url','')
+                        if url and url not in seen_urls:
+                            img_map[idx_img] = {"url": url, "title": d.metadata.get('title','')}
+                            context_img += f"[ID: {idx_img}] {d.metadata.get('title','')}\n"
+                            seen_urls.add(url)
+                            idx_img += 1
 
-                    # =========================================================
-                    # 4. PROMPT XỬ LÝ
-                    # =========================================================
+                    # --- PROMPT ---
                     sys_prompt = f"""
-                    Bạn là Trợ lý Yoga Y Khoa (YIML AI).
-
-                    1. DỮ LIỆU ĐẦU VÀO:
-                    - Lịch sử chat: {history_text}
-                    - Tài liệu: {context_text_prompt}
-                    - Kho ảnh: {context_img_prompt}
-
-                    2. CÂU HỎI: "{prompt}"
-
-                    3. YÊU CẦU:
-                    - **Bước 1:** Trả lời ngắn gọn, gạch đầu dòng.
-                    - **Bước 2:** Dựa vào Tài liệu để trả lời và ghi nguồn [1], [2]. Nếu không có tài liệu khớp, tự trả lời (nhưng KHÔNG ghi nguồn).
-                    - **Bước 3:** Chọn 1 ảnh minh họa phù hợp nhất (nếu có).
-
-                    4. FORMAT TRẢ VỀ:
-                    [Nội dung trả lời]
+                    Bạn là Trợ lý Yoga.
+                    Dữ liệu: {context_text}
+                    Ảnh có sẵn: {context_img}
+                    Câu hỏi: {prompt}
                     
-                    |||IMAGES|||
-                    [ID ảnh]
+                    Yêu cầu:
+                    1. Trả lời dựa trên dữ liệu. Ghi nguồn [1], [2].
+                    2. Nếu có ảnh phù hợp trong danh sách, ghi: |||IMAGES||| [ID ảnh]
+                    3. Ngắn gọn, gạch đầu dòng.
                     """
 
-                    # =========================================================
-                    # 5. GỌI AI & HIỂN THỊ
-                    # =========================================================
                     response = model.generate_content(sys_prompt)
-                    raw_resp = response.text.strip()
+                    text_resp = response.text
 
-                    # Tách nội dung
-                    if "|||IMAGES|||" in raw_resp:
-                        parts = raw_resp.split("|||IMAGES|||")
-                        main_content = parts[0].strip()
-                        img_part = parts[1].strip()
+                    # --- HIỂN THỊ ---
+                    if "|||IMAGES|||" in text_resp:
+                        main_txt, img_part = text_resp.split("|||IMAGES|||")
                     else:
-                        main_content = raw_resp
-                        img_part = ""
-
-                    # Logic cắt ảnh (Lấy 1 cái đầu tiên)
-                    selected_images = []
-                    if img_part:
-                        found_ids = re.findall(r'\d+', img_part)
-                        for fid in found_ids:
-                            fid = int(fid)
-                            if fid in image_map:
-                                selected_images.append(image_map[fid])
-                                break # <--- Lệnh này quan trọng để chỉ lấy 1 ảnh
+                        main_txt, img_part = text_resp, ""
                     
-                    # 1. Hiển thị Text
-                    st.markdown(main_content)
-
-                    # 2. Hiển thị 1 Ảnh (To & Rõ)
-                    if selected_images:
-                        img = selected_images[0]
-                        st.markdown("---")
-                        # 
-
-[Image of Yoga Posture]
-
-                        st.image(img['url'], caption=f"Minh họa: {img['title']}", use_container_width=True)
-
-                    # 3. Hiển thị Nguồn
-                    used_ref_ids = set([int(m) for m in re.findall(r'\[(\d+)\]', main_content)])
-                    html_src = ""
-                    if used_ref_ids:
-                        valid_sources = []
-                        seen_links = set()
-                        for uid in used_ref_ids:
-                            if uid in source_map:
-                                src = source_map[uid]
-                                if src['url'] != '#' and src['url'] not in seen_links:
-                                    valid_sources.append(src)
-                                    seen_links.add(src['url'])
-                        
-                        if valid_sources:
-                            html_src = "<div class='source-box'><b>📚 Tài liệu tham khảo:</b><br>"
-                            for src in valid_sources:
-                                html_src += f"• <a href='{src['url']}' target='_blank' class='source-link' style='display:inline;'>{src['title']}</a><br>"
-                            html_src += "</div>"
-                            st.markdown(html_src, unsafe_allow_html=True)
-
-                    # 4. Upsell
-                    upsell_html = ""
-                    recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
-                    if recs:
-                        upsell_html += "<div style='margin-top:15px'>"
-                        for r in recs[:2]:
-                                upsell_html += f"""<div style="background:#e0f2f1; padding:10px; border-radius:10px; margin-bottom:8px; border:1px solid #009688; display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold; color:#004d40; font-size:14px">{r['name']}</span><a href="{r['url']}" target="_blank" style="background:#00796b; color:white; padding:5px 10px; border-radius:15px; text-decoration:none; font-size:12px; font-weight:bold;">Xem ngay</a></div>"""
-                        upsell_html += "</div>"
-                        st.markdown(upsell_html, unsafe_allow_html=True)
-
-                    # 5. Lưu lịch sử
-                    full_content_to_save = main_content
-                    if html_src: full_content_to_save += "\n\n" + html_src
-                    if upsell_html: full_content_to_save += "\n\n" + upsell_html
+                    st.markdown(main_txt.strip())
                     
-                    st.session_state.messages.append({
-                        "role": "assistant", 
-                        "content": full_content_to_save,
-                        "images": selected_images
-                    })
+                    # Hiển thị 1 ảnh
+                    found_ids = re.findall(r'\d+', img_part)
+                    for fid in found_ids:
+                        if int(fid) in img_map:
+                            img = img_map[int(fid)]
+                            st.image(img['url'], caption=img['title'])
+                            break # Chỉ lấy 1 ảnh
+
+                    # Lưu tin nhắn
+                    st.session_state.messages.append({"role": "assistant", "content": main_txt})
 
                 except Exception as e:
+                    # In lỗi ra để biết Server đang bị gì
                     st.error(f"Lỗi hệ thống: {str(e)}")
                 
 
