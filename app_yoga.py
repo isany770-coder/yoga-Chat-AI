@@ -446,7 +446,7 @@ if not is_locked:
     if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
-        increment_usage(user_id)
+        increment_usage(current_user_id)
 
         with st.chat_message("assistant"):
             with st.spinner("Đang tra cứu..."):
