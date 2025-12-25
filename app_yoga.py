@@ -284,6 +284,15 @@ if st.session_state.authenticated and st.session_state.username == "admin":
         for log in logs:
             st.markdown(f"| {log[0]} | {log[1]} | {log[2]} |")
 
+def get_all_usage_logs():
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT date, user_id, count FROM usage ORDER BY date DESC, count DESC LIMIT 50")
+        data = c.fetchall(); conn.close()
+        return data
+    except: return []
+
 # =====================================================
 # 4. GIAO DIỆN HẾT HẠN (GIỮ NGUYÊN BẢN GỐC - KHÔNG SỬA)
 # =====================================================
@@ -377,33 +386,24 @@ YOGA_SOLUTIONS = {
 }
 
 # =====================================================
-# 6. XỬ LÝ CHAT (ĐOẠN CUỐI CÙNG - ĐÃ FIX BIẾN)
+# 6. XỬ LÝ CHAT (BẢN FIX CHUẨN KHÔNG LỖI)
 # =====================================================
-is_locked = False
-    # 1. Nhận câu hỏi
+is_locked = False 
+
+if not is_locked:
     if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        # [QUAN TRỌNG] Dùng biến current_user_id (đã tạo ở trên) để trừ lượt
-        # Nếu chưa có biến này (do chưa chạy qua phần trên), gán tạm là 'unknown'
-        safe_user_id = current_user_id if 'current_user_id' in globals() else "guest_error"
-        increment_usage(safe_user_id)
+        # Dùng current_user_id đã lấy từ Cookie ở Section 3
+        safe_id = current_user_id if 'current_user_id' in globals() else "guest"
+        increment_usage(safe_id)
 
         with st.chat_message("assistant"):
             with st.spinner("Đang tra cứu..."):
                 try:
-                    # 2. Chọn Model
-                    valid_model = 'models/gemini-1.5-flash'
-                    try:
-                        for m in genai.list_models():
-                            if 'pro' in m.name or 'flash' in m.name:
-                                valid_model = m.name; break
-                    except: pass
+                    model = genai.GenerativeModel('models/gemini-1.5-flash')
                     
-                    model = genai.GenerativeModel(valid_model)
-                    
-                    # 3. Tìm kiếm Vector
                     docs = db_text.similarity_search(prompt, k=6)
                     if db_image: docs += db_image.similarity_search(prompt, k=2)
                     
@@ -414,18 +414,12 @@ is_locked = False
                     for i, d in enumerate(docs):
                         doc_id = i + 1
                         meta = d.metadata
-                        url = meta.get('url', '#')
-                        title = meta.get('title', 'Tài liệu')
-                        img_url = meta.get('image_url', '')
-                        source_map[doc_id] = {"url": url, "title": title}
-                        
-                        if meta.get('type') == 'image' and img_url:
-                            found_images.append({"url": img_url, "title": title})
-                            context_text += f"\n[Nguồn {doc_id} - ẢNH]: {title}.\nNội dung: {d.page_content}\n"
-                        else:
-                            context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
-                            
-                    # --- 4. Prompt & Trả lời ---
+                        source_map[doc_id] = {"url": meta.get('url', '#'), "title": meta.get('title', 'Tài liệu')}
+                        if meta.get('type') == 'image' and meta.get('image_url'):
+                            found_images.append({"url": meta['image_url'], "title": meta.get('title', '')})
+                        context_text += f"\n[Nguồn {doc_id}]: {d.page_content}\n"
+
+                    # --- 3. PROMPT ---
                     sys_prompt = f"""
                     Bạn là chuyên gia Yoga Y Khoa.
                     1. DỮ LIỆU: {context_text}
@@ -433,14 +427,14 @@ is_locked = False
                     YÊU CẦU:
                     - Nếu câu hỏi KHÔNG liên quan đến Yoga/Sức khỏe: trả lời "OFFTOPIC".
                     - Trả lời đúng trọng tâm.
-                    - Ưu tiên kiểm tra dữ liệu: Nếu có [HÌNH ẢNH], hãy mời xem ảnh bên dưới. Ghi nguồn [Ref: X].
-                    - Nếu dữ liệu không khớp, tự trả lời bằng kiến thức Yoga chuẩn.
+                    - Ưu tiên. Kiểm tra dữ liệu: Nếu có [HÌNH ẢNH], hãy mời xem ảnh bên dưới. Ghi nguồn [Ref: X].
+                    - Nếu dữ liệu không khớp, tự trả lời bằng kiến thức Yoga chuẩn (nhưng không bịa nguồn).
                     - Tối đa 150 từ. Sử dụng gạch đầu dòng.
                     """
+                    
                     response = model.generate_content(sys_prompt)
                     ai_resp = response.text.strip()
                     
-                    # 5. Hiển thị kết quả
                     clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
                     st.markdown(clean_text)
                     
@@ -448,38 +442,19 @@ is_locked = False
                         st.markdown("---")
                         cols = st.columns(3)
                         for i, img in enumerate(found_images):
-                            with cols[i % 3]:
-                                st.image(img['url'], caption=img['title'], use_container_width=True)
+                            with cols[i % 3]: st.image(img['url'], caption=img['title'])
 
-                    # 6. Nguồn tham khảo
                     used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
+                    html_src = ""
                     if used_ids:
-                        html_src = "<div class='source-box'><b>📚 Tài liệu tham khảo:</b>"
-                        seen = set()
-                        for uid in used_ids:
-                            info = source_map[uid]
-                            if info['url'] != '#' and info['url'] not in seen:
-                                seen.add(info['url'])
-                                html_src += f" <a href='{info['url']}' target='_blank' class='source-link'>{info['title']}</a>"
+                        html_src = "<div class='source-box'><b>📚 Nguồn:</b>"
+                        for uid in set(used_ids):
+                            html_src += f" <a href='{source_map[uid]['url']}' target='_blank' class='source-link'>{source_map[uid]['title']}</a>"
                         html_src += "</div>"
                         st.markdown(html_src, unsafe_allow_html=True)
 
-                    # 7. Upsell
-                    upsell_html = ""
-                    if 'YOGA_SOLUTIONS' in globals():
-                        recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
-                        if recs:
-                            upsell_html += "<div style='margin-top:15px'>"
-                            for r in recs[:2]:
-                                upsell_html += f"""<div style="background:#e0f2f1; padding:8px; border-radius:10px; margin-bottom:5px; border:1px solid #009688; display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold; color:#004d40; font-size:13px">{r['name']}</span><a href="{r['url']}" target="_blank" style="background:#00796b; color:white; padding:4px 10px; border-radius:15px; text-decoration:none; font-size:11px;">Mở ngay</a></div>"""
-                            upsell_html += "</div>"
-                            st.markdown(upsell_html, unsafe_allow_html=True)
-
-                    # 8. Lưu vào Session & Database
-                    st.session_state.messages.append({"role": "assistant", "content": clean_text + ("\n\n" + html_src if 'html_src' in locals() else "") + upsell_html, "images": found_images})
-
-                    # [FIX LỖI QUAN TRỌNG] Dùng safe_user_id thay vì user_id
-                    log_chat_to_db(safe_user_id, prompt, clean_text)
+                    st.session_state.messages.append({"role": "assistant", "content": clean_text + html_src, "images": found_images})
+                    log_chat_to_db(safe_id, prompt, clean_text)
 
                 except Exception as e:
-                    st.error(f"Lỗi xử lý: {e}")
+                    st.error(f"Hệ thống bận, vui lòng thử lại.")
