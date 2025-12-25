@@ -5,4 +5,3 @@ langchain-community
 faiss-cpu
 extra-streamlit-components
 gdown
-extra-streamlit-components
