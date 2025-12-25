@@ -371,28 +371,8 @@ def get_clean_history():
     return history_text
 # -------------------------------------------------------------
 # =====================================================
-# 6. XỬ LÝ CHAT (CÓ CHẶN SPAM & CÂU HỎI NGOÀI LỀ)
+# 6. XỬ LÝ CHAT - PHIÊN BẢN GEMINI PRO (SIÊU BỀN)
 # =====================================================
-
-# --- A. KHỞI TẠO BIẾN TRẠNG THÁI (Nếu chưa có) ---
-if "spam_count" not in st.session_state: 
-    st.session_state.spam_count = 0
-if "lock_until" not in st.session_state: 
-    st.session_state.lock_until = None
-
-# --- B. KIỂM TRA TRẠNG THÁI KHÓA ---
-is_locked = False
-if st.session_state.lock_until:
-    if time.time() < st.session_state.lock_until:
-        is_locked = True
-        remaining = int((st.session_state.lock_until - time.time()) / 60)
-        st.warning(f"⚠️ Bạn đã vi phạm quy định nội dung. Khung chat sẽ mở lại sau {remaining + 1} phút.")
-    else:
-        # Tự động mở khóa sau khi hết thời gian
-        st.session_state.lock_until = None
-        st.session_state.spam_count = 0
-
-# --- C. LOGIC XỬ LÝ CHAT CHÍNH (CHUẨN: LỌC TRÙNG & BIẾN AN TOÀN) ---
 if not is_locked:
     if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
         st.chat_message("user").markdown(prompt)
@@ -400,32 +380,30 @@ if not is_locked:
         increment_usage(user_id)
 
         with st.chat_message("assistant"):
-            # Dùng spinner nhẹ nhàng để user biết app đang chạy
             with st.spinner("Đang tra cứu dữ liệu..."):
                 try:
                     # =========================================================
-                    # 1. CẤU HÌNH "FLASH SIÊU TỐC" (ĐẢM BẢO KHÔNG TREO APP)
+                    # 1. CẤU HÌNH MODEL: DÙNG 'GEMINI-PRO' (KHÔNG DÙNG FLASH NỮA)
                     # =========================================================
-                    # Temperature 0.3: Giảm độ "phiêu" để AI bớt bịa chuyện
+                    # 'gemini-pro' là mã định danh chuẩn nhất, không bao giờ lỗi 404
                     generation_config = {
                         "temperature": 0.3,
                         "max_output_tokens": 1000,
                     }
-                    # Quay về Flash: Nhanh, Nhẹ, Ổn định
-                    model = genai.GenerativeModel('gemini-1.5-flash', generation_config=generation_config)
+                    model = genai.GenerativeModel('gemini-pro', generation_config=generation_config)
 
                     # =========================================================
-                    # 2. TÌM KIẾM DỮ LIỆU (TĂNG SỐ LƯỢNG ĐỂ BÙ CHO ĐỘ THÔNG MINH)
+                    # 2. TÌM KIẾM DỮ LIỆU
                     # =========================================================
-                    # Flash đọc nhanh nên ta ném cho nó 20 bài (thay vì 5) để nó có đủ dữ liệu
-                    docs_text = db_text.similarity_search(prompt, k=20)
+                    # db_text đã được load từ Section 2
+                    docs_text = db_text.similarity_search(prompt, k=15)
                     
                     docs_img = []
                     if db_image:
                         docs_img = db_image.similarity_search(prompt, k=10)
                     
                     # =========================================================
-                    # 3. XỬ LÝ DỮ LIỆU ĐẦU VÀO
+                    # 3. CHUẨN BỊ DỮ LIỆU ĐẦU VÀO
                     # =========================================================
                     history_text = get_clean_history()
 
@@ -433,64 +411,61 @@ if not is_locked:
                     source_map = {}
                     current_id = 1
                     
-                    # Gom text
                     for d in docs_text:
                         url = d.metadata.get('url', '#')
-                        title = d.metadata.get('title', 'Tài liệu Y Khoa')
+                        title = d.metadata.get('title', 'Tài liệu Yoga')
                         source_map[current_id] = {"url": url, "title": title}
-                        context_text_prompt += f"--- NGUỒN [{current_id}] ---\nTiêu đề: {title}\nNội dung: {d.page_content}\n"
+                        context_text_prompt += f"--- DỮ LIỆU [{current_id}] ---\nTiêu đề: {title}\nNội dung: {d.page_content}\n"
                         current_id += 1
 
-                    # Gom ảnh (Map ID)
+                    # Map Ảnh
                     image_map = {}
                     context_img_prompt = ""
                     img_start_id = 100
-                    
-                    # Lọc sơ bộ ảnh
                     seen_urls = set()
+                    
                     for d in docs_img:
                         img_url = d.metadata.get('image_url', '')
                         img_title = d.metadata.get('title', 'Ảnh minh họa')
-                        # Chỉ lấy nếu chưa có trong danh sách
+                        # Lọc trùng
                         if img_url and img_url not in seen_urls:
                             image_map[img_start_id] = {"url": img_url, "title": img_title}
-                            context_img_prompt += f"[ID ẢNH: {img_start_id}] {img_title}\n"
+                            context_img_prompt += f"[ID: {img_start_id}] {img_title}\n"
                             seen_urls.add(img_url)
                             img_start_id += 1
 
                     # =========================================================
-                    # 4. PROMPT "CẦM TAY CHỈ VIỆC" (STEP-BY-STEP)
+                    # 4. PROMPT XỬ LÝ
                     # =========================================================
                     sys_prompt = f"""
                     Bạn là Trợ lý Yoga Y Khoa (YIML AI).
-                    
-                    1. DỮ LIỆU CUNG CẤP:
+
+                    1. DỮ LIỆU ĐẦU VÀO:
                     - Lịch sử chat: {history_text}
-                    - Tài liệu tham khảo: {context_text_prompt}
+                    - Tài liệu: {context_text_prompt}
                     - Kho ảnh: {context_img_prompt}
 
                     2. CÂU HỎI: "{prompt}"
 
-                    3. YÊU CẦU TRẢ LỜI (TUÂN THỦ TUYỆT ĐỐI):
-                    - **Bước 1:** Đọc "Tài liệu tham khảo". Tìm thông tin trả lời câu hỏi.
-                    - **Bước 2:** Viết câu trả lời NGẮN GỌN, dùng gạch đầu dòng (-).
-                    - **Bước 3:** Nếu thông tin lấy từ "Tài liệu tham khảo", hãy ghi chú [1], [2] ở cuối câu. Nếu tự trả lời bằng kiến thức riêng thì KHÔNG ghi nguồn.
-                    - **Bước 4 (Ảnh):** Chọn duy nhất 1 ID ảnh phù hợp nhất từ "Kho ảnh".
+                    3. YÊU CẦU:
+                    - **Bước 1:** Trả lời ngắn gọn, gạch đầu dòng.
+                    - **Bước 2:** Dựa vào Tài liệu để trả lời và ghi nguồn [1], [2]. Nếu không có tài liệu khớp, tự trả lời (nhưng KHÔNG ghi nguồn).
+                    - **Bước 3:** Chọn 1 ảnh minh họa phù hợp nhất (nếu có).
 
-                    4. ĐỊNH DẠNG OUTPUT:
-                    [Nội dung trả lời...]
+                    4. FORMAT TRẢ VỀ:
+                    [Nội dung trả lời]
                     
                     |||IMAGES|||
                     [ID ảnh]
                     """
 
                     # =========================================================
-                    # 5. GỌI AI & XỬ LÝ KẾT QUẢ (CẮT ẢNH CỨNG)
+                    # 5. GỌI AI & HIỂN THỊ
                     # =========================================================
                     response = model.generate_content(sys_prompt)
                     raw_resp = response.text.strip()
 
-                    # Tách phần Text và Ảnh
+                    # Tách nội dung
                     if "|||IMAGES|||" in raw_resp:
                         parts = raw_resp.split("|||IMAGES|||")
                         main_content = parts[0].strip()
@@ -499,7 +474,7 @@ if not is_locked:
                         main_content = raw_resp
                         img_part = ""
 
-                    # --- LOGIC CẮT ẢNH CỰC ĐOAN (CHỈ LẤY 1) ---
+                    # Logic cắt ảnh (Lấy 1 cái đầu tiên)
                     selected_images = []
                     if img_part:
                         found_ids = re.findall(r'\d+', img_part)
@@ -507,19 +482,22 @@ if not is_locked:
                             fid = int(fid)
                             if fid in image_map:
                                 selected_images.append(image_map[fid])
-                                break # <--- LỆNH QUAN TRỌNG: Thấy 1 cái là DỪNG NGAY.
+                                break # <--- Lệnh này quan trọng để chỉ lấy 1 ảnh
                     
-                    # Hiển thị nội dung
+                    # 1. Hiển thị Text
                     st.markdown(main_content)
 
-                    # Hiển thị 1 ảnh duy nhất (To & Rõ)
+                    # 2. Hiển thị 1 Ảnh (To & Rõ)
                     if selected_images:
                         img = selected_images[0]
                         st.markdown("---")
-                        # Dùng st.image với use_container_width=True để ảnh to full chiều ngang
+                        # 
+
+[Image of Yoga Posture]
+
                         st.image(img['url'], caption=f"Minh họa: {img['title']}", use_container_width=True)
 
-                    # Hiển thị Nguồn (Chỉ hiện nguồn ĐÚNG)
+                    # 3. Hiển thị Nguồn
                     used_ref_ids = set([int(m) for m in re.findall(r'\[(\d+)\]', main_content)])
                     html_src = ""
                     if used_ref_ids:
@@ -539,7 +517,7 @@ if not is_locked:
                             html_src += "</div>"
                             st.markdown(html_src, unsafe_allow_html=True)
 
-                    # Upsell & Save History
+                    # 4. Upsell
                     upsell_html = ""
                     recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
                     if recs:
@@ -549,6 +527,7 @@ if not is_locked:
                         upsell_html += "</div>"
                         st.markdown(upsell_html, unsafe_allow_html=True)
 
+                    # 5. Lưu lịch sử
                     full_content_to_save = main_content
                     if html_src: full_content_to_save += "\n\n" + html_src
                     if upsell_html: full_content_to_save += "\n\n" + upsell_html
