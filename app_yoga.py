@@ -344,7 +344,7 @@ if not is_locked:
                     model = genai.GenerativeModel(valid_model)
                     
                     # --- 1. TÌM KIẾM ---
-                    docs_text = db_text.similarity_search(prompt, k=4)
+                    docs_text = db_text.similarity_search(prompt, k=6)
                     docs_img = []
                     if db_image: docs_img = db_image.similarity_search(prompt, k=2)
                     docs = docs_text + docs_img
@@ -376,16 +376,16 @@ if not is_locked:
                     YÊU CẦU:
                     - Nếu câu hỏi KHÔNG liên quan đến Yoga/Sức khỏe: trả lời "OFFTOPIC".
                     - Trả lời đúng trọng tâm.
-                    - Kiểm tra dữ liệu: Nếu có [HÌNH ẢNH], hãy mời xem ảnh bên dưới. Ghi nguồn [Ref: X].
+                    - Ưu tiên. Kiểm tra dữ liệu: Nếu có [HÌNH ẢNH], hãy mời xem ảnh bên dưới. Ghi nguồn [Ref: X].
                     - Nếu dữ liệu không khớp, tự trả lời bằng kiến thức Yoga chuẩn (nhưng không bịa nguồn).
-                    - Tối đa 150 từ.
+                    - Tối đa 150 từ. Sử dụng gạch đầu dòng.
                     """
                     
                     response = model.generate_content(sys_prompt)
                     ai_resp = response.text.strip()
 
                     if "OFFTOPIC" in ai_resp.upper():
-                        st.warning("Tôi chỉ hỗ trợ Yoga.")
+                        st.warning("Vui lòng đặt câu hỏi liên quan.")
                     else:
                         clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
                         st.markdown(clean_text)
