@@ -7,9 +7,11 @@ import datetime
 import gc
 import re
 import time
+import extra_streamlit_components as stx
 import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
+
 
 # =====================================================
 # 1. CẤU HÌNH TRANG & CSS (GIỮ NGUYÊN BẢN GỐC CỦA BẠN)
@@ -215,36 +217,54 @@ def get_all_usage_logs():
     conn.close()
     return data
 
+# =====================================================
+# [MỚI] XỬ LÝ COOKIE (AUTO LOGIN)
+# =====================================================
+def get_manager():
+    return stx.CookieManager()
+
+cookie_manager = get_manager()
+cookie_user = cookie_manager.get(cookie="yoga_vip_user")
+
+# Nếu có Cookie -> Tự động đăng nhập luôn
+if cookie_user and "authenticated" not in st.session_state:
+    st.session_state.authenticated = True
+    st.session_state.username = cookie_user
+    # st.toast(f"👋 Chào mừng trở lại, {cookie_user}!")
+
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Tôi là Trợ lý Yoga.\nBạn cần tìm bài tập hay tư vấn bệnh lý gì hôm nay?"}]
 
 # =====================================================
-# [MỚI] SIDEBAR: ĐĂNG NHẬP & ADMIN
+# 4. SIDEBAR (CÓ COOKIE)
 # =====================================================
 with st.sidebar:
     st.title("🔐 Khu Vực VIP")
     
     if st.session_state.authenticated:
         st.success(f"Hi: **{st.session_state.username}**")
+        
+        # [SỬA] Nút Đăng xuất -> Xóa Cookie
         if st.button("Đăng xuất", type="primary"):
+            cookie_manager.delete("yoga_vip_user") # Xóa cookie
             st.session_state.authenticated = False
             st.session_state.username = ""
             st.rerun()
             
-        # --- SOi LOG CHAT (CHỈ ADMIN THẤY) ---
+        # ... (Đoạn code Admin Log cũ giữ nguyên) ...
         if st.session_state.username == "admin":
-            st.markdown("---")
-            st.subheader("🕵️ Soi Log Chat")
-            if st.button("🔄 Làm mới Log"): st.rerun()
-            
-            logs = get_chat_logs(15) # Xem 15 câu gần nhất
-            for l in logs:
-                # l[0]: Time, l[1]: User, l[2]: Hỏi, l[3]: Trả lời
-                with st.expander(f"[{l[0]}] {l[1]}"):
-                    st.markdown(f"**🗣️:** {l[2]}")
-                    st.info(f"**🤖:** {l[3][:100]}...") # Hiện 100 ký tự đầu câu trả lời
+             # ... (Giữ nguyên code soi log cũ) ...
+             st.markdown("---")
+             st.subheader("🕵️ Soi Log Chat")
+             if st.button("🔄 Làm mới Log"): st.rerun()
+             logs = get_chat_logs(15)
+             for l in logs:
+                 with st.expander(f"[{l[0]}] {l[1]}"):
+                     st.markdown(f"**🗣️:** {l[2]}")
+                     st.info(f"**🤖:** {l[3][:100]}...")
+
     else:
         st.markdown("Dành cho khách có tài khoản riêng:")
         with st.form("sb_login"):
@@ -254,10 +274,15 @@ with st.sidebar:
                 # Lấy pass từ secrets.toml
                 real_pass = st.secrets["passwords"].get(u)
                 if real_pass and real_pass == p:
+                    # [SỬA] Đăng nhập thành công -> Ghi Cookie (Lưu 7 ngày)
+                    expires = datetime.datetime.now() + datetime.timedelta(days=7)
+                    cookie_manager.set("yoga_vip_user", u, expires_at=expires)
+                    
                     st.session_state.authenticated = True
                     st.session_state.username = u
-                    st.success("OK!")
-                    time.sleep(0.5); st.rerun()
+                    st.success("OK! Đã lưu đăng nhập 7 ngày.")
+                    time.sleep(1)
+                    st.rerun()
                 else:
                     st.error("Sai thông tin!")
 
