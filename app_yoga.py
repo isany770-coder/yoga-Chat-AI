@@ -256,7 +256,7 @@ is_limit_reached = used >= LIMIT
 
 # --- D. KHỞI TẠO HỘI THOẠI ---
 if "messages" not in st.session_state:
-    welcome_text = f"Namaste! 🙏 Chào {current_user_id}." if st.session_state.authenticated else "Namaste! 🙏 Tôi là Trợ lý Yoga."
+    welcome_text = f"Namaste! 🙏 Chào {current_user_id}." if st.session_state.authenticated else "Namaste! 🙏 Tôi là Trợ lý Yoga. Hôm nay chúng ta nên bắt đầu từ đâu?"
     db_history = load_chat_history(current_user_id)
     if db_history:
         st.session_state.messages = [{"role": "assistant", "content": welcome_text}] + db_history
@@ -424,76 +424,52 @@ YOGA_SOLUTIONS = {
 }
 
 # =====================================================
-# 6. XỬ LÝ CHAT (ĐÃ SỬA: TỰ TÌM MODEL ĐỂ KHÔNG CHẾT APP)
+# 6. XỬ LÝ CHAT (ĐOẠN CUỐI CÙNG)
 # =====================================================
-
-# --- A. BIẾN TRẠNG THÁI ---
-if "spam_count" not in st.session_state: st.session_state.spam_count = 0
-if "lock_until" not in st.session_state: st.session_state.lock_until = None
-
-# --- B. KIỂM TRA KHÓA ---
-is_locked = False
-if st.session_state.lock_until:
-    if time.time() < st.session_state.lock_until:
-        is_locked = True
-        remaining = int((st.session_state.lock_until - time.time()) / 60)
-        st.warning(f"⚠️ Bạn đã vi phạm quy định nội dung. Khung chat sẽ mở lại sau {remaining + 1} phút.")
-    else:
-        st.session_state.lock_until = None; st.session_state.spam_count = 0
-
-# --- C. XỬ LÝ CHAT ---
 if not is_locked:
     if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
-        increment_usage(current_user_id)
+        
+        # [SỬA LỖI TẠI ĐÂY] Dùng biến current_user_id thay vì user_id
+        increment_usage(current_user_id) 
 
         with st.chat_message("assistant"):
             with st.spinner("Đang tra cứu..."):
                 try:
-                    # --- PHẦN QUAN TRỌNG NHẤT: TỰ ĐỘNG TÌM MODEL SỐNG ---
-                    valid_model = 'models/gemini-pro' # Mặc định an toàn
+                    # --- Tự động chọn model ---
+                    valid_model = 'models/gemini-1.5-flash'
                     try:
                         for m in genai.list_models():
-                            if 'generateContent' in m.supported_generation_methods:
-                                if 'flash' in m.name or 'pro' in m.name:
-                                    valid_model = m.name
-                                    break
+                            if 'pro' in m.name or 'flash' in m.name:
+                                valid_model = m.name; break
                     except: pass
                     
-                    # Khởi tạo model (Lúc này mới gọi, không gọi ở đầu file nữa)
                     model = genai.GenerativeModel(valid_model)
                     
-                    # --- 1. TÌM KIẾM ---
-                    docs_text = db_text.similarity_search(prompt, k=6)
-                    docs_img = []
-                    if db_image: docs_img = db_image.similarity_search(prompt, k=2)
-                    docs = docs_text + docs_img
+                    # --- Tìm kiếm ---
+                    docs = db_text.similarity_search(prompt, k=6)
+                    if db_image: docs += db_image.similarity_search(prompt, k=2)
                     
-                    # --- 2. XỬ LÝ DỮ LIỆU ---
                     context_text = ""
                     source_map = {}
                     found_images = []
 
                     for i, d in enumerate(docs):
                         doc_id = i + 1
-                        url = d.metadata.get('url', '#')
-                        title = d.metadata.get('title', 'Tài liệu Yoga')
-                        type_ = d.metadata.get('type', 'blog')
-                        img_url = d.metadata.get('image_url', '')
-                        source_map[doc_id] = {"url": url, "title": title, "type": type_}
+                        meta = d.metadata
+                        url = meta.get('url', '#')
+                        title = meta.get('title', 'Tài liệu')
+                        img_url = meta.get('image_url', '')
+                        source_map[doc_id] = {"url": url, "title": title}
                         
-                        if type_ == 'image' and img_url:
+                        if meta.get('type') == 'image' and img_url:
                             found_images.append({"url": img_url, "title": title})
-                            context_text += f"\n[Nguồn {doc_id} - HÌNH ẢNH]: {title}.\nNội dung ảnh: {d.page_content}\n"
+                            context_text += f"\n[Nguồn {doc_id} - ẢNH]: {title}.\nNội dung: {d.page_content}\n"
                         else:
                             context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
 
-                    # --- 3. PROMPT ---
-                    sys_prompt = f"""
-                    Bạn là chuyên gia Yoga Y Khoa.
-                    1. DỮ LIỆU: {context_text}
-                    2. CÂU HỎI: "{prompt}"
+                    # --- Prompt ---
                     YÊU CẦU:
                     - Nếu câu hỏi KHÔNG liên quan đến Yoga/Sức khỏe: trả lời "OFFTOPIC".
                     - Trả lời đúng trọng tâm.
@@ -504,53 +480,45 @@ if not is_locked:
                     
                     response = model.generate_content(sys_prompt)
                     ai_resp = response.text.strip()
+                    
+                    # --- Hiển thị ---
+                    clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
+                    st.markdown(clean_text)
+                    
+                    if found_images:
+                        st.markdown("---")
+                        cols = st.columns(3)
+                        for i, img in enumerate(found_images):
+                            with cols[i % 3]:
+                                st.image(img['url'], caption=img['title'], use_container_width=True)
 
-                    if "OFFTOPIC" in ai_resp.upper():
-                        st.warning("Vui lòng đặt câu hỏi liên quan.")
-                    else:
-                        clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
-                        st.markdown(clean_text)
-                        
-                        # Hiển thị ảnh (Gallery)
-                        if found_images:
-                            st.markdown("---")
-                            st.markdown("##### 🖼️ Minh họa chi tiết:")
-                            cols = st.columns(3)
-                            for i, img in enumerate(found_images):
-                                with cols[i % 3]:
-                                    st.markdown(f"""<div style="height:150px;overflow:hidden;border-radius:10px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;background:#f9f9f9;"><img src="{img['url']}" style="width:100%;height:100%;object-fit:cover;"></div>""", unsafe_allow_html=True)
-                                    with st.expander(f"🔍 Phóng to ảnh {i+1}"):
-                                        st.image(img['url'], caption=img['title'], use_container_width=True)
-                                        st.markdown(f"[Tải ảnh]({img['url']})")
+                    # Nguồn
+                    used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
+                    if used_ids:
+                        html_src = "<div class='source-box'><b>📚 Nguồn:</b>"
+                        seen = set()
+                        for uid in used_ids:
+                            info = source_map[uid]
+                            if info['url'] != '#' and info['url'] not in seen:
+                                seen.add(info['url'])
+                                html_src += f" <a href='{info['url']}' target='_blank' class='source-link'>{info['title']}</a>"
+                        html_src += "</div>"
+                        st.markdown(html_src, unsafe_allow_html=True)
 
-                        # Hiển thị nguồn
-                        used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
-                        if used_ids:
-                            html_src = "<div class='source-box'><b>📚 Nguồn:</b>"
-                            seen = set()
-                            for uid in used_ids:
-                                info = source_map[uid]
-                                if info['url'] != '#' and info['url'] not in seen:
-                                    seen.add(info['url'])
-                                    html_src += f" <a href='{info['url']}' target='_blank' class='source-link'>{info['title']}</a>"
-                            html_src += "</div>"
-                            st.markdown(html_src, unsafe_allow_html=True)
-                        
-                        # Upsell Logic
-                        upsell_html = ""
-                        recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
-                        if recs:
-                            upsell_html += "<div style='margin-top:15px'>"
-                            for r in recs[:2]:
-                                upsell_html += f"""<div style="background:#e0f2f1; padding:10px; border-radius:10px; margin-bottom:8px; border:1px solid #009688; display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold; color:#004d40; font-size:14px">{r['name']}</span><a href="{r['url']}" target="_blank" style="background:#00796b; color:white; padding:5px 10px; border-radius:15px; text-decoration:none; font-size:12px; font-weight:bold;">Xem ngay</a></div>"""
-                            upsell_html += "</div>"
-                            st.markdown(upsell_html, unsafe_allow_html=True)
+                    # Upsell
+                    upsell_html = ""
+                    recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
+                    if recs:
+                        upsell_html += "<div style='margin-top:15px'>"
+                        for r in recs[:2]:
+                            upsell_html += f"""<div style="background:#e0f2f1; padding:8px; border-radius:10px; margin-bottom:5px; border:1px solid #009688; display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold; color:#004d40; font-size:13px">{r['name']}</span><a href="{r['url']}" target="_blank" style="background:#00796b; color:white; padding:4px 10px; border-radius:15px; text-decoration:none; font-size:11px;">Mở ngay</a></div>"""
+                        upsell_html += "</div>"
+                        st.markdown(upsell_html, unsafe_allow_html=True)
 
-                        # Lưu lịch sử (Kèm ảnh để hiển thị lại)
-                        st.session_state.messages.append({"role": "assistant", "content": clean_text + ("\n\n" + html_src if 'html_src' in locals() else "") + upsell_html, "images": found_images})
+                    st.session_state.messages.append({"role": "assistant", "content": clean_text + ("\n\n" + html_src if 'html_src' in locals() else "") + upsell_html, "images": found_images})
 
-                        # [MỚI] GHI VÀO SỔ NAM TÀO
-                        log_chat_to_db(current_user_id, prompt, clean_text)
+                    # [SỬA LỖI TẠI ĐÂY] Lưu chat với ID chuẩn
+                    log_chat_to_db(current_user_id, prompt, clean_text)
 
                 except Exception as e:
-                    st.error("Hệ thống đang bận. Xin vui lòng thử lại sau.")
+                    st.error("Hệ thống đang bận. Vui lòng thử lại sau.")
