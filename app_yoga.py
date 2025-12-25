@@ -164,69 +164,52 @@ if status != "OK": st.error(f"Lỗi: {status}"); st.stop()
 db_text, db_image = data_result
 
 # =====================================================
-# 3. HỆ THỐNG "BÊ TÔNG" (DATABASE & COOKIE & AUTH)
+# 3. HỆ THỐNG QUẢN LÝ (DATABASE - COOKIE - AUTH)
 # =====================================================
 import uuid
 
-# --- A. KHỞI TẠO DATABASE & HÀM HỖ TRỢ ---
+# --- A. KHỞI TẠO DATABASE ---
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     conn.execute('CREATE TABLE IF NOT EXISTS usage (user_id TEXT, date TEXT, count INTEGER, PRIMARY KEY (user_id, date))')
     conn.execute('CREATE TABLE IF NOT EXISTS chat_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, user_id TEXT, question TEXT, answer TEXT)')
     conn.commit(); conn.close()
 
-def log_chat_to_db(user_id, question, answer):
+def log_chat_to_db(user, q, a):
     try:
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-        c.execute("INSERT INTO chat_logs (timestamp, user_id, question, answer) VALUES (?, ?, ?, ?)", (now, user_id, question, answer))
+        c.execute("INSERT INTO chat_logs (timestamp, user_id, question, answer) VALUES (?, ?, ?, ?)", (now, user, q, a))
         conn.commit(); conn.close()
     except: pass
 
-def load_chat_history(user_id):
-    """Hồi sinh ký ức từ DB"""
+def load_chat_history(user):
     try:
         conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-        c.execute("SELECT question, answer FROM chat_logs WHERE user_id=? ORDER BY id DESC LIMIT 20", (user_id,))
+        c.execute("SELECT question, answer FROM chat_logs WHERE user_id=? ORDER BY id DESC LIMIT 10", (user,))
         data = c.fetchall(); conn.close()
-        history = []
-        for q, a in reversed(data):
-            history.append({"role": "user", "content": q})
-            history.append({"role": "assistant", "content": a})
-        return history
+        return [{"role": "user", "content": q} for q, a in reversed(data)] + [{"role": "assistant", "content": a} for q, a in reversed(data)]
     except: return []
 
-def get_chat_logs_admin(limit=20):
-    conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-    c.execute("SELECT timestamp, user_id, question, answer FROM chat_logs ORDER BY id DESC LIMIT ?", (limit,))
-    data = c.fetchall(); conn.close()
-    return data
-
-# [THÊM QUAN TRỌNG] Hàm đếm lượt (Thiếu cái này là lỗi used not defined)
-def check_usage(user_id):
+def check_usage(user):
     today = str(datetime.date.today())
     conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-    c.execute("SELECT count FROM usage WHERE user_id=? AND date=?", (user_id, today))
-    res = c.fetchone(); conn.close()
-    return res[0] if res else 0
+    c.execute("SELECT count FROM usage WHERE user_id=? AND date=?", (user, today))
+    r = c.fetchone(); conn.close()
+    return r[0] if r else 0
 
-def increment_usage(user_id):
+def increment_usage(user):
     today = str(datetime.date.today())
     conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO usage (user_id, date, count) VALUES (?, ?, 0)", (user_id, today))
-    c.execute("UPDATE usage SET count = count + 1 WHERE user_id=? AND date=?", (user_id, today))
+    c.execute("INSERT OR IGNORE INTO usage (user_id, date, count) VALUES (?, ?, 0)", (user, today))
+    c.execute("UPDATE usage SET count = count + 1 WHERE user_id=? AND date=?", (user, today))
     conn.commit(); conn.close()
 
-init_db() # Chạy tạo bảng
+init_db()
 
 # --- B. XỬ LÝ COOKIE & ĐỊNH DANH ---
-def get_manager():
-    return stx.CookieManager(key="yoga_cookie_manager_v2") # Đổi key để reset sạch lỗi cũ
-
-cookie_manager = get_manager()
+cookie_manager = stx.CookieManager(key="yoga_pro_manager")
 time.sleep(0.1) 
-
-# Lấy cookie
 vip_cookie = cookie_manager.get(cookie="yoga_vip_user")
 guest_cookie = cookie_manager.get(cookie="yoga_guest_id")
 
@@ -237,73 +220,44 @@ if vip_cookie:
     current_user_id = vip_cookie
 elif guest_cookie:
     st.session_state.authenticated = False
-    st.session_state.username = ""
     current_user_id = guest_cookie
 else:
-    # Nếu trắng tinh thì cấp mới
     new_id = str(uuid.uuid4())[:8]
-    expires = datetime.datetime.now() + datetime.timedelta(days=30)
-    cookie_manager.set("yoga_guest_id", new_id, expires_at=expires)
-    st.session_state.authenticated = False
+    cookie_manager.set("yoga_guest_id", new_id, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
     current_user_id = new_id
-    st.rerun() # Bắt buộc rerun để nhận diện ID vừa cấp
+    st.rerun()
 
-# [FIX LỖI] Tính toán used và LIMIT ngay tại đây để không bị lỗi NameError bên dưới
+# --- D. TÍNH TOÁN BIẾN HỆ THỐNG (FIX LỖI NAMEERROR) ---
 used = check_usage(current_user_id)
 LIMIT = 50 if st.session_state.authenticated else 5
 is_limit_reached = used >= LIMIT
+is_locked = False # Biến khóa spam (nếu bác dùng)
 
-# --- D. KHỞI TẠO HỘI THOẠI ---
+# --- E. KHỞI TẠO TIN NHẮN ---
 if "messages" not in st.session_state:
-    welcome_text = f"Namaste! 🙏 Chào {current_user_id}." if st.session_state.authenticated else "Namaste! 🙏 Tôi là Trợ lý Yoga. Hôm nay chúng ta nên bắt đầu từ đâu?"
-    db_history = load_chat_history(current_user_id)
-    if db_history:
-        st.session_state.messages = [{"role": "assistant", "content": welcome_text}] + db_history
-    else:
-        st.session_state.messages = [{"role": "assistant", "content": welcome_text}]
+    welcome = f"Namaste {current_user_id}! 🙏"
+    st.session_state.messages = [{"role": "assistant", "content": welcome}] + load_chat_history(current_user_id)
 
 # =====================================================
-# 4. SIDEBAR & GIAO DIỆN THANH ĐẾM
+# 4. SIDEBAR GIAO DIỆN
 # =====================================================
 with st.sidebar:
     st.title("🔐 Khu Vực VIP")
-    
     if st.session_state.authenticated:
-        st.success(f"Hi: **{st.session_state.username}**")
-        
-        if st.button("Đăng xuất", type="primary"):
+        st.success(f"User: {st.session_state.username}")
+        if st.button("Đăng xuất"):
             cookie_manager.delete("yoga_vip_user")
             st.session_state.authenticated = False
-            st.session_state.username = ""
-            st.session_state.messages = [] 
+            st.session_state.messages = []
             st.rerun()
-            
-        if st.session_state.username == "admin":
-             st.markdown("---")
-             st.subheader("🕵️ Admin Log")
-             if st.button("Refresh Log"): st.rerun()
-             logs = get_chat_logs_admin(15)
-             for l in logs:
-                 with st.expander(f"[{l[0]}] {l[1]}"):
-                     st.markdown(f"**Q:** {l[2]}")
-                     st.info(f"**A:** {l[3][:50]}...")
-
     else:
-        st.markdown("Đăng nhập tài khoản VIP:")
         with st.form("login_form"):
-            u = st.text_input("User")
-            p = st.text_input("Pass", type="password")
-            
+            u = st.text_input("User"); p = st.text_input("Pass", type="password")
             if st.form_submit_button("Đăng Nhập"):
-                real_pass = st.secrets["passwords"].get(u)
-                if real_pass and real_pass == p:
-                    ex = datetime.datetime.now() + datetime.timedelta(days=7)
-                    cookie_manager.set("yoga_vip_user", u, expires_at=ex)
-                    st.success("Thành công! Đang tải dữ liệu...")
-                    time.sleep(1)
+                if st.secrets["passwords"].get(u) == p:
+                    cookie_manager.set("yoga_vip_user", u, expires_at=datetime.datetime.now() + datetime.timedelta(days=7))
                     st.rerun()
-                else:
-                    st.error("Sai thông tin!")
+                else: st.error("Sai thông tin")
 
 # --- THANH ĐẾM LƯỢT (Giờ đã có biến used và LIMIT để chạy) ---
 percent = min(100, int((used / LIMIT) * 100))
