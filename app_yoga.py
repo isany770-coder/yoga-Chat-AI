@@ -455,10 +455,10 @@ if not is_locked:
                     # Lưu vào session state
                     st.session_state.messages.append({
                         "role": "assistant", 
-                        "content": clean_text + html_src, 
+                        "content": clean_text + (html_src if html_src else ""), 
                         "images": found_images
                     })
                     log_chat_to_db(safe_id, prompt, clean_text)
 
                 except Exception as e:
-                    st.error(f"Hệ thống bận, vui lòng thử lại.")
+                    st.error(f"Lỗi: {str(e)}")
