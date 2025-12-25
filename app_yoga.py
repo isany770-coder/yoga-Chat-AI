@@ -430,7 +430,7 @@ if not is_locked:
     # 1. Vẽ nút Mic (Nó sẽ tự bay xuống dưới nhờ CSS ở trên)
     # Bác chú ý: start_prompt là icon Mic, stop_prompt là icon Dừng
     with st.container():
-        st.markdown('<div class="mic-fixed-container">', unsafe_allow_html=True)
+        st.markdown('<div class="mic-floating">', unsafe_allow_html=True)
         audio_data = mic_recorder(
             start_prompt="🎙️", 
             stop_prompt="🟥", 
