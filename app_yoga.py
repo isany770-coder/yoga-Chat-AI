@@ -164,74 +164,28 @@ if status != "OK": st.error(f"Lỗi: {status}"); st.stop()
 db_text, db_image = data_result
 
 # =====================================================
-# 3. HỆ THỐNG QUẢN LÝ (DATABASE - COOKIE - AUTH)
+# 3. HỆ THỐNG QUẢN LÝ (FIX LỖI CHUYỂN TRANG MẤT LỊCH SỬ)
 # =====================================================
-import uuid
 
-# =====================================================
-# 3. HỆ THỐNG QUẢN LÝ (DATABASE & SESSION)
-# =====================================================
-import uuid
-
-# --- A. CÁC HÀM DATABASE (GIỮ NGUYÊN) ---
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute('CREATE TABLE IF NOT EXISTS usage (user_id TEXT, date TEXT, count INTEGER, PRIMARY KEY (user_id, date))')
-    conn.execute('CREATE TABLE IF NOT EXISTS chat_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, user_id TEXT, question TEXT, answer TEXT)')
-    conn.commit(); conn.close()
-
-def log_chat_to_db(user, q, a):
-    try:
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-        c.execute("INSERT INTO chat_logs (timestamp, user_id, question, answer) VALUES (?, ?, ?, ?)", (now, user, q, a))
-        conn.commit(); conn.close()
-    except: pass
-
-def load_chat_history(user):
-    try:
-        conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-        c.execute("SELECT question, answer FROM chat_logs WHERE user_id=? ORDER BY id DESC LIMIT 10", (user,))
-        data = c.fetchall(); conn.close()
-        # Định dạng lại tin nhắn cho đúng cấu trúc Streamlit
-        history = []
-        for q, a in reversed(data):
-            history.append({"role": "user", "content": q})
-            history.append({"role": "assistant", "content": a})
-        return history
-    except: return []
-
-def check_usage(user):
-    today = str(datetime.date.today())
-    conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-    c.execute("SELECT count FROM usage WHERE user_id=? AND date=?", (user, today))
-    r = c.fetchone(); conn.close()
-    return r[0] if r else 0
-
-def increment_usage(user):
-    today = str(datetime.date.today())
-    conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO usage (user_id, date, count) VALUES (?, ?, 0)", (user, today))
-    c.execute("UPDATE usage SET count = count + 1 WHERE user_id=? AND date=?", (user, today))
-    conn.commit(); conn.close()
-
-init_db()
-
-# --- B. XỬ LÝ ĐỊNH DANH & LOAD LỊCH SỬ (BẢN FIX F5) ---
-if "user_id" not in st.session_state:
-    st.session_state.user_id = str(uuid.uuid4())[:8]
-
+# --- A. ĐỊNH DANH USER ---
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-# Xác định ID hiện tại (Ưu tiên Username nếu là VIP)
+# Kiểm tra nếu chưa có ID trong session thì mới tạo
+if "user_id" not in st.session_state:
+    # Ở bản nhúng, ta có thể tạm dùng một ID dựa trên ngày để giữ mạch trong ngày
+    # Hoặc nếu bạn muốn chuẩn hơn, hãy yêu cầu User đăng nhập 1 lần
+    st.session_state.user_id = str(uuid.uuid4())[:8]
+
+# ID quan trọng nhất để lục lại quá khứ
 current_user_id = st.session_state.username if st.session_state.authenticated else st.session_state.user_id
 
-# Kiểm tra và nạp lại lịch sử từ DB khi F5 hoặc chuyển trang
-if "messages" not in st.session_state or len(st.session_state.messages) == 0:
-    history = load_chat_history(current_user_id)
-    if history:
-        st.session_state.messages = history
+# --- B. CƠ CHẾ KHÔI PHỤC LỊCH SỬ TỪ DATABASE (QUAN TRỌNG NHẤT) ---
+# Đoạn này đảm bảo dù chuyển trang A sang B, bot sẽ tìm trong DB xem ID này đã nói gì chưa
+if "messages" not in st.session_state or len(st.session_state.messages) <= 1:
+    db_history = load_chat_history(current_user_id)
+    if db_history:
+        st.session_state.messages = db_history
     else:
         st.session_state.messages = [{"role": "assistant", "content": f"Namaste {current_user_id}! 🙏"}]
 
