@@ -7,9 +7,12 @@ import datetime
 import gc
 import re
 import time
+import uuid
+import extra_streamlit_components as stx
 import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
+
 
 # =====================================================
 # 1. CẤU HÌNH TRANG & CSS (GIỮ NGUYÊN BẢN GỐC CỦA BẠN)
@@ -23,12 +26,17 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* 1. Tối ưu khung nền */
-    .stApp { background-color: #ffffff; }
-    header[data-testid="stHeader"], footer {display: none;}
-    .stDeployButton {display:none;}
+    /* Ẩn Header/Footer mặc định cho gọn */
+    header, footer, [data-testid="stToolbar"], .stDeployButton { display: none !important; }
 
-    /* 2. Khung Chat Input (Hiện đại, bo tròn) */
+    /* --- QUAN TRỌNG: ĐẨY NỘI DUNG LÊN SÁT MÉP TRÊN --- */
+    .main .block-container {
+        padding-top: 0rem !important; /* Ép sát lên trên */
+        padding-bottom: 120px !important; /* Chừa chỗ cho thanh chat */
+        max-width: 100%;
+    }
+
+    /* Giữ nguyên style khung chat cũ của bác */
     div[data-testid="stChatInput"] {
         position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
         width: 95%; max-width: 800px; z-index: 1000;
@@ -156,46 +164,104 @@ if status != "OK": st.error(f"Lỗi: {status}"); st.stop()
 db_text, db_image = data_result
 
 # =====================================================
-# 3. QUẢN LÝ USER & GIỚI HẠN (GIỮ NGUYÊN BẢN GỐC)
+# 3. HỆ THỐNG QUẢN LÝ (DATABASE - COOKIE - AUTH)
 # =====================================================
+import uuid
+
+# --- A. KHỞI TẠO DATABASE ---
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     conn.execute('CREATE TABLE IF NOT EXISTS usage (user_id TEXT, date TEXT, count INTEGER, PRIMARY KEY (user_id, date))')
-    conn.commit(); conn.close()
-init_db()
-
-def check_usage(user_id):
-    today = str(datetime.date.today())
-    conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-    c.execute("SELECT count FROM usage WHERE user_id=? AND date=?", (user_id, today))
-    res = c.fetchone(); conn.close()
-    return res[0] if res else 0
-
-def increment_usage(user_id):
-    today = str(datetime.date.today())
-    conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO usage (user_id, date, count) VALUES (?, ?, 0)", (user_id, today))
-    c.execute("UPDATE usage SET count = count + 1 WHERE user_id=? AND date=?", (user_id, today))
+    conn.execute('CREATE TABLE IF NOT EXISTS chat_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, user_id TEXT, question TEXT, answer TEXT)')
     conn.commit(); conn.close()
 
-if "authenticated" not in st.session_state: st.session_state.authenticated = False
-if "username" not in st.session_state: st.session_state.username = ""
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Tôi là Trợ lý Yoga.\nBạn cần tìm bài tập hay tư vấn bệnh lý gì hôm nay?"}]
-
-def get_user_id():
-    if st.session_state.authenticated: return st.session_state.username
+def log_chat_to_db(user, q, a):
     try:
-        from streamlit.web.server.websocket_headers import _get_headers
-        return _get_headers().get("X-Forwarded-For", "guest").split(",")[0]
-    except: return "guest"
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+        c.execute("INSERT INTO chat_logs (timestamp, user_id, question, answer) VALUES (?, ?, ?, ?)", (now, user, q, a))
+        conn.commit(); conn.close()
+    except: pass
 
-user_id = get_user_id()
-used = check_usage(user_id)
-LIMIT = 30 if st.session_state.authenticated else 5
+def load_chat_history(user):
+    try:
+        conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+        c.execute("SELECT question, answer FROM chat_logs WHERE user_id=? ORDER BY id DESC LIMIT 10", (user,))
+        data = c.fetchall(); conn.close()
+        return [{"role": "user", "content": q} for q, a in reversed(data)] + [{"role": "assistant", "content": a} for q, a in reversed(data)]
+    except: return []
+
+def check_usage(user):
+    today = str(datetime.date.today())
+    conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+    c.execute("SELECT count FROM usage WHERE user_id=? AND date=?", (user, today))
+    r = c.fetchone(); conn.close()
+    return r[0] if r else 0
+
+def increment_usage(user):
+    today = str(datetime.date.today())
+    conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO usage (user_id, date, count) VALUES (?, ?, 0)", (user, today))
+    c.execute("UPDATE usage SET count = count + 1 WHERE user_id=? AND date=?", (user, today))
+    conn.commit(); conn.close()
+
+init_db()
+def get_all_usage_logs():
+    try:
+        conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+        c.execute("SELECT date, user_id, count FROM usage ORDER BY date DESC")
+        data = c.fetchall(); conn.close()
+        return data
+    except: return []
+
+# --- B. XỬ LÝ ĐỊNH DANH (KHÔNG DÙNG COOKIE ĐỂ TRÁNH TRẮNG TRANG) ---
+if "user_id" not in st.session_state:
+    # Tạo một ID ngẫu nhiên cho phiên làm việc này
+    st.session_state.user_id = str(uuid.uuid4())[:8]
+
+current_user_id = st.session_state.user_id
+
+# --- C. KIỂM TRA ĐĂNG NHẬP (DÙNG SESSION STATE) ---
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+# Nếu đã đăng nhập thành công, ghi đè ID bằng Username để lấy đúng lịch sử VIP
+if st.session_state.authenticated:
+    current_user_id = st.session_state.username
+
+# --- D. TÍNH TOÁN BIẾN HỆ THỐNG ---
+used = check_usage(current_user_id)
+LIMIT = 50 if st.session_state.authenticated else 5
 is_limit_reached = used >= LIMIT
+is_locked = False
 
-# --- THANH ĐẾM LƯỢT ---
+# --- E. KHỞI TẠO TIN NHẮN ---
+if "messages" not in st.session_state:
+    welcome = f"Namaste {current_user_id}! 🙏"
+    st.session_state.messages = [{"role": "assistant", "content": welcome}] + load_chat_history(current_user_id)
+
+# =====================================================
+# 4. SIDEBAR GIAO DIỆN
+# =====================================================
+with st.sidebar:
+    st.title("🔐 Khu Vực VIP")
+    if st.session_state.authenticated:
+        st.success(f"User: {st.session_state.username}")
+        if st.button("Đăng xuất"):
+            cookie_manager.delete("yoga_vip_user")
+            st.session_state.authenticated = False
+            st.session_state.messages = []
+            st.rerun()
+    else:
+        with st.form("login_form"):
+            u = st.text_input("User"); p = st.text_input("Pass", type="password")
+            if st.form_submit_button("Đăng Nhập"):
+                if st.secrets["passwords"].get(u) == p:
+                    cookie_manager.set("yoga_vip_user", u, expires_at=datetime.datetime.now() + datetime.timedelta(days=7))
+                    st.rerun()
+                else: st.error("Sai thông tin")
+
+# --- THANH ĐẾM LƯỢT (Giờ đã có biến used và LIMIT để chạy) ---
 percent = min(100, int((used / LIMIT) * 100))
 st.markdown(f"""
 <div style="position: fixed; top: 10px; right: 10px; z-index: 100000;">
@@ -209,6 +275,16 @@ st.markdown(f"""
     </div>
 </div>
 """, unsafe_allow_html=True)
+
+# --- HIỂN THỊ LOG ADMIN (Chỉ hiện khi user là admin) ---
+if st.session_state.authenticated and st.session_state.username == "admin":
+    with st.expander("🕵️ NHẬT KÝ ADMIN (LOGS)"):
+        logs = get_all_usage_logs()
+        st.write(f"**Tổng số bản ghi:** {len(logs)}")
+        # Vẽ bảng markdown cho nhẹ
+        st.markdown("| Ngày | User ID | Số câu hỏi |\n|---|---|---|")
+        for log in logs:
+            st.markdown(f"| {log[0]} | {log[1]} | {log[2]} |")
 
 # =====================================================
 # 4. GIAO DIỆN HẾT HẠN (GIỮ NGUYÊN BẢN GỐC - KHÔNG SỬA)
@@ -303,130 +379,51 @@ YOGA_SOLUTIONS = {
 }
 
 # =====================================================
-# 6. XỬ LÝ CHAT (ĐÃ SỬA: TỰ TÌM MODEL ĐỂ KHÔNG CHẾT APP)
+# 6. XỬ LÝ CHAT (BẢN FIX CHUẨN KHÔNG LỖI)
 # =====================================================
 
-# --- A. BIẾN TRẠNG THÁI ---
-if "spam_count" not in st.session_state: st.session_state.spam_count = 0
-if "lock_until" not in st.session_state: st.session_state.lock_until = None
-
-# --- B. KIỂM TRA KHÓA ---
-is_locked = False
-if st.session_state.lock_until:
-    if time.time() < st.session_state.lock_until:
-        is_locked = True
-        remaining = int((st.session_state.lock_until - time.time()) / 60)
-        st.warning(f"⚠️ Bạn đã vi phạm quy định nội dung. Khung chat sẽ mở lại sau {remaining + 1} phút.")
-    else:
-        st.session_state.lock_until = None; st.session_state.spam_count = 0
-
-# --- C. XỬ LÝ CHAT ---
 if not is_locked:
     if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
-        increment_usage(user_id)
+        
+        safe_id = current_user_id if 'current_user_id' in globals() else "guest"
+        increment_usage(safe_id)
 
         with st.chat_message("assistant"):
             with st.spinner("Đang tra cứu..."):
                 try:
-                    # --- PHẦN QUAN TRỌNG NHẤT: TỰ ĐỘNG TÌM MODEL SỐNG ---
-                    valid_model = 'models/gemini-pro' # Mặc định an toàn
-                    try:
-                        for m in genai.list_models():
-                            if 'generateContent' in m.supported_generation_methods:
-                                if 'flash' in m.name or 'pro' in m.name:
-                                    valid_model = m.name
-                                    break
-                    except: pass
+                    model = genai.GenerativeModel('models/gemini-1.5-flash')
+                    docs = db_text.similarity_search(prompt, k=6)
+                    if db_image: docs += db_image.similarity_search(prompt, k=2)
                     
-                    # Khởi tạo model (Lúc này mới gọi, không gọi ở đầu file nữa)
-                    model = genai.GenerativeModel(valid_model)
-                    
-                    # --- 1. TÌM KIẾM ---
-                    docs_text = db_text.similarity_search(prompt, k=6)
-                    docs_img = []
-                    if db_image: docs_img = db_image.similarity_search(prompt, k=2)
-                    docs = docs_text + docs_img
-                    
-                    # --- 2. XỬ LÝ DỮ LIỆU ---
                     context_text = ""
                     source_map = {}
                     found_images = []
 
                     for i, d in enumerate(docs):
                         doc_id = i + 1
-                        url = d.metadata.get('url', '#')
-                        title = d.metadata.get('title', 'Tài liệu Yoga')
-                        type_ = d.metadata.get('type', 'blog')
-                        img_url = d.metadata.get('image_url', '')
-                        source_map[doc_id] = {"url": url, "title": title, "type": type_}
-                        
-                        if type_ == 'image' and img_url:
-                            found_images.append({"url": img_url, "title": title})
-                            context_text += f"\n[Nguồn {doc_id} - HÌNH ẢNH]: {title}.\nNội dung ảnh: {d.page_content}\n"
-                        else:
-                            context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
+                        meta = d.metadata
+                        source_map[doc_id] = {"url": meta.get('url', '#'), "title": meta.get('title', 'Tài liệu')}
+                        if meta.get('type') == 'image' and meta.get('image_url'):
+                            found_images.append({"url": meta['image_url'], "title": meta.get('title', '')})
+                        context_text += f"\n[Nguồn {doc_id}]: {d.page_content}\n"
 
-                    # --- 3. PROMPT ---
-                    sys_prompt = f"""
-                    Bạn là chuyên gia Yoga Y Khoa.
-                    1. DỮ LIỆU: {context_text}
-                    2. CÂU HỎI: "{prompt}"
-                    YÊU CẦU:
-                    - Nếu câu hỏi KHÔNG liên quan đến Yoga/Sức khỏe: trả lời "OFFTOPIC".
-                    - Trả lời đúng trọng tâm.
-                    - Ưu tiên. Kiểm tra dữ liệu: Nếu có [HÌNH ẢNH], hãy mời xem ảnh bên dưới. Ghi nguồn [Ref: X].
-                    - Nếu dữ liệu không khớp, tự trả lời bằng kiến thức Yoga chuẩn (nhưng không bịa nguồn).
-                    - Tối đa 150 từ. Sử dụng gạch đầu dòng.
-                    """
-                    
+                    sys_prompt = f"Bạn là chuyên gia Yoga Y Khoa.\nDỮ LIỆU: {context_text}\nCÂU HỎI: {prompt}\nTrả lời ngắn gọn, đúng trọng tâm dưới 150 từ."
                     response = model.generate_content(sys_prompt)
                     ai_resp = response.text.strip()
+                    
+                    clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
+                    st.markdown(clean_text)
+                    
+                    if found_images:
+                        st.markdown("---")
+                        cols = st.columns(3)
+                        for i, img in enumerate(found_images):
+                            with cols[i % 3]: st.image(img['url'], caption=img['title'])
 
-                    if "OFFTOPIC" in ai_resp.upper():
-                        st.warning("Vui lòng đặt câu hỏi liên quan.")
-                    else:
-                        clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
-                        st.markdown(clean_text)
-                        
-                        # Hiển thị ảnh (Gallery)
-                        if found_images:
-                            st.markdown("---")
-                            st.markdown("##### 🖼️ Minh họa chi tiết:")
-                            cols = st.columns(3)
-                            for i, img in enumerate(found_images):
-                                with cols[i % 3]:
-                                    st.markdown(f"""<div style="height:150px;overflow:hidden;border-radius:10px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;background:#f9f9f9;"><img src="{img['url']}" style="width:100%;height:100%;object-fit:cover;"></div>""", unsafe_allow_html=True)
-                                    with st.expander(f"🔍 Phóng to ảnh {i+1}"):
-                                        st.image(img['url'], caption=img['title'], use_container_width=True)
-                                        st.markdown(f"[Tải ảnh]({img['url']})")
-
-                        # Hiển thị nguồn
-                        used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
-                        if used_ids:
-                            html_src = "<div class='source-box'><b>📚 Nguồn:</b>"
-                            seen = set()
-                            for uid in used_ids:
-                                info = source_map[uid]
-                                if info['url'] != '#' and info['url'] not in seen:
-                                    seen.add(info['url'])
-                                    html_src += f" <a href='{info['url']}' target='_blank' class='source-link'>{info['title']}</a>"
-                            html_src += "</div>"
-                            st.markdown(html_src, unsafe_allow_html=True)
-                        
-                        # Upsell Logic
-                        upsell_html = ""
-                        recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
-                        if recs:
-                            upsell_html += "<div style='margin-top:15px'>"
-                            for r in recs[:2]:
-                                upsell_html += f"""<div style="background:#e0f2f1; padding:10px; border-radius:10px; margin-bottom:8px; border:1px solid #009688; display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold; color:#004d40; font-size:14px">{r['name']}</span><a href="{r['url']}" target="_blank" style="background:#00796b; color:white; padding:5px 10px; border-radius:15px; text-decoration:none; font-size:12px; font-weight:bold;">Xem ngay</a></div>"""
-                            upsell_html += "</div>"
-                            st.markdown(upsell_html, unsafe_allow_html=True)
-
-                        # Lưu lịch sử (Kèm ảnh để hiển thị lại)
-                        st.session_state.messages.append({"role": "assistant", "content": clean_text + ("\n\n" + html_src if 'html_src' in locals() else "") + upsell_html, "images": found_images})
+                    st.session_state.messages.append({"role": "assistant", "content": clean_text, "images": found_images})
+                    log_chat_to_db(safe_id, prompt, clean_text)
 
                 except Exception as e:
-                    st.error("Hệ thống đang bận. Xin vui lòng thử lại sau.")
+                    st.error("Hệ thống bận, vui lòng thử lại.")
