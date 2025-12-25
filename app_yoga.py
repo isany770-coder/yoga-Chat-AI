@@ -168,7 +168,12 @@ db_text, db_image = data_result
 # =====================================================
 import uuid
 
-# --- A. KHỞI TẠO DATABASE ---
+# =====================================================
+# 3. HỆ THỐNG QUẢN LÝ (DATABASE & SESSION)
+# =====================================================
+import uuid
+
+# --- A. CÁC HÀM DATABASE (GIỮ NGUYÊN) ---
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     conn.execute('CREATE TABLE IF NOT EXISTS usage (user_id TEXT, date TEXT, count INTEGER, PRIMARY KEY (user_id, date))')
@@ -188,7 +193,12 @@ def load_chat_history(user):
         conn = sqlite3.connect(DB_PATH); c = conn.cursor()
         c.execute("SELECT question, answer FROM chat_logs WHERE user_id=? ORDER BY id DESC LIMIT 10", (user,))
         data = c.fetchall(); conn.close()
-        return [{"role": "user", "content": q} for q, a in reversed(data)] + [{"role": "assistant", "content": a} for q, a in reversed(data)]
+        # Định dạng lại tin nhắn cho đúng cấu trúc Streamlit
+        history = []
+        for q, a in reversed(data):
+            history.append({"role": "user", "content": q})
+            history.append({"role": "assistant", "content": a})
+        return history
     except: return []
 
 def check_usage(user):
@@ -206,31 +216,30 @@ def increment_usage(user):
     conn.commit(); conn.close()
 
 init_db()
-def get_all_usage_logs():
-    try:
-        conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-        c.execute("SELECT date, user_id, count FROM usage ORDER BY date DESC")
-        data = c.fetchall(); conn.close()
-        return data
-    except: return []
 
-# --- B. XỬ LÝ ĐỊNH DANH ---
+# --- B. XỬ LÝ ĐỊNH DANH & LOAD LỊCH SỬ (BẢN FIX F5) ---
 if "user_id" not in st.session_state:
     st.session_state.user_id = str(uuid.uuid4())[:8]
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
+# Xác định ID hiện tại (Ưu tiên Username nếu là VIP)
 current_user_id = st.session_state.username if st.session_state.authenticated else st.session_state.user_id
 
-# --- C. KHỞI TẠO TIN NHẮN & LOAD LỊCH SỬ (QUAN TRỌNG) ---
-if "messages" not in st.session_state:
-    # Lấy 10 câu cũ từ DB để AI có trí nhớ
+# Kiểm tra và nạp lại lịch sử từ DB khi F5 hoặc chuyển trang
+if "messages" not in st.session_state or len(st.session_state.messages) == 0:
     history = load_chat_history(current_user_id)
-    if not history:
-        st.session_state.messages = [{"role": "assistant", "content": f"Namaste {current_user_id}! 🙏"}]
-    else:
+    if history:
         st.session_state.messages = history
+    else:
+        st.session_state.messages = [{"role": "assistant", "content": f"Namaste {current_user_id}! 🙏"}]
+
+# --- C. TÍNH TOÁN BIẾN HỆ THỐNG ---
+used = check_usage(current_user_id)
+LIMIT = 50 if st.session_state.authenticated else 5
+is_limit_reached = used >= LIMIT
+is_locked = False
 
 # --- D. TÍNH TOÁN BIẾN HỆ THỐNG ---
 used = check_usage(current_user_id)
