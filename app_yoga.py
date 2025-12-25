@@ -191,6 +191,27 @@ def get_chat_logs(limit=20):
     data = c.fetchall(); conn.close()
     return data
 
+# ... (Giữ nguyên các hàm init_db, log_chat_to_db cũ) ...
+
+# --- [THÊM MỚI] HÀM KHÔI PHỤC LỊCH SỬ TỪ DB ---
+def load_chat_history(user_id):
+    """Lôi 10 cuộc hội thoại gần nhất của user này ra"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        # Lấy câu hỏi và câu trả lời mới nhất
+        c.execute("SELECT question, answer FROM chat_logs WHERE user_id=? ORDER BY id DESC LIMIT 10", (user_id,))
+        data = c.fetchall()
+        conn.close()
+        
+        history = []
+        # Data đang là [Mới -> Cũ], cần đảo ngược lại thành [Cũ -> Mới] để hiện đúng thứ tự
+        for q, a in reversed(data):
+            history.append({"role": "user", "content": q})
+            history.append({"role": "assistant", "content": a})
+        return history
+    except: return []
+
 # Gọi lại init để tạo bảng mới nếu chưa có
 init_db()
 
@@ -234,8 +255,22 @@ if cookie_user and "authenticated" not in st.session_state:
 
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
+
+# --- [SỬA] KHỞI TẠO TIN NHẮN (CÓ HỒI PHỤC) ---
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Tôi là Trợ lý Yoga.\nBạn cần tìm bài tập hay tư vấn bệnh lý gì hôm nay?"}]
+    # 1. Mặc định là câu chào
+    initial_msg = [{"role": "assistant",  "content": "Namaste! 🙏 Tôi là Trợ lý Yoga.\nBạn cần tìm bài tập hay tư vấn bệnh lý gì hôm nay?"}]
+    
+    # 2. Nếu đã đăng nhập (do Cookie hoặc vừa nhập pass), thử tải lại lịch sử cũ
+    if st.session_state.authenticated:
+        old_chats = load_chat_history(st.session_state.username)
+        if old_chats:
+            # Nếu có lịch sử, nối câu chào vào đầu (hoặc chỉ hiện lịch sử)
+            st.session_state.messages = initial_msg + old_chats
+        else:
+            st.session_state.messages = initial_msg
+    else:
+        st.session_state.messages = initial_msg
 
 # =====================================================
 # 4. SIDEBAR (CÓ COOKIE)
@@ -280,6 +315,10 @@ with st.sidebar:
                     
                     st.session_state.authenticated = True
                     st.session_state.username = u
+
+                    # [THÊM DÒNG NÀY] Lập tức tải lại lịch sử cũ ngay khi đăng nhập
+                    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Mừng bạn quay lại!"}] + load_chat_history(u)
+                    
                     st.success("OK! Đã lưu đăng nhập 7 ngày.")
                     time.sleep(1)
                     st.rerun()
