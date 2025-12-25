@@ -16,7 +16,7 @@ from streamlit_mic_recorder import mic_recorder
 import io
 
 # =====================================================
-# 1. CẤU HÌNH TRANG & CSS (GIỮ NGUYÊN BẢN GỐC CỦA BẠN)
+# 1. CẤU HÌNH TRANG & CSS (GIỮ NGUYÊN BẢN GỐC CỦA BẠN)hỏi
 # =====================================================
 st.set_page_config(
     page_title="Yoga Assistant Pro",
@@ -27,34 +27,24 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* =============================================
-       1. CẤU HÌNH CHUNG & XÓA KHOẢNG TRẮNG
-       ============================================= */
+    /* 1. CẤU HÌNH CHUNG & XỬ LÝ KHOẢNG TRẮNG */
     .stApp { background-color: #ffffff; }
     
-    /* Ẩn Header/Footer mặc định của Streamlit */
-    header[data-testid="stHeader"], footer, .stDeployButton {
-        display: none !important;
-        visibility: hidden !important;
-        height: 0 !important;
-    }
+    header, footer, [data-testid="stToolbar"] { display: none !important; }
 
-    /* Thu hẹp lề trên cùng của trang web (Xóa khoảng trắng vô duyên) */
+    /* Thu hẹp lề trên & lề dưới (Fix lỗi khoảng trắng to) */
     .main .block-container {
         padding-top: 1rem !important; 
-        padding-bottom: 5rem !important; /* Chừa chỗ cho thanh chat dưới */
+        padding-bottom: 120px !important; /* Vừa đủ để không bị thanh chat che, không quá hở */
         max-width: 100%;
     }
 
-    /* Thu hẹp khoảng cách giữa các tin nhắn */
     .stChatMessage {
         padding-top: 0.5rem !important;
         padding-bottom: 0.5rem !important;
     }
 
-    /* =============================================
-       2. THANH CHAT INPUT & NÚT MICRO (ĐÃ FIX)
-       ============================================= */
+    /* 2. THANH CHAT INPUT (CỐ ĐỊNH) */
     div[data-testid="stChatInput"] {
         position: fixed !important;
         bottom: 20px !important;
@@ -65,61 +55,67 @@ st.markdown("""
         z-index: 1000 !important;
         background-color: white !important;
         border-radius: 30px !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08) !important;
-        padding: 5px !important;
-        padding-right: 60px !important; /* QUAN TRỌNG: Chừa chỗ bên phải cho nút Mic */
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important;
         border: 1px solid #e0e0e0 !important;
+        padding: 3px !important;
+        padding-right: 55px !important; /* Chừa đúng 55px cho nút Mic */
     }
 
-    /* ĐỊNH VỊ NÚT MICRO VÀO TRONG INPUT */
+    /* 3. ĐỊNH VỊ NÚT MICRO (CÔNG THỨC TOÁN HỌC CHUẨN) */
     .mic-fixed-container {
-        position: fixed;
-        bottom: 25px !important; /* Canh chỉnh độ cao trùng với input */
-        left: 50%;
-        transform: translateX(calc(-50% + 350px)); /* Desktop: Căn giữa rồi dịch sang phải */
-        z-index: 1002; /* Nổi hơn cả thanh chat */
-        width: 40px;
-        height: 40px;
+        position: fixed !important;
+        z-index: 1002 !important; /* Phải cao hơn thanh chat (1000) */
+        bottom: 28px !important; /* Canh giữa theo chiều dọc của thanh chat */
+        
+        /* DESKTOP: Thanh chat rộng 800px -> Một nửa là 400px. 
+           Nút Gửi chiếm ~50px bên phải. 
+           => Nút Mic phải nằm ở vị trí: Giữa + 400px - 50px = +350px 
+           Tôi để 345px để nó hở ra 1 chút cho đẹp */
+        left: 50% !important;
+        transform: translateX(340px) !important; 
+        
+        width: 35px !important;
+        height: 35px !important;
         display: flex;
         align-items: center;
         justify-content: center;
     }
 
-    /* Style cho cái nút bấm thực sự */
+    /* Style nút bấm */
     .mic-fixed-container button {
         background: transparent !important;
         border: none !important;
-        color: #e11d48 !important; /* Màu đỏ nổi bật */
-        font-size: 1.2rem !important;
+        color: #e11d48 !important; 
         padding: 0 !important;
         margin: 0 !important;
-        width: 100%;
-        height: 100%;
+        width: 100% !important;
+        height: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 1.1rem !important;
         box-shadow: none !important;
     }
-    
     .mic-fixed-container button:hover {
-        transform: scale(1.1);
-        background: rgba(225, 29, 72, 0.1) !important;
+        background: rgba(225, 29, 72, 0.05) !important;
         border-radius: 50%;
+        transform: scale(1.1);
     }
 
-    /* RESPONSIVE CHO MOBILE (Để nút Mic không bị lệch khi màn nhỏ) */
-    @media (max-width: 768px) {
+    /* 4. MOBILE RESPONSIVE (MÀN HÌNH NHỎ) */
+    @media (max-width: 820px) {
         .mic-fixed-container {
-            /* Trên mobile, nút gửi nằm sát phải. Ta đặt nút mic cách lề phải 60px */
+            /* Trên mobile, thanh chat rộng 95% màn hình.
+               Nút gửi của Streamlit luôn dính sát lề phải.
+               Ta ghim nút Mic cách lề phải 55px là khớp lệnh. */
             left: auto !important;
-            right: 60px !important; 
-            transform: none !important;
+            right: 55px !important; 
+            transform: none !important; /* Bỏ căn giữa của Desktop */
             bottom: 28px !important;
         }
     }
 
-    /* =============================================
-       3. CÁC THÀNH PHẦN KHÁC (GIỮ NGUYÊN CỦA BÁC)
-       ============================================= */
-    
-    /* Thanh Quảng Cáo (Banner) */
+    /* 5. CÁC THÀNH PHẦN KHÁC (GIỮ NGUYÊN) */
     .promo-banner {
         background: linear-gradient(90deg, #e0f2f1 0%, #b2dfdb 100%);
         padding: 10px 15px; margin-bottom: 20px; border-radius: 10px;
@@ -132,8 +128,6 @@ st.markdown("""
         border-radius: 15px; text-decoration: none; font-weight: bold; font-size: 12px;
         white-space: nowrap;
     }
-
-    /* Màn hình Hết Hạn */
     .limit-overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(255, 255, 255, 0.95); z-index: 9999;
@@ -155,14 +149,12 @@ st.markdown("""
         margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0, 150, 136, 0.3);
     }
     .login-link { color: #00796b; font-size: 13px; cursor: pointer; text-decoration: underline;}
-
-    /* Hiển thị nguồn (Citation) */
     .source-box { background-color: #f1f8e9; border: 1px solid #c5e1a5; border-radius: 10px; padding: 12px; margin-top: 10px; }
     .source-link { display: block; color: #33691e; text-decoration: none; font-size: 14px; margin-bottom: 6px; padding: 5px; border-radius: 5px; transition: 0.2s; }
     .source-link:hover { background-color: #dcedc8; }
     .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-right: 8px; font-weight: bold; text-transform: uppercase; border: 1px solid; }
     
-    .bottom-spacer { height: 100px; }
+    .bottom-spacer { height: 0px !important; } /* Đã xử lý ở block-container rồi nên cái này về 0 */
 </style>
 """, unsafe_allow_html=True)
 
@@ -490,7 +482,7 @@ if not is_locked:
 
 # --- E. XỬ LÝ CHAT (Logic cũ giữ nguyên) ---
 # Ưu tiên lấy text từ giọng nói, nếu không thì lấy từ ô chat
-user_input = voice_text if voice_text else st.chat_input("Hỏi tôi về Yoga, đau mỏi...")
+user_input = voice_text if voice_text else st.chat_input("Hỏi tôi bất cứ điều gì về Yoga, sức khỏe...")
 
 if user_input and not is_locked:
     # Hiển thị câu hỏi
@@ -541,9 +533,13 @@ if user_input and not is_locked:
 
                 sys_prompt = f"""
                 Bạn là chuyên gia Yoga. DỮ LIỆU: {context_text}. CÂU HỎI: "{user_input}".
-                YÊU CẦU: Trả lời ngắn gọn, thân thiện.
-                Nếu có hình ảnh, hãy nhắc người dùng xem bên dưới.
-                """
+                YÊU CẦU:
+                    - Nếu câu hỏi KHÔNG liên quan đến Yoga/Sức khỏe: trả lời "OFFTOPIC".
+                    - Trả lời đúng trọng tâm.
+                    - Ưu tiên. Kiểm tra dữ liệu: Nếu có [HÌNH ẢNH], hãy mời xem ảnh bên dưới. Ghi nguồn [Ref: X].
+                    - Nếu dữ liệu không khớp, tự trả lời bằng kiến thức Yoga chuẩn (nhưng không bịa nguồn).
+                    - Tối đa 150 từ. Sử dụng gạch đầu dòng.
+                    """
                 
                 response = model.generate_content(sys_prompt)
                 ai_resp = response.text.strip()
