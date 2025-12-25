@@ -454,7 +454,7 @@ if not is_locked:
                     # 6. Nguồn tham khảo
                     used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
                     if used_ids:
-                        html_src = "<div class='source-box'><b>📚 Nguồn:</b>"
+                        html_src = "<div class='source-box'><b>📚 Tài liệu tham khảo:</b>"
                         seen = set()
                         for uid in used_ids:
                             info = source_map[uid]
