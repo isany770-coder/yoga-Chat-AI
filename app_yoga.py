@@ -46,7 +46,7 @@ st.markdown("""
     
     /* 3. Giãn cách giữa các bong bóng chat */
     [data-testid="stChatMessage"] {
-        margin-bottom: 25px !important;
+        margin-bottom: 10px !important;
     }
 
     /* 4. Thanh Quảng Cáo (Banner) */
