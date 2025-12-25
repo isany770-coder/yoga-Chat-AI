@@ -5,3 +5,7 @@ langchain-community
 faiss-cpu
 extra-streamlit-components
 gdown
+streamlit-mic-recorder
+SpeechRecognition
+gTTS
+pydub
