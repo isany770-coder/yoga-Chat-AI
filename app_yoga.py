@@ -212,7 +212,7 @@ if is_limit_reached:
                 with c2:
                     if st.button("✕"): st.session_state.hide_limit_modal = True; st.rerun()
                 
-                 st.markdown("""
+                  st.markdown("""
                     <div style="text-align: center;">
                         <div style="font-size: 60px; margin-bottom: 10px;">🧘‍♀️</div>
                         <h3 style="color: #00897b; margin: 0; font-weight: 800;">ĐÃ ĐẠT GIỚI HẠN!</h3>
