@@ -112,7 +112,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 2. LOGIC BACKEND (CẤU HÌNH & DATA) - ĐÃ SỬA LỖI
+# 2. LOGIC BACKEND (CẤU HÌNH & DATA) - PHIÊN BẢN ĐÃ SỬA LỖI 404
 # =====================================================
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
@@ -129,7 +129,7 @@ DB_PATH = "user_usage.db"
 
 @st.cache_resource
 def load_brain_engine():
-    # 1. Tải và giải nén (Giữ nguyên)
+    # 1. Tải và giải nén dữ liệu (Giữ nguyên)
     if not os.path.exists(EXTRACT_PATH):
         try:
             url = f'https://drive.google.com/uc?id={file_id}'
@@ -137,7 +137,7 @@ def load_brain_engine():
             with zipfile.ZipFile(ZIP_PATH, 'r') as z: z.extractall(EXTRACT_PATH)
         except: return None, "Lỗi tải dữ liệu từ Drive"
     
-    # 2. Hàm tìm đường dẫn (Giữ nguyên)
+    # 2. Tìm đường dẫn Database (Giữ nguyên)
     def find_db_path(target_folder_name):
         for root, dirs, files in os.walk(EXTRACT_PATH):
             if target_folder_name in dirs:
@@ -151,34 +151,31 @@ def load_brain_engine():
     
     if not text_db_path: return None, "Lỗi: Không tìm thấy não chữ (vector_db)"
 
-    # 3. Load riêng biệt 2 não
+    # 3. Load Database (ĐÃ XÓA PHẦN GỌI MODEL GÂY LỖI)
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         
-        # Não Chữ
+        # Load Não Chữ
         db_text = FAISS.load_local(text_db_path, embeddings, allow_dangerous_deserialization=True)
         
-        # Não Ảnh (Nếu có)
+        # Load Não Ảnh (Nếu có)
         db_image = None
         if image_db_path:
             db_image = FAISS.load_local(image_db_path, embeddings, allow_dangerous_deserialization=True)
         
-        # --- SỬA ĐỔI QUAN TRỌNG TẠI ĐÂY ---
-        # KHÔNG khởi tạo model ở đây nữa để tránh lỗi 404 Crash App
-        # Chỉ trả về dữ liệu (Database)
+        # --- QUAN TRỌNG: CHỈ TRẢ VỀ DB, KHÔNG KHỞI TẠO MODEL TẠI ĐÂY ---
         return (db_text, db_image), "OK"
         
     except Exception as e: return None, str(e)
 
-# --- GỌI HÀM LOAD (ĐÃ SỬA LẠI CÁCH GỌI) ---
-# Bỏ biến 'model' ở đây vì ta đã xóa nó trong hàm trên
+# --- GỌI HÀM LOAD (ĐÃ SỬA: KHÔNG LẤY BIẾN MODEL) ---
 databases, status = load_brain_engine()
 
 if status != "OK": 
-    st.error(f"Lỗi: {status}")
+    st.error(f"Lỗi khởi động: {status}")
     st.stop()
 
-# Tách dữ liệu ra để dùng
+# Tách dữ liệu ra để dùng bên dưới
 db_text, db_image = databases
 # =====================================================
 # 3. QUẢN LÝ USER & GIỚI HẠN
