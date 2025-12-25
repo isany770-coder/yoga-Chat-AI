@@ -230,24 +230,23 @@ time.sleep(0.1)
 vip_cookie = cookie_manager.get(cookie="yoga_vip_user")
 guest_cookie = cookie_manager.get(cookie="yoga_guest_id")
 
-# --- C. XÁC ĐỊNH DANH TÍNH & TÍNH TOÁN USAGE NGAY LẬP TỨC ---
+# --- C. XÁC ĐỊNH DANH TÍNH ---
 if vip_cookie:
     st.session_state.authenticated = True
     st.session_state.username = vip_cookie
     current_user_id = vip_cookie
-else:
+elif guest_cookie:
     st.session_state.authenticated = False
     st.session_state.username = ""
-    # Nếu không phải VIP, kiểm tra Khách
-    if guest_cookie:
-        current_user_id = guest_cookie
-    else:
-        # Cấp ID khách mới
-        new_guest_id = str(uuid.uuid4())[:8]
-        expires = datetime.datetime.now() + datetime.timedelta(days=30)
-        cookie_manager.set("yoga_guest_id", new_guest_id, expires_at=expires)
-        current_user_id = new_guest_id
-        time.sleep(0.1)
+    current_user_id = guest_cookie
+else:
+    # Nếu trắng tinh thì cấp mới
+    new_id = str(uuid.uuid4())[:8]
+    expires = datetime.datetime.now() + datetime.timedelta(days=30)
+    cookie_manager.set("yoga_guest_id", new_id, expires_at=expires)
+    st.session_state.authenticated = False
+    current_user_id = new_id
+    st.rerun() # Bắt buộc rerun để nhận diện ID vừa cấp
 
 # [FIX LỖI] Tính toán used và LIMIT ngay tại đây để không bị lỗi NameError bên dưới
 used = check_usage(current_user_id)
@@ -471,16 +470,19 @@ if not is_locked:
                             context_text += f"\n[Nguồn {doc_id} - ẢNH]: {title}.\nNội dung: {d.page_content}\n"
                         else:
                             context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
-
-                    # 4. Prompt & Trả lời
+                            
+                    # --- 4. Prompt & Trả lời ---
+                    sys_prompt = f"""
+                    Bạn là chuyên gia Yoga Y Khoa.
+                    1. DỮ LIỆU: {context_text}
+                    2. CÂU HỎI: "{prompt}"
                     YÊU CẦU:
                     - Nếu câu hỏi KHÔNG liên quan đến Yoga/Sức khỏe: trả lời "OFFTOPIC".
                     - Trả lời đúng trọng tâm.
-                    - Ưu tiên. Kiểm tra dữ liệu: Nếu có [HÌNH ẢNH], hãy mời xem ảnh bên dưới. Ghi nguồn [Ref: X].
-                    - Nếu dữ liệu không khớp, tự trả lời bằng kiến thức Yoga chuẩn (nhưng không bịa nguồn).
+                    - Ưu tiên kiểm tra dữ liệu: Nếu có [HÌNH ẢNH], hãy mời xem ảnh bên dưới. Ghi nguồn [Ref: X].
+                    - Nếu dữ liệu không khớp, tự trả lời bằng kiến thức Yoga chuẩn.
                     - Tối đa 150 từ. Sử dụng gạch đầu dòng.
                     """
-                    
                     response = model.generate_content(sys_prompt)
                     ai_resp = response.text.strip()
                     
