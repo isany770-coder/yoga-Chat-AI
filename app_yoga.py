@@ -415,7 +415,7 @@ if not is_locked:
             with st.spinner("Đang tra cứu..."):
                 try:
                     # --- PHẦN QUAN TRỌNG NHẤT: TỰ ĐỘNG TÌM MODEL SỐNG ---
-                    valid_model = 'models/gemini-1.5-flash' # Ưu tiên Flash cho nhanh
+                    valid_model = 'models/gemini-pro' # Ưu tiên Flash cho nhanh
                     try:
                         for m in genai.list_models():
                             if 'generateContent' in m.supported_generation_methods:
