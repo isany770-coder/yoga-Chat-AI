@@ -23,31 +23,38 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* 1. Tối ưu khung nền & Khoảng cách đầu trang */
-    .stApp { background-color: #ffffff; }
-    header[data-testid="stHeader"], footer {display: none;}
-    .stDeployButton {display:none;}
-    
-    /* Kéo nội dung lên sát phía trên */
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 0rem !important;
+    /* 1. XÓA BỎ THANH FOOTER RÁC (Built with Streamlit) */
+    footer {display: none !important;}
+    header {display: none !important;}
+
+    /* 2. CỐ ĐỊNH DISCLAIMER Ở ĐÁY CÙNG */
+    .disclaimer-text {
+        position: fixed !important;
+        bottom: 5px !important;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        color: #bbb;
+        font-size: 10px;
+        z-index: 999;
+        background: rgba(255,255,255,0.8); /* Làm nền mờ để không đè chữ */
     }
 
-    /* NÂNG CẤP: Ép thanh Chat bay cao và ẩn Footer */
+    /* 3. NÂNG THANH CHAT LÊN VỪA ĐỦ (Cách đáy 40px) */
     div[data-testid="stChatInput"] {
         position: fixed !important;
-        bottom: 100px !important; /* Đẩy lên 100px để không dính Disclaimer */
+        bottom: 40px !important; /* Không cần lên 60-100px làm gì cho dính chữ */
         left: 50% !important;
         transform: translateX(-50%) !important;
-        width: 95% !important;
-        max-width: 800px !important;
         z-index: 1000 !important;
+        width: 95% !important;
     }
 
-    /* ẨN TRIỆT ĐỂ THANH FOOTER (Built with Streamlit) */
-    footer { visibility: hidden !important; height: 0 !important; padding: 0 !important; }
-    header { visibility: hidden !important; }
+    /* 4. CHÌA KHÓA: ĐẨY TOÀN BỘ NỘI DUNG CHAT LÊN CAO */
+    /* Thay vì spacer, mình ép cái khung chứa tin nhắn phải có đáy cực rộng */
+    .stMainBlockContainer {
+        padding-bottom: 200px !important; 
+    }
     
     /* 3. Giãn cách giữa các bong bóng chat */
     [data-testid="stChatMessage"] {
