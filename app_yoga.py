@@ -256,9 +256,9 @@ if not is_locked:
                     model = genai.GenerativeModel(valid_model)
 
                     # --- TÌM KIẾM DỮ LIỆU ---
-                    docs_text = db_text.similarity_search(prompt, k=15)
+                    docs_text = db_text.similarity_search(prompt, k=8)
                     docs_img = []
-                    if db_image: docs_img = db_image.similarity_search(prompt, k=8)
+                    if db_image: docs_img = db_image.similarity_search(prompt, k=4)
                     
                     # --- XỬ LÝ TEXT ---
                     context_text = ""
