@@ -164,7 +164,18 @@ def load_brain_engine():
             db_image = FAISS.load_local(image_db_path, embeddings, allow_dangerous_deserialization=True)
             print("✅ Đã load thành công não ảnh riêng biệt!")
 
-        model = genai.GenerativeModel('gemini-flash-latest')
+        # Cấu hình độ chính xác cho AI
+        generation_config = {
+          "temperature": 0.2, # Càng thấp càng chính xác, tránh trả lời lan man
+          "top_p": 0.95,
+          "top_k": 40,
+          "max_output_tokens": 1024,
+        }
+
+        model = genai.GenerativeModel(
+            model_name='gemini-flash-latest',
+            generation_config=generation_config
+        )
         
         # TRẢ VỀ CẢ 2 NÃO RIÊNG BIỆT (KHÔNG GỘP)
         return (db_text, db_image), model, "OK"
@@ -402,10 +413,10 @@ if not is_locked:
             with st.spinner("Đang tra cứu từ kho dữ liệu..."):
                 try:
                     # 1. TÌM KIẾM
-                    docs_text = db_text.similarity_search(prompt, k=4)
+                    docs_text = db_text.similarity_search(prompt, k=6)
                     docs_img = []
                     if db_image:
-                        docs_img = db_image.similarity_search(prompt, k=2)
+                        docs_img = db_image.similarity_search(prompt, k=3)
                     
                     docs = docs_text + docs_img
                     # --- CHÈN ĐOẠN NÀY VÀO ĐÂY ---
@@ -449,12 +460,14 @@ if not is_locked:
                     2. LỊCH SỬ TRÒ CHUYỆN (Bối cảnh):{history_text}
                     3. CÂU HỎI: "{prompt}"
                     YÊU CẦU:
-                    - Nếu câu hỏi KHÔNG liên quan đến Yoga, sức khỏe, hoặc bệnh lý (ví dụ: bóng đá, người mẫu, showbiz, chính trị...): chỉ trả lời duy nhất từ khóa "OFFTOPIC".
-                    - ƯU TIÊN SỐ 1: Trả lời đúng trọng tâm "CÂU HỎI CỦA NGƯỜI DÙNG".
-                    - Kiểm tra "DỮ LIỆU TRA CỨU": Nếu thấy có [HÌNH ẢNH], hãy mời người dùng xem ảnh minh họa bên dưới. Ghi chú nguồn [Ref: X].
-                    - Nếu "DỮ LIỆU TRA CỨU" không liên quan (ví dụ: hỏi bệnh mà dữ liệu ra triết lý), HÃY BỎ QUA DỮ LIỆU ĐÓ và trả lời bằng kiến thức Yoga Y Khoa chuẩn xác của bạn.
-                    - Tuyệt đối không trả lời lung tung. Nếu là bệnh lý (huyết áp, thoát vị...), ưu tiên bài tập nhẹ nhàng, an toàn.
-                    - Tối đa 150 từ.
+                    1. KIỂM TRA NỘI DUNG: Nếu câu hỏi hoàn toàn không liên quan đến Yoga, Sức khỏe hoặc Giải phẫu, chỉ trả lời duy nhất từ: OFFTOPIC.
+                    2. PHÂN TÍCH DỮ LIỆU: Ưu tiên sử dụng thông tin từ "NGỮ CẢNH TRA CỨU" để trả lời. 
+                    - Nếu dữ liệu có chứa [HÌNH ẢNH], hãy lồng ghép câu: "Bạn có thể tham khảo hình ảnh minh họa chi tiết phía dưới để thực hiện chuẩn xác hơn."
+                    - Sử dụng chú thích [Ref: X] tương ứng với nguồn dữ liệu đã dùng.
+                    3. PHONG CÁCH: Trả lời ân cần, chuyên nghiệp. Đối với các bệnh lý (thoát vị, đau lưng...), luôn hướng dẫn các tư thế nhẹ nhàng, nhấn mạnh vào việc lắng nghe cơ thể.
+                    4. TRÌNH BÀY: 
+                   - Dùng Bullet points cho các bước kỹ thuật.
+                   - Giới hạn trong khoảng 150-200 từ để tối ưu hiển thị mobile.
                     """
                     
                     response = model.generate_content(sys_prompt)
