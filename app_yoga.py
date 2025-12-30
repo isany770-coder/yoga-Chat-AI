@@ -76,6 +76,17 @@ st.markdown("""
         text-decoration: none; font-weight: bold; border-radius: 25px;
         margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0, 150, 136, 0.3);
     }
+    /* 4. DÒNG DISCLAIMER NẰM GỌN DƯỚI ĐÁY */
+    .disclaimer-text {
+        position: fixed;
+        bottom: 15px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        color: #999;
+        font-size: 11px;
+        z-index: 999;
+    }
     .login-link { color: #00796b; font-size: 13px; cursor: pointer; text-decoration: underline;}
 
     /* 5. Hiển thị nguồn (Citation) */
@@ -430,3 +441,5 @@ if not is_locked:
 
                 except Exception as e:
                     st.error("Hệ thống đang bận. Xin vui lòng thử lại sau.")
+
+                st.markdown('<div class="disclaimer-text">Trợ lý AI có thể mắc sai sót, vì vậy, nhớ xác minh câu trả lời.</div>', unsafe_allow_html=True)
