@@ -389,7 +389,7 @@ if not is_locked:
                     - Trả lời đúng trọng tâm.
                     - Ưu tiên. Kiểm tra dữ liệu: Nếu có [HÌNH ẢNH], hãy mời xem ảnh bên dưới. Ghi nguồn [Ref: X].
                     - Nếu dữ liệu không khớp, tự trả lời bằng kiến thức Yoga chuẩn (nhưng không bịa nguồn).
-                    - Tối đa 150 từ. Sử dụng gạch đầu dòng.
+                    - Tối đa 250 từ. Sử dụng gạch đầu dòng.
                     """
                     
                     response = model.generate_content(sys_prompt)
