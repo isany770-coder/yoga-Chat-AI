@@ -314,132 +314,123 @@ YOGA_SOLUTIONS = {
 }
 
 # =====================================================
-# 6. XỬ LÝ CHAT (ĐÃ SỬA: TỰ TÌM MODEL ĐỂ KHÔNG CHẾT APP)
+# 8. XỬ LÝ CHAT (CHẾ ĐỘ ĐA NHIỆM: VỪA SOI DÁNG, VỪA CHÉM GIÓ)
 # =====================================================
 
-# --- A. BIẾN TRẠNG THÁI ---
-if "spam_count" not in st.session_state: st.session_state.spam_count = 0
-if "lock_until" not in st.session_state: st.session_state.lock_until = None
+# 1. Hiển thị lịch sử chat cũ (Giữ nguyên ký ức của bot)
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"], unsafe_allow_html=True)
 
-# --- B. KIỂM TRA KHÓA ---
-is_locked = False
-if st.session_state.lock_until:
-    if time.time() < st.session_state.lock_until:
-        is_locked = True
-        remaining = int((st.session_state.lock_until - time.time()) / 60)
-        st.warning(f"⚠️ Bạn đã vi phạm quy định nội dung. Khung chat sẽ mở lại sau {remaining + 1} phút.")
-    else:
-        st.session_state.lock_until = None; st.session_state.spam_count = 0
+# --- KHỐI XỬ LÝ LOGIC ---
 
-# --- C. XỬ LÝ CHAT ---
-if not is_locked:
-    if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
-        st.chat_message("user").markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        increment_usage(user_id)
+# Biến chứa nội dung cần xử lý (đến từ 2 nguồn)
+final_input = None
+is_auto_mode = False
 
-        with st.chat_message("assistant"):
-            with st.spinner("Đang tra cứu..."):
-                try:
-                    # --- PHẦN QUAN TRỌNG NHẤT: TỰ ĐỘNG TÌM MODEL SỐNG ---
-                    valid_model = 'models/gemini-flash' # Mặc định an toàn
-                    try:
-                        for m in genai.list_models():
-                            if 'generateContent' in m.supported_generation_methods:
-                                if 'flash' in m.name or 'pro' in m.name:
-                                    valid_model = m.name
-                                    break
-                    except: pass
-                    
-                    # Khởi tạo model (Lúc này mới gọi, không gọi ở đầu file nữa)
-                    model = genai.GenerativeModel(valid_model)
-                    
-                    # --- 1. TÌM KIẾM ---
-                    docs_text = db_text.similarity_search(prompt, k=6)
-                    docs_img = []
-                    if db_image: docs_img = db_image.similarity_search(prompt, k=2)
-                    docs = docs_text + docs_img
-                    
-                    # --- 2. XỬ LÝ DỮ LIỆU ---
-                    context_text = ""
-                    source_map = {}
-                    found_images = []
+# Nguồn A: Từ URL (Do file JS bắn về sau khi tập xong)
+if "auto_prompt" in st.query_params:
+    final_input = st.query_params["auto_prompt"]
+    is_auto_mode = True
+    # Xóa ngay tham số trên URL để tránh F5 lại bị spam, 
+    # nhưng vẫn giữ nội dung trong biến final_input để xử lý lần này
+    st.query_params.clear() 
 
-                    for i, d in enumerate(docs):
-                        doc_id = i + 1
-                        url = d.metadata.get('url', '#')
-                        title = d.metadata.get('title', 'Tài liệu Yoga')
-                        type_ = d.metadata.get('type', 'blog')
-                        img_url = d.metadata.get('image_url', '')
-                        source_map[doc_id] = {"url": url, "title": title, "type": type_}
-                        
-                        if type_ == 'image' and img_url:
-                            found_images.append({"url": img_url, "title": title})
-                            context_text += f"\n[Nguồn {doc_id} - HÌNH ẢNH]: {title}.\nNội dung ảnh: {d.page_content}\n"
-                        else:
-                            context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
+# Nguồn B: Từ ô nhập liệu (User tự gõ chém gió)
+# Lưu ý: Luôn hiện ô chat_input để user thích hỏi gì thì hỏi
+user_chat = st.chat_input("Hỏi tôi về Yoga, tư thế, đau mỏi...")
+if user_chat:
+    final_input = user_chat
+    is_auto_mode = False
 
-                    # --- 3. PROMPT ---
-                    sys_prompt = f"""
-                    Bạn là chuyên gia Yoga Y Khoa.
-                    1. DỮ LIỆU: {context_text}
-                    2. CÂU HỎI: "{prompt}"
-                    YÊU CẦU:
-                    - Nếu câu hỏi KHÔNG liên quan đến Yoga/Sức khỏe: trả lời "OFFTOPIC".
-                    - Trả lời đúng trọng tâm.
-                    - Ưu tiên. Kiểm tra dữ liệu: Nếu có [HÌNH ẢNH], hãy mời xem ảnh bên dưới. Ghi nguồn [Ref: X].
-                    - Nếu dữ liệu không khớp, tự trả lời bằng kiến thức Yoga chuẩn (nhưng không bịa nguồn).
-                    - Tối đa 150 từ. Sử dụng gạch đầu dòng.
-                    """
-                    
+# --- KHI CÓ ĐẦU VÀO (DÙ LÀ TỰ ĐỘNG HAY TỰ GÕ) ---
+if final_input:
+    # 1. Lưu vào lịch sử hiển thị
+    # Nếu là auto (kết quả tập), ta thêm prefix icon cho đẹp
+    display_text = final_input
+    
+    st.session_state.messages.append({"role": "user", "content": display_text})
+    with st.chat_message("user"):
+        st.markdown(display_text)
+
+    # 2. Lưu vào Database hành vi (chỉ tính lượt nếu user tự gõ, tùy bác)
+    if not is_auto_mode:
+        db_data[user_key]["count"] += 1
+        save_data(db_data)
+
+    # 3. GỌI "NÃO" (FAISS + GEMINI)
+    with st.chat_message("assistant"):
+        if db:
+            # Bước A: Tìm kiếm trong não bộ (Vector Search)
+            # Lấy 4 đoạn tài liệu liên quan nhất đến câu hỏi/kết quả tập
+            docs = db.similarity_search(final_input, k=4) 
+            
+            context_parts = []
+            source_map = {}
+            
+            for i, d in enumerate(docs):
+                dtype = d.metadata.get('type', 'general')
+                title = d.metadata.get('title', 'Tài liệu')
+                url = d.metadata.get('url', '#')
+                label = "KIẾN THỨC" if dtype == 'science' else "KINH NGHIỆM"
+                context_parts.append(f"--- NGUỒN {i+1} [{label}]: {title} ---\n{d.page_content}")
+                
+                if url != "#" and url is not None:
+                    source_map[url] = {"title": title, "type": dtype}
+            
+            full_context = "\n\n".join(context_parts)
+
+            # Bước B: Xây dựng Prompt (Linh hoạt theo ngữ cảnh)
+            if is_auto_mode:
+                # Prompt chuyên dụng cho việc nhận xét tư thế
+                sys_prompt = f"""
+                Bạn là Yoga Coach chuyên nghiệp. Học viên vừa gửi kết quả tập luyện: "{final_input}".
+                Dựa trên DỮ LIỆU CHUYÊN SÂU sau đây:
+                {full_context}
+                
+                Hãy:
+                1. Khen ngợi ngắn gọn (động viên).
+                2. Phân tích lỗi sai dựa trên kiến thức trong dữ liệu (nếu có lỗi).
+                3. Đề xuất bài tập bổ trợ hoặc cách sửa.
+                Giọng văn: Thân thiện, khuyến khích.
+                """
+            else:
+                # Prompt cho chat chit thông thường
+                sys_prompt = f"""
+                Bạn là Trợ lý Yoga AI. Trả lời câu hỏi của người dùng dựa trên DỮ LIỆU:
+                {full_context}
+                
+                Câu hỏi: "{final_input}"
+                Giọng văn: Chuyên gia, ngắn gọn, súc tích.
+                """
+            
+            try:
+                with st.spinner("🧠 Đang tham vấn chuyên gia..."):
                     response = model.generate_content(sys_prompt)
-                    ai_resp = response.text.strip()
+                    res_text = response.text
+                
+                # Bước C: Hiển thị câu trả lời
+                st.markdown(res_text, unsafe_allow_html=True)
+                
+                # Hiển thị sản phẩm gợi ý (nếu có trong logic cũ)
+                solutions = get_recommended_solutions(final_input)
+                if solutions:
+                    for sol in solutions:
+                        st.markdown(f"""<div class="solution-card">... (code render thẻ như cũ) ...</div>""", unsafe_allow_html=True)
 
-                    if "OFFTOPIC" in ai_resp.upper():
-                        st.warning("Vui lòng đặt câu hỏi liên quan.")
-                    else:
-                        clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', ' 🔖', ai_resp)
-                        st.markdown(clean_text)
-                        
-                        # Hiển thị ảnh (Gallery)
-                        if found_images:
-                            st.markdown("---")
-                            st.markdown("##### 🖼️ Minh họa chi tiết:")
-                            cols = st.columns(3)
-                            for i, img in enumerate(found_images):
-                                with cols[i % 3]:
-                                    st.markdown(f"""<div style="height:150px;overflow:hidden;border-radius:10px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;background:#f9f9f9;"><img src="{img['url']}" style="width:100%;height:100%;object-fit:cover;"></div>""", unsafe_allow_html=True)
-                                    with st.expander(f"🔍 Phóng to ảnh {i+1}"):
-                                        st.image(img['url'], caption=img['title'], use_container_width=True)
-                                        st.markdown(f"[Tải ảnh]({img['url']})")
+                # Hiển thị nguồn tham khảo
+                if source_map:
+                    links_html = "<div class='source-box'><strong>📚 Tham khảo thêm:</strong><div style='margin-top:8px'>"
+                    for url, info in source_map.items():
+                         links_html += f"<div><a href='{url}' target='_blank'>{info['title']}</a></div>"
+                    links_html += "</div></div>"
+                    st.markdown(links_html, unsafe_allow_html=True)
 
-                        # Hiển thị nguồn
-                        used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
-                        if used_ids:
-                            html_src = "<div class='source-box'><b>📚 Nguồn:</b>"
-                            seen = set()
-                            for uid in used_ids:
-                                info = source_map[uid]
-                                if info['url'] != '#' and info['url'] not in seen:
-                                    seen.add(info['url'])
-                                    html_src += f" <a href='{info['url']}' target='_blank' class='source-link'>{info['title']}</a>"
-                            html_src += "</div>"
-                            st.markdown(html_src, unsafe_allow_html=True)
-                        
-                        # Upsell Logic
-                        upsell_html = ""
-                        recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
-                        if recs:
-                            upsell_html += "<div style='margin-top:15px'>"
-                            for r in recs[:2]:
-                                upsell_html += f"""<div style="background:#e0f2f1; padding:10px; border-radius:10px; margin-bottom:8px; border:1px solid #009688; display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:bold; color:#004d40; font-size:14px">{r['name']}</span><a href="{r['url']}" target="_blank" style="background:#00796b; color:white; padding:5px 10px; border-radius:15px; text-decoration:none; font-size:12px; font-weight:bold;">Xem ngay</a></div>"""
-                            upsell_html += "</div>"
-                            st.markdown(upsell_html, unsafe_allow_html=True)
-
-                        # Lưu lịch sử (Kèm ảnh để hiển thị lại)
-                        st.session_state.messages.append({"role": "assistant", "content": clean_text + ("\n\n" + html_src if 'html_src' in locals() else "") + upsell_html, "images": found_images})
-
-                except Exception as e:
-                    st.error("Hệ thống đang bận. Xin vui lòng thử lại sau.")
+                # Lưu câu trả lời vào lịch sử
+                db_data[user_key]["history"].append({"role": "assistant", "content": res_text})
+                save_data(db_data)
+                
+            except Exception as error:
+                st.error(f"Hệ thống bận: {error}")
 
                 st.markdown('<div class="disclaimer-text">Trợ lý AI có thể mắc sai sót, vì vậy, nhớ xác minh câu trả lời.</div>', unsafe_allow_html=True)
