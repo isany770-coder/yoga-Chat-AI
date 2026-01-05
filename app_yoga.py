@@ -342,16 +342,22 @@ if not is_locked:
             with st.spinner("Đang tra cứu..."):
                 try:
                     # --- PHẦN QUAN TRỌNG NHẤT: TỰ ĐỘNG TÌM MODEL SỐNG ---
-                    valid_model = 'models/gemini-flash' # Mặc định an toàn
+                    # --- PHẦN QUAN TRỌNG: TỰ ĐỘNG SĂN TÌM "FLASH" (VỪA RẺ VỪA SỐNG) ---
+                    valid_model = 'models/gemini-1.5-flash' # Dự phòng
                     try:
+                        # Lấy danh sách tất cả model đang hoạt động
                         for m in genai.list_models():
                             if 'generateContent' in m.supported_generation_methods:
-                                if 'flash' in m.name or 'pro' in m.name:
+                                name = m.name.lower()
+                                # Chỉ bắt những con có chữ 'flash' (VD: flash-latest, 1.5-flash...)
+                                # Tuyệt đối KHÔNG bắt 'pro'
+                                if 'flash' in name:
                                     valid_model = m.name
                                     break
-                    except: pass
+                    except:
+                        pass
                     
-                    # Khởi tạo model (Lúc này mới gọi, không gọi ở đầu file nữa)
+                    # Khởi tạo model (Lúc này mới gọi)
                     model = genai.GenerativeModel(valid_model)
                     
                     # --- 1. TÌM KIẾM ---
