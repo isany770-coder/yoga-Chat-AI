@@ -48,12 +48,23 @@ st.markdown("""
         white-space: nowrap;
     }
 
-    /* Disclaimer & Link */
+    /* Disclaimer & Link Ref */
     .disclaimer-text { position: fixed; bottom: 5px; left: 0; width: 100%; text-align: center; color: #aaa; font-size: 10px; z-index: 999; }
-    .ref-link { color: #00796b; font-weight: bold; text-decoration: none; background: #e0f2f1; padding: 0 4px; border-radius: 4px; }
-    .ref-link:hover { background: #b2dfdb; text-decoration: underline; }
     
-    /* Limit Modal CSS (Giữ nguyên form cũ) */
+    /* Style cho Link Ref [1], [2] */
+    .ref-link { 
+        color: #00796b; font-weight: bold; text-decoration: none; 
+        background: #e0f2f1; padding: 2px 6px; border-radius: 4px; margin: 0 2px;
+        font-size: 0.9em; border: 1px solid #b2dfdb;
+    }
+    .ref-link:hover { background: #00796b; color: white; border-color: #004d40; }
+    
+    /* Hiển thị nguồn cuối bài */
+    .source-box { background-color: #f1f8e9; border: 1px solid #c5e1a5; border-radius: 10px; padding: 12px; margin-top: 10px; font-size: 0.9em; }
+    .source-link { color: #33691e; text-decoration: none; font-weight: 600; }
+    .source-link:hover { text-decoration: underline; }
+
+    /* Limit Modal CSS */
     .limit-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 9999; display: flex; align-items: center; justify-content: center; }
     
     .bottom-spacer { height: 100px; }
@@ -109,7 +120,7 @@ db_text, status = load_brain_text_only()
 if status != "OK": st.error(f"Lỗi: {status}"); st.stop()
 
 # =====================================================
-# 3. QUẢN LÝ USER & LIMIT (GIỮ NGUYÊN)
+# 3. QUẢN LÝ USER & LIMIT (DATABASE SQLITE - GIỮ NGUYÊN)
 # =====================================================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -164,7 +175,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 4. GIAO DIỆN HẾT HẠN (MODAL LOGIN)
+# 4. GIAO DIỆN HẾT HẠN (MODAL LOGIN - GIỮ NGUYÊN)
 # =====================================================
 if is_limit_reached:
     if "hide_limit_modal" not in st.session_state: st.session_state.hide_limit_modal = False
@@ -214,7 +225,7 @@ YOGA_SOLUTIONS = {
 }
 
 # =====================================================
-# 6. XỬ LÝ CHAT (FLASH MODEL - TẮT ẢNH - GẮN LINK REF)
+# 6. XỬ LÝ CHAT (FLASH MODEL - TẮT ẢNH - GẮN LINK REF CLICKABLE)
 # =====================================================
 if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
     st.chat_message("user").markdown(prompt)
@@ -236,7 +247,7 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                 
                 model = genai.GenerativeModel(valid_model)
                 
-                # 2. Tìm kiếm (CHỈ TEXT)
+                # 2. Tìm kiếm (CHỈ TEXT - BỎ ẢNH)
                 docs = db_text.similarity_search(prompt, k=5)
                 
                 context_text = ""
@@ -247,11 +258,11 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                     url = d.metadata.get('url', '#')
                     title = d.metadata.get('title', 'Tài liệu Yoga')
                     
-                    # Lưu lại map để thay thế sau
+                    # Lưu lại map để tạo link
                     source_map[doc_id] = {"url": url, "title": title}
                     context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
 
-                # 3. Prompt (Yêu cầu trích dẫn số)
+                # 3. Prompt (Yêu cầu trích dẫn chuẩn Ref: X)
                 sys_prompt = f"""
                 Bạn là chuyên gia Yoga Y Khoa.
                 DỮ LIỆU THAM KHẢO:
@@ -261,31 +272,45 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                 
                 YÊU CẦU:
                 - Trả lời ngắn gọn (dưới 200 từ), đúng trọng tâm.
-                - Khi dùng thông tin từ [Nguồn X], hãy ghi chú ngay cuối câu đó bằng ký hiệu: [Ref: X].
-                - Ví dụ: Tập Yoga giúp giảm đau lưng [Ref: 1].
-                - Nếu không có trong dữ liệu, hãy trả lời bằng kiến thức chung nhưng không bịa nguồn.
+                - Tuyệt đối KHÔNG bịa đặt. Chỉ dùng thông tin trong DỮ LIỆU.
+                - Khi dùng ý từ [Nguồn X], hãy ghi chú ngay sau câu đó là: [Ref: X].
+                - Ví dụ: "Tập Yoga giúp giảm đau [Ref: 1]."
                 """
                 
                 response = model.generate_content(sys_prompt)
                 ai_resp = response.text.strip()
 
-                # 4. Xử lý Link Ref (Thay [Ref: 1] thành Link Clickable)
-                # Dùng Regex để tìm và thay thế
+                # 4. Xử lý Link Ref (Biến [Ref: X] thành Link Clickable)
                 def replace_ref(match):
                     ref_id = int(match.group(1))
                     if ref_id in source_map:
                         info = source_map[ref_id]
                         if info['url'] and info['url'] != '#':
-                            # Tạo link HTML nhỏ gọn
+                            # Tạo link HTML bấm được luôn
                             return f" <a href='{info['url']}' target='_blank' class='ref-link' title='{info['title']}'>[{ref_id}]</a>"
-                    return "" # Nếu không có link thì ẩn luôn số Ref đi cho gọn
+                    return "" 
 
                 # Thay thế pattern [Ref: X] hoặc [Ref:X]
                 final_html = re.sub(r'\[Ref:?\s*(\d+)\]', replace_ref, ai_resp)
 
+                # Hiển thị
                 st.markdown(final_html, unsafe_allow_html=True)
                 
-                # Upsell
+                # 5. Hiển thị danh sách nguồn chi tiết ở dưới (cho chắc)
+                used_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_resp) if int(m) in source_map]
+                if used_ids:
+                    html_src = "<div class='source-box'><b>📚 Nguồn tham khảo:</b><ul style='margin-bottom:0;padding-left:20px;'>"
+                    seen = set()
+                    for uid in used_ids:
+                        info = source_map[uid]
+                        if info['url'] != '#' and info['url'] not in seen:
+                            seen.add(info['url'])
+                            html_src += f"<li><a href='{info['url']}' target='_blank' class='source-link'>{info['title']}</a></li>"
+                    html_src += "</ul></div>"
+                    st.markdown(html_src, unsafe_allow_html=True)
+                    final_html += html_src # Lưu cả nguồn vào lịch sử
+
+                # 6. Upsell (Bán hàng)
                 upsell_html = ""
                 recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
                 if recs:
