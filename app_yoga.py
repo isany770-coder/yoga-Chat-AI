@@ -343,14 +343,6 @@ if not is_locked:
                 try:
                     # --- PHẦN QUAN TRỌNG NHẤT: TỰ ĐỘNG TÌM MODEL SỐNG ---
                     valid_model = 'models/gemini-flash' # Mặc định an toàn
-                    try:
-                        for m in genai.list_models():
-                            if 'generateContent' in m.supported_generation_methods:
-                                if 'flash' in m.name or 'pro' in m.name:
-                                    valid_model = m.name
-                                    break
-                    except: pass
-                    
                     # Khởi tạo model (Lúc này mới gọi, không gọi ở đầu file nữa)
                     model = genai.GenerativeModel(valid_model)
                     
