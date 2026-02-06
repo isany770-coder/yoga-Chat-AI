@@ -109,38 +109,48 @@ if status != "OK": st.error(f"Lỗi: {status}"); st.stop()
 db_text, db_image = data_result
 
 # =====================================================
-# 3. HÀM AI THÔNG MINH (ĐÃ SỬA LẠI PROMPT CHUẨN)
+# 3. HÀM AI THÔNG MINH (CẬP NHẬT: PROFILE & LINK ADMIN)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
-        # --- A. TÌM MODEL (GIỮ NGUYÊN LOGIC CỦA BẠN) ---
+        # --- 1. CẤU HÌNH THÔNG TIN CÁ NHÂN CỦA BẠN (SỬA Ở ĐÂY) ---
+        ADMIN_NAME = "An Nguyễn" 
+        ADMIN_BIO = "Kỹ sư khoa học máy tính, đam mê khoa học hóa Yoga."
+        WEBSITE = "yogaismylife.vn"
+        PROFILE_LINK = "https://yogaismylife.vn/nguoi-sang-lap-hanh-trinh-tao-nen-yogaismylife-vn/" 
+        
+        # --- 2. TÌM MODEL ---
         valid_model = 'models/gemini-1.5-flash'
         try:
             for m in genai.list_models():
                 if 'generateContent' in m.supported_generation_methods:
                     if 'flash' in m.name.lower(): valid_model = m.name; break
         except: pass
-        
         model = genai.GenerativeModel(valid_model)
         
-        # --- B. PROMPT CHUYÊN GIA (ĐÃ KHÔI PHỤC) ---
+        # --- 3. SYSTEM PROMPT (KỊCH BẢN) ---
         sys_prompt = f"""
         VAI TRÒ & DANH TÍNH:
-        - Bạn là "Trợ lý Yoga Y Khoa" thuộc hệ thống **Yoga Is My Life** (Website: yogaismylife.vn).
-        - Người sáng lập/Admin là: **An Nguyễn** .
-        - Sứ mệnh: Giúp cộng đồng tập Yoga an toàn, khoa học và phục hồi tự nhiên.
-        - Không cần xin lỗi, không thảo mai nếu người ta có thái độ, dùng triết lý Yoga và vai trò của bạn để đối đáp lịch sự.
-        
+        - Bạn là trợ lý AI của hệ thống **{WEBSITE}**.
+        - Người quản lý/Sáng lập là: **{ADMIN_NAME}**.
+        - Thông tin về Admin: "{ADMIN_BIO}".
+        - Link Profile Admin: {PROFILE_LINK}
 
-        NHIỆM VỤ 1: BỘ LỌC CHỦ ĐỀ
-        - Nếu hỏi về tác giả, admin, website, nguồn gốc của bạn: -> TRẢ LỜI TỰ HÀO & NGẮN GỌN về Yoga Is My Life.
-        - Nếu hỏi sai chủ đề khác (xổ số, code, chính trị...): -> Trả lời duy nhất: REFUSE_TOPIC
+        NHIỆM VỤ 1: XỬ LÝ CÂU HỎI VỀ ADMIN/TÁC GIẢ
+        - Nếu người dùng hỏi "Ai tạo ra bạn?", "Admin là ai?", "Tác giả web này?", "Liên hệ với ai?":
+          -> Hãy trả lời trang trọng, giới thiệu về {ADMIN_NAME} và Bio ở trên.
+          -> BẮT BUỘC cung cấp link profile dưới dạng HTML: <a href='{PROFILE_LINK}' target='_blank'><b>👉 Xem Profile {ADMIN_NAME} tại đây</b></a>.
 
-        NHIỆM VỤ 2: TƯ VẤN (Nếu đúng chủ đề)
-        - YÊU CẦU CỐT LÕI: Trả lời NGẮN GỌN (Tối đa 200 từ). Không lan man, không mở bài kết bài dài dòng.
+        NHIỆM VỤ 2: BỘ LỌC CHỦ ĐỀ
+        - Nếu câu hỏi KHÔNG LIÊN QUAN đến Admin hoặc Yoga/Sức khỏe (ví dụ: xổ số, code, chính trị...):
+          -> Trả lời duy nhất: REFUSE_TOPIC
+
+        NHIỆM VỤ 3: TƯ VẤN CHUYÊN MÔN (YOGA/SỨC KHỎE)
+        - YÊU CẦU: Trả lời NGẮN GỌN (Tối đa 200 từ). Đi thẳng vào vấn đề.
         - Dựa CHỦ YẾU vào "DỮ LIỆU TRA CỨU" bên dưới.
-        - Bắt buộc ghi nguồn cuối câu: [Ref: ID].
-        - Trình bày: Dùng thẻ <b> in đậm ý chính, <ul><li> gạch đầu dòng.
+        - Bắt buộc ghi nguồn: [Ref: ID].
+        - Trình bày: Thẻ <b> in đậm ý chính, <ul><li> gạch đầu dòng.
+        - Nếu không có dữ liệu trả lời theo hiểu biết, tuyệt đối không được bịa.
 
         DỮ LIỆU TRA CỨU (RAG):
         {context_text}
