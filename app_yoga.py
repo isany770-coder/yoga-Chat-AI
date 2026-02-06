@@ -109,15 +109,15 @@ if status != "OK": st.error(f"Lỗi: {status}"); st.stop()
 db_text, db_image = data_result
 
 # =====================================================
-# 3. HÀM AI THÔNG MINH (ADMIN INFO + LIMIT 200 TỪ)
+# 3. HÀM AI THÔNG MINH (BẢN FIX: TỰ ĐỘNG DÙNG KIẾN THỨC KHI THIẾU DATA)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
-        # --- 1. THÔNG TIN CÁ NHÂN (BẠN SỬA Ở ĐÂY) ---
-        ADMIN_NAME = "Coach Nguyễn Văn A" 
-        ADMIN_BIO = "Chuyên gia Yoga Trị liệu với 10 năm kinh nghiệm."
+        # --- 1. THÔNG TIN CÁ NHÂN ---
+        ADMIN_NAME = "An Nguyễn" 
+        ADMIN_BIO = "Kỹ sư khoa học máy tính"
         WEBSITE = "yogaismylife.vn"
-        PROFILE_LINK = "https://zalo.me/..."
+        PROFILE_LINK = "https://yogaismylife.vn/nguoi-sang-lap-hanh-trinh-tao-nen-yogaismylife-vn/"
         
         # --- 2. TÌM MODEL ---
         valid_model = 'models/gemini-1.5-flash'
@@ -128,19 +128,23 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # --- 3. SYSTEM PROMPT ---
+        # --- 3. KIỂM TRA DỮ LIỆU RAG ---
+        # Nếu không tìm thấy dữ liệu (context rỗng), báo cho AI biết để nó tự "chém"
+        data_instruction = "Dữ liệu tra cứu bên dưới."
+        if not context_text.strip():
+            data_instruction = "Hiện tại không tìm thấy tài liệu trong kho lưu trữ. HÃY DÙNG KIẾN THỨC CHUYÊN GIA CỦA BẠN để tư vấn chính xác."
+
+        # --- 4. SYSTEM PROMPT (LINH HOẠT HƠN) ---
         sys_prompt = f"""
-        VAI TRÒ & DANH TÍNH:
-        - Bạn là trợ lý AI của **{WEBSITE}**.
-        - Người sáng lập: **{ADMIN_NAME}**.
-        - Thông tin Admin: "{ADMIN_BIO}".
-
-        NHIỆM VỤ 1: TRẢ LỜI VỀ ADMIN
-        - Nếu hỏi "Ai tạo ra bạn?", "Admin là ai?": 
-          -> Giới thiệu về {ADMIN_NAME} + Link Profile: <a href='{PROFILE_LINK}' target='_blank'><b>👉 Xem Profile {ADMIN_NAME}</b></a>.
-
-        NHIỆM VỤ 2: BỘ LỌC CHỦ ĐỀ
-        - Nếu hỏi sai chủ đề (xổ số, code, chính trị...): Trả lời duy nhất: REFUSE_TOPIC
+        VAI TRÒ: Trợ lý Yoga Y Khoa của **{WEBSITE}** (Admin: {ADMIN_NAME}).
+        
+        NHIỆM VỤ 1: CHẾ ĐỘ TRẢ LỜI
+        - ƯU TIÊN 1: Dùng thông tin từ "DỮ LIỆU TRA CỨU" (nếu có) -> Ghi nguồn [Ref: ID].
+        - ƯU TIÊN 2: Nếu dữ liệu tra cứu không đủ hoặc không có -> DÙNG KIẾN THỨC Y KHOA/YOGA CỦA BẠN để trả lời chi tiết, đúng chuyên môn. (Lúc này không cần ghi nguồn Ref).
+        
+        NHIỆM VỤ 2: BỘ LỌC
+        - Nếu hỏi sai chủ đề (xổ số, code, chính trị...): Trả lời: REFUSE_TOPIC
+        - Nếu hỏi về Admin: Giới thiệu {ADMIN_NAME} và link {PROFILE_LINK}.
 
         NHIỆM VỤ 3: TƯ VẤN YOGA (Chuyên môn)
         - YÊU CẦU: Trả lời NGẮN GỌN (Tối đa 200 từ). Đi thẳng vào vấn đề.
@@ -148,14 +152,16 @@ def get_ai_response_custom(prompt, context_text, history_context):
         - Bắt buộc ghi nguồn: [Ref: ID].
         - Trình bày: Thẻ <b> in đậm ý chính, <ul><li> gạch đầu dòng.
 
-        DỮ LIỆU TRA CỨU (RAG):
+        TRẠNG THÁI DỮ LIỆU: {data_instruction}
+        DỮ LIỆU TRA CỨU:
         {context_text}
 
-        LỊCH SỬ:
+        LỊCH SỬ CHAT:
         {history_context}
 
         CÂU HỎI: "{prompt}"
         """
+        
         response = model.generate_content(sys_prompt)
         return response.text.strip()
     except Exception as e:
