@@ -313,7 +313,6 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                 CÂU HỎI MỚI: "{prompt}"
                 
                 YÊU CẦU:
-                - Nếu câu hỏi không liên quan tới chủ đề Yoga - Sức khỏe, vui lòng nhắc nhở người dùng.
                 - Trả lời ngắn gọn, đúng trọng tâm. Tối đa 200 từ dùng gạch đầu dòng.
                 - Nếu câu hỏi liên quan câu trước (ví dụ "tập nó thế nào"), hãy dùng LỊCH SỬ để hiểu.
                 - Khi dùng thông tin từ [Nguồn X], ghi chú: [Ref: X].
