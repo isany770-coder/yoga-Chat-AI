@@ -120,7 +120,7 @@ def load_brain_engine_safe():
 
     # 3. Load DB Text
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-001", google_api_key=api_key)
         db_text = FAISS.load_local(text_db_path, embeddings, allow_dangerous_deserialization=True)
         return db_text, "OK"
     except Exception as e: return None, str(e)
