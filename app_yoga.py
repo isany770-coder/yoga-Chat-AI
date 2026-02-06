@@ -12,7 +12,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
 # =====================================================
-# 1. CẤU HÌNH TRANG (ĐỂ TRÊN CÙNG)
+# 1. CẤU HÌNH TRANG
 # =====================================================
 st.set_page_config(
     page_title="Yoga Assistant Pro",
@@ -21,9 +21,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# =====================================================
-# 2. CSS GIAO DIỆN
-# =====================================================
 st.markdown("""
 <style>
     /* Ẩn Header/Footer */
@@ -62,7 +59,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 3. KẾT NỐI DATA & HÀM AI (ĐÃ KHÔI PHỤC LOGIC CỦA BẠN)
+# 2. KẾT NỐI DATA
 # =====================================================
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
@@ -111,31 +108,46 @@ with st.spinner("Đang khởi động hệ thống..."):
 if status != "OK": st.error(f"Lỗi: {status}"); st.stop()
 db_text, db_image = data_result
 
-# Hàm gọi AI (Đã sửa lại dùng vòng lặp list_models như bạn yêu cầu)
+# =====================================================
+# 3. HÀM AI THÔNG MINH (ĐÃ SỬA LẠI PROMPT CHUẨN)
+# =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
-        # --- LOGIC TÌM MODEL (THEO YÊU CẦU CỦA BẠN) ---
+        # --- A. TÌM MODEL (GIỮ NGUYÊN LOGIC CỦA BẠN) ---
         valid_model = 'models/gemini-1.5-flash'
         try:
             for m in genai.list_models():
                 if 'generateContent' in m.supported_generation_methods:
-                    if 'flash' in m.name.lower(): 
-                        valid_model = m.name
-                        break
+                    if 'flash' in m.name.lower(): valid_model = m.name; break
         except: pass
         
         model = genai.GenerativeModel(valid_model)
-        # ----------------------------------------------
-
-        sys_prompt = f"""
-        BẠN LÀ CHUYÊN GIA YOGA.
-        QUY TẮC: Chỉ trả lời về Yoga, Sức khỏe, Thiền, Dinh dưỡng.
-        Nếu câu hỏi KHÔNG LIÊN QUAN (xổ số, chính trị, code, v.v.), trả lời duy nhất: REFUSE_TOPIC
         
-        DỮ LIỆU: {context_text}
-        LỊCH SỬ: {history_context}
-        CÂU HỎI: "{prompt}"
+        # --- B. PROMPT CHUYÊN GIA (ĐÃ KHÔI PHỤC) ---
+        sys_prompt = f"""
+        VAI TRÒ CỦA BẠN:
+        Bạn là "Trợ lý Yoga Y Khoa" - Một chuyên gia hàng đầu về Giải phẫu học, Yoga Trị liệu và Phục hồi chức năng.
+        Phong cách trả lời: Ân cần, sâu sắc, khoa học nhưng dễ hiểu (như một người thầy Yoga). Luôn bắt đầu bằng thái độ trân trọng "Namaste 🙏" nếu phù hợp.
+
+        NHIỆM VỤ 1: BỘ LỌC CHỦ ĐỀ (QUAN TRỌNG)
+        - Nếu câu hỏi KHÔNG liên quan đến Sức khỏe, Cơ thể, Yoga, Thiền, Dinh dưỡng, Bệnh lý (ví dụ: hỏi xổ số, code, chính trị, tán gẫu vô nghĩa...):
+          -> Hãy trả lời duy nhất cụm từ: REFUSE_TOPIC
+
+        NHIỆM VỤ 2: TƯ VẤN (Nếu đúng chủ đề)
+        - Dựa CHỦ YẾU vào "DỮ LIỆU TRA CỨU" được cung cấp bên dưới.
+        - Khi sử dụng thông tin từ nguồn nào, bắt buộc ghi chú cuối câu: [Ref: ID].
+        - Nếu câu hỏi liên quan đến câu trước (ví dụ "tập nó thế nào"), hãy xem LỊCH SỬ TRÒ CHUYỆN.
+        - Trình bày đẹp: Sử dụng HTML thẻ <b> để in đậm ý chính, <ul><li> để gạch đầu dòng cho dễ đọc.
+
+        DỮ LIỆU TRA CỨU (RAG):
+        {context_text}
+
+        LỊCH SỬ TRÒ CHUYỆN:
+        {history_context}
+
+        CÂU HỎI MỚI: "{prompt}"
         """
+        
         response = model.generate_content(sys_prompt)
         return response.text.strip()
     except Exception as e:
@@ -171,7 +183,7 @@ if "username" not in st.session_state: st.session_state.username = ""
 if "bad_attempts" not in st.session_state: st.session_state.bad_attempts = 0
 if "is_blocked" not in st.session_state: st.session_state.is_blocked = False
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Tôi là AI Yoga. Bạn cần hỗ trợ gì?"}]
+    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Tôi là Trợ lý Yoga Y Khoa.\nTôi có thể giúp bạn giải đáp về bệnh lý xương khớp hay bài tập nào hôm nay?"}]
 
 current_user = st.session_state.username if st.session_state.authenticated else st.session_state.user_id
 used = check_usage(current_user)
@@ -181,7 +193,6 @@ is_limit_reached = used >= LIMIT
 # =====================================================
 # 5. GIAO DIỆN
 # =====================================================
-# Sidebar Login
 with st.sidebar:
     st.title("🔐 VIP Access")
     if st.session_state.authenticated:
@@ -214,7 +225,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Màn hình hết hạn
 if is_limit_reached:
     if "hide_limit_modal" not in st.session_state: st.session_state.hide_limit_modal = False
     st.markdown("""<style>div[data-testid="stChatInput"] {display: none !important;}</style>""", unsafe_allow_html=True)
@@ -241,19 +251,19 @@ for msg in st.session_state.messages:
 st.markdown('<div class="bottom-spacer"></div>', unsafe_allow_html=True)
 
 # =====================================================
-# 6. XỬ LÝ CHAT (LOGIC CHÍNH)
+# 6. XỬ LÝ CHAT
 # =====================================================
 if st.session_state.is_blocked:
-    st.error("🚫 TÀI KHOẢN ĐÃ BỊ KHÓA do hỏi sai chủ đề nhiều lần.")
+    st.error("🚫 TÀI KHOẢN ĐÃ BỊ KHÓA do hỏi sai chủ đề nhiều lần. Vui lòng F5 để thử lại.")
     st.stop()
 
-if prompt := st.chat_input("Nhập câu hỏi..."):
+if prompt := st.chat_input("Hỏi về đau lưng, cổ vai gáy, bài tập..."):
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     increment_usage(current_user)
 
     with st.chat_message("assistant"):
-        with st.spinner("Đang tra cứu..."):
+        with st.spinner("Đang tra cứu liệu pháp..."):
             
             # 1. Lấy lịch sử
             chat_history = ""
@@ -275,7 +285,7 @@ if prompt := st.chat_input("Nhập câu hỏi..."):
                     context_text += f"\n[Nguồn {idx}]: {d.page_content}\n"
             except: pass
 
-            # 3. GỌI AI (Dùng hàm đã sửa theo ý bạn)
+            # 3. GỌI AI
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
 
             # 4. Xử lý kết quả
@@ -283,9 +293,9 @@ if prompt := st.chat_input("Nhập câu hỏi..."):
                 st.session_state.bad_attempts += 1
                 if st.session_state.bad_attempts >= 3:
                     st.session_state.is_blocked = True
-                    msg = "🚫 ĐÃ KHÓA: Bạn hỏi sai chủ đề 3 lần."
+                    msg = "🚫 **ĐÃ KHÓA:** Bạn hỏi sai chủ đề 3 lần."
                 else:
-                    msg = f"⚠️ CHỈNH ĐỐN: Tôi chỉ trả lời về Yoga. (Lần {st.session_state.bad_attempts}/3)"
+                    msg = f"⚠️ **LỆCH CHỦ ĐỀ:** Tôi là chuyên gia Yoga, xin hãy hỏi về sức khỏe. (Lần {st.session_state.bad_attempts}/3)"
                 
                 st.markdown(msg)
                 st.session_state.messages.append({"role": "assistant", "content": msg})
