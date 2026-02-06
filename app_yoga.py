@@ -382,9 +382,6 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                 
                 # Render
                 st.markdown(final_html, unsafe_allow_html=True)
-
-                # Hiển thị câu trả lời
-                st.markdown(final_html, unsafe_allow_html=True)
                 
                 # 7. Upsell (Bán hàng)
                 upsell_html = ""
