@@ -114,10 +114,10 @@ db_text, db_image = data_result
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
         # --- 1. THÔNG TIN CÁ NHÂN (BẠN SỬA Ở ĐÂY) ---
-        ADMIN_NAME = "Coach Nguyễn Văn A" 
-        ADMIN_BIO = "Chuyên gia Yoga Trị liệu với 10 năm kinh nghiệm."
+        ADMIN_NAME = "A Nguyễn" 
+        ADMIN_BIO = "Kỹ sư khoa học máy tính, sứ mệnh khoa học hóa Yoga."
         WEBSITE = "yogaismylife.vn"
-        PROFILE_LINK = "https://zalo.me/..."
+        PROFILE_LINK = "https://yogaismylife.vn/nguoi-sang-lap-hanh-trinh-tao-nen-yogaismylife-vn/"
         
         # --- 2. TÌM MODEL ---
         valid_model = 'models/gemini-1.5-flash'
