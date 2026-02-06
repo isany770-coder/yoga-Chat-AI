@@ -156,6 +156,11 @@ if "authenticated" not in st.session_state: st.session_state.authenticated = Fal
 if "username" not in st.session_state: st.session_state.username = ""
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Tôi là Trợ lý Yoga.\nHôm nay chúng ta nên bắt đầu từ đâu?"}]
+# --- BỔ SUNG MỚI: Biến đếm số lần hỏi linh tinh ---
+if "bad_attempts" not in st.session_state: 
+    st.session_state.bad_attempts = 0  # Đếm số thẻ phạt
+if "is_blocked" not in st.session_state: 
+    st.session_state.is_blocked = False # Trạng thái bị khóa
 
 def get_user_id():
     if st.session_state.authenticated: return st.session_state.username
@@ -257,71 +262,114 @@ YOGA_SOLUTIONS = {
     "AI_COACH": {"name": "🤖 Gặp AI Coach Trị Liệu", "url": "https://yogaismylife.vn/kiem-tra-tu-the-yoga/", "key": ["tập đúng","tập sai","lỗi sai","sai kỹ thuật","kỹ thuật","đúng kỹ thuật","chỉnh tư thế","canh chỉnh","căn chỉnh","hướng dẫn","định tuyến","quy trình","trình tự","bước thực hiện","chuẩn hóa","tối ưu","hiệu chỉnh","điều chỉnh","sửa lỗi","khắc phục"]},
     "THIEN": {"name": "🧘 App Thiền Chữa Lành", "url": "https://yogaismylife.vn/thien-hoi-tho-chua-lanh/", "key": ["stress","căng thẳng","áp lực","lo âu","bất an","mệt mỏi tinh thần","ngủ","giấc ngủ","mất ngủ","ngủ sâu","ngủ không ngon","nghỉ ngơi","thiền","thiền định","chánh niệm","tĩnh tâm","an trú","thở","hít thở","điều hòa hơi thở"]}
 }
+# =====================================================
+# HÀM XỬ LÝ AI (TỐI ƯU & CHẶN SPAM)
+# =====================================================
+def get_ai_response(prompt, context_text, history_context):
+    try:
+        # 1. Cấu hình Model cứng (Không lặp list_models để tránh lỗi và chậm)
+        generation_config = {
+            "temperature": 0.5,
+            "max_output_tokens": 1000,
+        }
+        model = genai.GenerativeModel('models/gemini-1.5-flash', generation_config=generation_config)
+
+        # 2. System Prompt Chặt chẽ (Cơ chế thẻ phạt)
+        sys_prompt = f"""
+        BẠN LÀ CHUYÊN GIA YOGA & TRỊ LIỆU.
+        
+        QUY TẮC QUAN TRỌNG NHẤT:
+        - Nhiệm vụ duy nhất: Trả lời về Yoga, Sức khỏe, Giải phẫu học, Thiền, Dinh dưỡng tập luyện.
+        - Nếu câu hỏi KHÔNG LIÊN QUAN đến các chủ đề trên (ví dụ: xổ số, chính trị, code, tình yêu, hỏi thời tiết...), hãy trả lời duy nhất cụm từ: REFUSE_TOPIC
+        
+        DỮ LIỆU TRA CỨU (RAG):
+        {context_text}
+        
+        LỊCH SỬ CHAT:
+        {history_context}
+        
+        CÂU HỎI HIỆN TẠI: "{prompt}"
+        
+        YÊU CẦU TRẢ LỜI:
+        - Nếu liên quan Yoga: Trả lời ngắn gọn, có tâm, dùng HTML format đẹp.
+        - Nếu dùng thông tin từ nguồn RAG: Ghi chú [Ref: ID].
+        """
+        
+        response = model.generate_content(sys_prompt)
+        return response.text.strip()
+        
+    except Exception as e:
+        # Trả về lỗi cụ thể để mình biết đường sửa
+        return f"ERR_SYS: {str(e)}"
 
 # =====================================================
-# 6. XỬ LÝ CHAT (ĐÃ UPDATE: FLASH + REF CLICKABLE + NHỚ LỊCH SỬ)
+# 6. XỬ LÝ CHAT (ĐÃ TỐI ƯU: BLOCK SPAM + HIỆN LỖI RÕ RÀNG)
 # =====================================================
+
+# 1. Kiểm tra xem có bị khóa mõm không trước khi cho chat
+if st.session_state.is_blocked:
+    st.error("🚫 TÀI KHOẢN TẠM KHÓA: Hệ thống phát hiện bạn hỏi sai chủ đề quá 3 lần. Vui lòng tải lại trang (F5) để bắt đầu lại.")
+    st.stop() # Dừng luôn, không hiện ô chat nữa
+
 if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
-    # 1. Hiển thị câu hỏi User
+    # Hiển thị câu hỏi User
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     increment_usage(user_id) # Trừ lượt dùng
 
     with st.chat_message("assistant"):
-        with st.spinner("Đang tra cứu..."):
-            try:
-                # 2. Tìm Model Flash (Tiết kiệm tiền)
-                valid_model = 'models/gemini-1.5-flash'
-                try:
-                    for m in genai.list_models():
-                        if 'generateContent' in m.supported_generation_methods:
-                            if 'flash' in m.name.lower(): valid_model = m.name; break
-                except: pass
-                model = genai.GenerativeModel(valid_model)
-                
-                # 3. Tạo Lịch sử Chat (Context) - Giúp bot nhớ câu trước
-                chat_history_context = ""
-                # Lấy 3 cặp câu hỏi gần nhất
-                recent_msgs = st.session_state.messages[-7:-1] 
-                for msg in recent_msgs:
-                    role = "User" if msg["role"] == "user" else "Bot"
-                    clean_content = re.sub(r'<[^>]*>', '', msg["content"]).strip() # Xóa HTML rác
-                    chat_history_context += f"{role}: {clean_content}\n"
+        with st.spinner("Đang suy nghĩ..."):
+            
+            # --- A. Chuẩn bị dữ liệu ---
+            # Lấy lịch sử chat (3 câu gần nhất)
+            chat_history_context = ""
+            recent_msgs = st.session_state.messages[-7:-1] 
+            for msg in recent_msgs:
+                role_txt = "User" if msg["role"] == "user" else "Bot"
+                clean_content = re.sub(r'<[^>]*>', '', msg["content"]).strip()
+                chat_history_context += f"{role_txt}: {clean_content}\n"
 
-                # 4. Tìm kiếm dữ liệu (Chỉ Text)
-                docs = db_text.similarity_search(prompt, k=5)
-                
-                context_text = ""
-                source_map = {}
+            # Tìm kiếm RAG (Giữ nguyên logic cũ của bạn)
+            context_text = ""
+            source_map = {}
+            try:
+                docs = db_text.similarity_search(prompt, k=4) # Giảm xuống k=4 cho nhanh
                 for i, d in enumerate(docs):
                     doc_id = i + 1
-                    url = d.metadata.get('url', '#')
-                    title = d.metadata.get('title', 'Tài liệu')
-                    source_map[doc_id] = {"url": url, "title": title}
-                    context_text += f"\n[Nguồn {doc_id}]: {title}\nNội dung: {d.page_content}\n"
+                    source_map[doc_id] = {"url": d.metadata.get('url', '#'), "title": d.metadata.get('title', 'Nguồn')}
+                    context_text += f"\n[Nguồn {doc_id}]: {d.metadata.get('title')}\nNội dung: {d.page_content}\n"
+            except Exception as search_err:
+                st.warning(f"Lỗi tìm kiếm database: {search_err}")
 
-                # 5. Prompt Thông minh
-                sys_prompt = f"""
-                Bạn là chuyên gia Yoga Y Khoa.
-                
-                LỊCH SỬ TRÒ CHUYỆN (Để hiểu ngữ cảnh):
-                {chat_history_context}
-                
-                DỮ LIỆU TRA CỨU MỚI:
-                {context_text}
-                
-                CÂU HỎI MỚI: "{prompt}"
-                
-                YÊU CẦU:
-                - Trả lời ngắn gọn, đúng trọng tâm. Tối đa 200 từ dùng gạch đầu dòng.
-                - Nếu câu hỏi liên quan câu trước (ví dụ "tập nó thế nào"), hãy dùng LỊCH SỬ để hiểu.
-                - Khi dùng thông tin từ [Nguồn X], ghi chú: [Ref: X].
-                """
-                
-                response = model.generate_content(sys_prompt)
-                ai_resp = response.text.strip()
+            # --- B. Gọi AI & Xử lý Spam ---
+            ai_raw = get_ai_response(prompt, context_text, chat_history_context)
 
-                # 6. Biến Ref thành Link bấm được
+            # --- C. Kiểm tra Spam ---
+            if "REFUSE_TOPIC" in ai_raw:
+                st.session_state.bad_attempts += 1
+                remaining = 3 - st.session_state.bad_attempts
+                
+                if st.session_state.bad_attempts >= 3:
+                    st.session_state.is_blocked = True
+                    msg_block = "🚫 **CẢNH BÁO:** Bạn đã hỏi sai chủ đề 3 lần. Hệ thống sẽ tạm khóa. Vui lòng F5."
+                    st.markdown(msg_block)
+                    st.session_state.messages.append({"role": "assistant", "content": msg_block})
+                    st.stop() # Dừng chương trình ngay lập tức
+                else:
+                    msg_warn = f"⚠️ **Nhắc nhở:** Tôi chỉ là trợ lý Yoga thôi ạ. Vui lòng tập trung vào sức khỏe. (Vi phạm: {st.session_state.bad_attempts}/3)"
+                    st.markdown(msg_warn)
+                    st.session_state.messages.append({"role": "assistant", "content": msg_warn})
+            
+            # --- D. Xử lý Lỗi Hệ thống ---
+            elif ai_raw.startswith("ERR_SYS:"):
+                # In lỗi cụ thể ra để bạn debug
+                real_error = ai_raw.replace("ERR_SYS:", "")
+                st.error(f"❌ Hệ thống gặp lỗi: {real_error}")
+                st.info("💡 Mẹo: Hãy thử F5 lại trang hoặc kiểm tra API Key.")
+            
+            # --- E. Trả lời thành công ---
+            else:
+                # Xử lý Link Ref (Giữ nguyên code cũ của bạn)
                 def replace_ref(match):
                     ref_id = int(match.group(1))
                     if ref_id in source_map:
@@ -329,8 +377,11 @@ if prompt := st.chat_input("Hỏi về thoát vị, đau lưng, bài tập..."):
                         if info['url'] and info['url'] != '#':
                             return f" <a href='{info['url']}' target='_blank' class='ref-link' title='{info['title']}'>[{ref_id}]</a>"
                     return "" 
-
-                final_html = re.sub(r'\[Ref:?\s*(\d+)\]', replace_ref, ai_resp)
+                
+                final_html = re.sub(r'\[Ref:?\s*(\d+)\]', replace_ref, ai_raw)
+                
+                # Render
+                st.markdown(final_html, unsafe_allow_html=True)
 
                 # Hiển thị câu trả lời
                 st.markdown(final_html, unsafe_allow_html=True)
