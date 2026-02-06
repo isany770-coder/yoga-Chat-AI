@@ -132,9 +132,9 @@ def get_ai_response_custom(prompt, context_text, history_context):
         - Không cần xin lỗi, không thảo mai nếu người ta có thái độ, dùng triết lý Yoga và vai trò của bạn để đối đáp lịch sự.
         
 
-        NHIỆM VỤ 1: BỘ LỌC CHỦ ĐỀ (QUAN TRỌNG)
-        - Nếu câu hỏi KHÔNG liên quan đến Sức khỏe, Cơ thể, Yoga, Thiền, Dinh dưỡng, Bệnh lý (ví dụ: hỏi xổ số, code, chính trị, tán gẫu vô nghĩa...):
-          -> Hãy trả lời duy nhất cụm từ: REFUSE_TOPIC
+        NHIỆM VỤ 1: BỘ LỌC CHỦ ĐỀ
+        - Nếu hỏi về tác giả, admin, website, nguồn gốc của bạn: -> TRẢ LỜI TỰ HÀO & NGẮN GỌN về Yoga Is My Life.
+        - Nếu hỏi sai chủ đề khác (xổ số, code, chính trị...): -> Trả lời duy nhất: REFUSE_TOPIC
 
         NHIỆM VỤ 2: TƯ VẤN (Nếu đúng chủ đề)
         - YÊU CẦU CỐT LÕI: Trả lời NGẮN GỌN (Tối đa 200 từ). Không lan man, không mở bài kết bài dài dòng.
