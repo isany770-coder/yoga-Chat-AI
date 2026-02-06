@@ -4,17 +4,15 @@ import zipfile
 import os
 import sqlite3
 import datetime
-import gc
 import re
 import time
 import uuid
-# ĐÃ BỎ THƯ VIỆN COOKIE GÂY LỖI
 import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
 # =====================================================
-# 1. CẤU HÌNH TRANG (BẮT BUỘC ĐỂ ĐẦU TIÊN)
+# 1. CẤU HÌNH TRANG (ĐỂ TRÊN CÙNG)
 # =====================================================
 st.set_page_config(
     page_title="Yoga Assistant Pro",
@@ -24,16 +22,14 @@ st.set_page_config(
 )
 
 # =====================================================
-# 2. CSS GIAO DIỆN (ĐÃ FIX LẠI CHO AN TOÀN)
+# 2. CSS GIAO DIỆN
 # =====================================================
 st.markdown("""
 <style>
-    /* Ẩn Header/Footer nhưng không ẩn nội dung chính */
-    header[data-testid="stHeader"] {display: none;}
-    footer {display: none;}
-    .stDeployButton {display:none;}
+    /* Ẩn Header/Footer */
+    header[data-testid="stHeader"], footer, .stDeployButton {display: none !important;}
 
-    /* Căn chỉnh khung chat */
+    /* Khung chat */
     div[data-testid="stChatInput"] {
         position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
         width: 95%; max-width: 800px; z-index: 1000;
@@ -41,7 +37,7 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(0,0,0,0.08); padding: 5px; border: 1px solid #e0e0e0;
     }
     
-    /* Banner Quảng Cáo */
+    /* Banner */
     .promo-banner {
         background: linear-gradient(90deg, #e0f2f1 0%, #b2dfdb 100%);
         padding: 10px 15px; margin-bottom: 20px; border-radius: 10px;
@@ -54,28 +50,26 @@ st.markdown("""
         border-radius: 15px; text-decoration: none; font-weight: bold; font-size: 12px;
         white-space: nowrap;
     }
-
-    /* Style Link Ref bấm được */
+    
     .ref-link { 
         color: #00796b; font-weight: bold; text-decoration: none; 
         background: #e0f2f1; padding: 2px 6px; border-radius: 4px; margin: 0 2px;
         font-size: 0.9em; border: 1px solid #b2dfdb;
     }
-    .ref-link:hover { background: #00796b; color: white; border-color: #004d40; }
-
+    
     .bottom-spacer { height: 100px; }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 3. KẾT NỐI DỮ LIỆU & AI
+# 3. KẾT NỐI DATA & HÀM AI (ĐÃ KHÔI PHỤC LOGIC CỦA BẠN)
 # =====================================================
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     file_id = st.secrets["DRIVE_FILE_ID"]
     genai.configure(api_key=api_key)
 except:
-    st.error("❌ LỖI: Chưa cấu hình secrets.toml. Vui lòng kiểm tra lại file secrets.")
+    st.error("❌ Chưa cấu hình secrets.toml")
     st.stop()
 
 ZIP_PATH = "/tmp/brain_data_v3.zip" 
@@ -84,15 +78,13 @@ DB_PATH = "user_usage.db"
 
 @st.cache_resource
 def load_brain_engine_safe():
-    # 1. Tải dữ liệu
     if not os.path.exists(EXTRACT_PATH):
         try:
             url = f'https://drive.google.com/uc?id={file_id}'
             gdown.download(url, ZIP_PATH, quiet=True)
             with zipfile.ZipFile(ZIP_PATH, 'r') as z: z.extractall(EXTRACT_PATH)
-        except: return None, "Lỗi tải dữ liệu từ Drive"
+        except: return None, "Lỗi tải dữ liệu"
     
-    # 2. Tìm vector DB
     def find_db_path(target_folder_name):
         for root, dirs, files in os.walk(EXTRACT_PATH):
             if target_folder_name in dirs:
@@ -102,9 +94,8 @@ def load_brain_engine_safe():
 
     text_db_path = find_db_path("vector_db")
     image_db_path = find_db_path("vector_db_images")
-    if not text_db_path: return None, "Không tìm thấy dữ liệu vector_db"
+    if not text_db_path: return None, "Không tìm thấy vector_db"
 
-    # 3. Load DB
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
         db_text = FAISS.load_local(text_db_path, embeddings, allow_dangerous_deserialization=True)
@@ -114,21 +105,30 @@ def load_brain_engine_safe():
         return (db_text, db_image), "OK"
     except Exception as e: return None, str(e)
 
-# Gọi hàm load
-with st.spinner("Đang khởi động não bộ AI..."):
+with st.spinner("Đang khởi động hệ thống..."):
     data_result, status = load_brain_engine_safe()
 
-if status != "OK": st.error(f"Lỗi khởi động: {status}"); st.stop()
+if status != "OK": st.error(f"Lỗi: {status}"); st.stop()
 db_text, db_image = data_result
 
-# Hàm gọi AI tối ưu (Chặn spam)
-def get_ai_response(prompt, context_text, history_context):
+# Hàm gọi AI (Đã sửa lại dùng vòng lặp list_models như bạn yêu cầu)
+def get_ai_response_custom(prompt, context_text, history_context):
     try:
-        generation_config = {"temperature": 0.5, "max_output_tokens": 1000}
-        model = genai.GenerativeModel('models/gemini-1.5-flash', generation_config=generation_config)
+        # --- LOGIC TÌM MODEL (THEO YÊU CẦU CỦA BẠN) ---
+        valid_model = 'models/gemini-1.5-flash'
+        try:
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    if 'flash' in m.name.lower(): 
+                        valid_model = m.name
+                        break
+        except: pass
+        
+        model = genai.GenerativeModel(valid_model)
+        # ----------------------------------------------
 
         sys_prompt = f"""
-        BẠN LÀ CHUYÊN GIA YOGA & TRỊ LIỆU.
+        BẠN LÀ CHUYÊN GIA YOGA.
         QUY TẮC: Chỉ trả lời về Yoga, Sức khỏe, Thiền, Dinh dưỡng.
         Nếu câu hỏi KHÔNG LIÊN QUAN (xổ số, chính trị, code, v.v.), trả lời duy nhất: REFUSE_TOPIC
         
@@ -142,7 +142,7 @@ def get_ai_response(prompt, context_text, history_context):
         return f"ERR_SYS: {str(e)}"
 
 # =====================================================
-# 4. QUẢN LÝ NGƯỜI DÙNG (DATABASE LOCAL)
+# 4. QUẢN LÝ DATABASE & SESSION
 # =====================================================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -164,47 +164,42 @@ def increment_usage(user_id):
     c.execute("UPDATE usage SET count = count + 1 WHERE user_id=? AND date=?", (user_id, today))
     conn.commit(); conn.close()
 
-# --- Định danh người dùng (Đơn giản hóa để không bị trắng màn hình) ---
-if "user_id" not in st.session_state:
-    st.session_state.user_id = str(uuid.uuid4())[:8]
-
+# Session
+if "user_id" not in st.session_state: st.session_state.user_id = str(uuid.uuid4())[:8]
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "username" not in st.session_state: st.session_state.username = ""
 if "bad_attempts" not in st.session_state: st.session_state.bad_attempts = 0
 if "is_blocked" not in st.session_state: st.session_state.is_blocked = False
+if "messages" not in st.session_state:
+    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Tôi là AI Yoga. Bạn cần hỗ trợ gì?"}]
 
-# Xác định ID dùng để tính limit
 current_user = st.session_state.username if st.session_state.authenticated else st.session_state.user_id
-
-# Kiểm tra limit
 used = check_usage(current_user)
 LIMIT = 50 if st.session_state.authenticated else 5
 is_limit_reached = used >= LIMIT
 
 # =====================================================
-# 5. GIAO DIỆN CHÍNH
+# 5. GIAO DIỆN
 # =====================================================
-
-# --- Sidebar Login ---
+# Sidebar Login
 with st.sidebar:
-    st.title("🔐 Khu Vực VIP")
+    st.title("🔐 VIP Access")
     if st.session_state.authenticated:
-        st.success(f"Chào {st.session_state.username}")
-        if st.button("Đăng xuất"):
+        st.success(f"Hi {st.session_state.username}")
+        if st.button("Logout"):
             st.session_state.authenticated = False
             st.rerun()
     else:
         with st.form("login"):
             u = st.text_input("User"); p = st.text_input("Pass", type="password")
-            if st.form_submit_button("Đăng Nhập"):
-                # Sửa lại logic check pass từ secrets
+            if st.form_submit_button("Login"):
                 if st.secrets["passwords"].get(u) == p:
                     st.session_state.authenticated = True
                     st.session_state.username = u
                     st.rerun()
                 else: st.error("Sai mật khẩu")
 
-# --- Thanh đếm lượt ---
+# Thanh đếm
 percent = min(100, int((used / LIMIT) * 100))
 st.markdown(f"""
 <div style="position: fixed; top: 10px; right: 10px; z-index: 100000;">
@@ -219,29 +214,20 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# --- Màn hình Hết Hạn ---
+# Màn hình hết hạn
 if is_limit_reached:
     if "hide_limit_modal" not in st.session_state: st.session_state.hide_limit_modal = False
     st.markdown("""<style>div[data-testid="stChatInput"] {display: none !important;}</style>""", unsafe_allow_html=True)
-    
     if not st.session_state.hide_limit_modal:
-        st.info(f"🚫 Bạn ({current_user}) đã hết lượt miễn phí hôm nay.")
-        if st.button("🔑 Đăng nhập để mở khóa"):
-            st.session_state.hide_limit_modal = True # Tắt modal để hiện sidebar login
+        st.info("🚫 Đã hết lượt dùng miễn phí. Vui lòng đăng nhập.")
+        if st.button("Đăng nhập ngay"):
+            st.session_state.hide_limit_modal = True
             st.rerun()
         st.stop()
 
-# --- Lịch sử Chat ---
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Tôi là AI Yoga. Bạn cần hỗ trợ gì?"}]
-
+# Lịch sử chat
 if not st.session_state.authenticated:
-    st.markdown("""
-    <div class="promo-banner">
-        <div class="promo-text">🎁 Ưu đãi độc quyền cho thành viên VIP!</div>
-        <a href="https://yogaismylife.vn" target="_blank" class="promo-btn">Xem Ngay 🚀</a>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("""<div class="promo-banner"><div class="promo-text">🎁 Ưu đãi VIP đang chờ bạn!</div><a href="https://yogaismylife.vn" class="promo-btn">Xem Ngay</a></div>""", unsafe_allow_html=True)
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
@@ -250,34 +236,31 @@ for msg in st.session_state.messages:
             st.markdown("---")
             cols = st.columns(3)
             for i, img in enumerate(msg["images"]):
-                with cols[i % 3]: st.image(img['url'], caption=img['title'])
+                with cols[i % 3]: st.image(img['url'])
 
 st.markdown('<div class="bottom-spacer"></div>', unsafe_allow_html=True)
 
 # =====================================================
-# 6. XỬ LÝ CHAT (LOGIC CUỐI CÙNG)
+# 6. XỬ LÝ CHAT (LOGIC CHÍNH)
 # =====================================================
 if st.session_state.is_blocked:
-    st.error("🚫 TÀI KHOẢN TẠM KHÓA: Phát hiện spam câu hỏi sai chủ đề.")
+    st.error("🚫 TÀI KHOẢN ĐÃ BỊ KHÓA do hỏi sai chủ đề nhiều lần.")
     st.stop()
 
-if prompt := st.chat_input("Nhập câu hỏi tại đây..."):
-    # 1. Hiện câu hỏi
+if prompt := st.chat_input("Nhập câu hỏi..."):
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     increment_usage(current_user)
 
-    # 2. Xử lý AI
     with st.chat_message("assistant"):
-        with st.spinner("Đang suy nghĩ..."):
+        with st.spinner("Đang tra cứu..."):
             
-            # Lấy ngữ cảnh chat
+            # 1. Lấy lịch sử
             chat_history = ""
             for msg in st.session_state.messages[-5:-1]:
-                role_t = "User" if msg["role"] == "user" else "Bot"
-                chat_history += f"{role_t}: {re.sub(r'<[^>]*>', '', msg['content'])}\n"
+                chat_history += f"{msg['role']}: {re.sub(r'<[^>]*>', '', msg['content'])}\n"
 
-            # Tìm kiếm
+            # 2. Tìm kiếm (RAG)
             context_text = ""
             source_map = {}
             found_images = []
@@ -292,17 +275,17 @@ if prompt := st.chat_input("Nhập câu hỏi tại đây..."):
                     context_text += f"\n[Nguồn {idx}]: {d.page_content}\n"
             except: pass
 
-            # Gọi AI
-            ai_raw = get_ai_response(prompt, context_text, chat_history)
+            # 3. GỌI AI (Dùng hàm đã sửa theo ý bạn)
+            ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
 
-            # Xử lý kết quả
+            # 4. Xử lý kết quả
             if "REFUSE_TOPIC" in ai_raw:
                 st.session_state.bad_attempts += 1
                 if st.session_state.bad_attempts >= 3:
                     st.session_state.is_blocked = True
-                    msg = "🚫 **ĐÃ KHÓA:** Bạn hỏi sai chủ đề quá 3 lần. F5 để reset."
+                    msg = "🚫 ĐÃ KHÓA: Bạn hỏi sai chủ đề 3 lần."
                 else:
-                    msg = f"⚠️ **CẢNH BÁO:** Chỉ trả lời về Yoga. (Lần {st.session_state.bad_attempts}/3)"
+                    msg = f"⚠️ CHỈNH ĐỐN: Tôi chỉ trả lời về Yoga. (Lần {st.session_state.bad_attempts}/3)"
                 
                 st.markdown(msg)
                 st.session_state.messages.append({"role": "assistant", "content": msg})
@@ -318,9 +301,10 @@ if prompt := st.chat_input("Nhập câu hỏi tại đây..."):
                         info = source_map[rid]
                         return f" <a href='{info['url']}' target='_blank' class='ref-link'>[{rid}]</a>"
                     return ""
-                final_html = re.sub(r'\[Ref:?\s*(\d+)\]', replace_ref, ai_raw)
                 
+                final_html = re.sub(r'\[Ref:?\s*(\d+)\]', replace_ref, ai_raw)
                 st.markdown(final_html, unsafe_allow_html=True)
+                
                 if found_images:
                     st.markdown("---")
                     cols = st.columns(3)
