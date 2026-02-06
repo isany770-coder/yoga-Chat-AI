@@ -151,6 +151,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         - Dựa CHỦ YẾU vào "DỮ LIỆU TRA CỨU".
         - Bắt buộc ghi nguồn: [Ref: ID].
         - Trình bày: Thẻ <b> in đậm ý chính, <ul><li> gạch đầu dòng.
+        - Luôn có lưu ý là câu trả lời chỉ mang tính tham khảo.
 
         TRẠNG THÁI DỮ LIỆU: {data_instruction}
         DỮ LIỆU TRA CỨU:
@@ -241,34 +242,55 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# --- XỬ LÝ KHI HẾT LƯỢT (FIX: HIỆN FORM ĐĂNG NHẬP NGAY GIỮA MÀN HÌNH) ---
+# =====================================================
+# 4. GIAO DIỆN HẾT HẠN (GIỮ NGUYÊN)
+# =====================================================
 if is_limit_reached:
-    # Ẩn thanh chat đi
+    if "hide_limit_modal" not in st.session_state:
+        st.session_state.hide_limit_modal = False
+    
     st.markdown("""<style>div[data-testid="stChatInput"] {display: none !important;}</style>""", unsafe_allow_html=True)
-    
-    # Hiện bảng thông báo to ở giữa màn hình
-    with st.container(border=True):
-        st.markdown("<h3 style='text-align:center; color:#d32f2f;'>🚫 HẾT LƯỢT MIỄN PHÍ HÔM NAY</h3>", unsafe_allow_html=True)
-        st.info(f"Bạn ({current_user}) đã dùng hết 5 lượt thử. Vui lòng đăng nhập để dùng tiếp (50 lượt/ngày).")
-        
-        # Form đăng nhập trực tiếp (Không cần tìm sidebar nữa)
-        with st.form("login_limit_screen"):
-            col1, col2 = st.columns(2)
-            with col1: u_limit = st.text_input("Tên đăng nhập")
-            with col2: p_limit = st.text_input("Mật khẩu", type="password")
-            
-            if st.form_submit_button("🔓 Đăng Nhập & Mở Khóa", use_container_width=True):
-                if st.secrets["passwords"].get(u_limit) == p_limit:
-                    st.session_state.authenticated = True
-                    st.session_state.username = u_limit
-                    st.success("Đăng nhập thành công! Đang tải lại...")
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error("Sai thông tin đăng nhập!")
-    
-    # Dừng chương trình để không cho chat tiếp
-    st.stop()
+
+    if not st.session_state.hide_limit_modal:
+        col_left, col_center, col_right = st.columns([1, 4, 1]) 
+        with col_center:
+            with st.container(border=True):
+                c1, c2 = st.columns([9, 1])
+                with c2:
+                    if st.button("✕"):
+                        st.session_state.hide_limit_modal = True
+                        st.rerun()
+                
+                st.markdown("""
+                    <div style="text-align: center;">
+                        <div style="font-size: 60px; margin-bottom: 10px;">🧘‍♀️</div>
+                        <h3 style="color: #00897b; margin: 0; font-weight: 800;">ĐÃ ĐẠT GIỚI HẠN!</h3>
+                        <p style="color: #555; font-size: 15px; margin-top: 10px; line-height: 1.5;">
+                            Hệ thống nhận thấy bạn đã dùng hết lượt thử...<br>
+                            Liên hệ Admin để nhận mã kích hoạt:
+                        </p>
+                        <a href="https://zalo.me/84963759566" target="_blank" 
+                           style="display: inline-block; width: 100%; background-color: #009688; 
+                                  color: white; padding: 12px 0; border-radius: 30px; 
+                                  text-decoration: none; font-weight: bold; margin: 15px 0;">
+                           💬 Nhận mã kích hoạt qua Zalo
+                        </a>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                with st.form("login_form_limit"):
+                    user_input = st.text_input("Tên đăng nhập")
+                    pass_input = st.text_input("Mật khẩu", type="password")
+                    if st.form_submit_button("Đăng Nhập Ngay"):
+                        if st.secrets["passwords"].get(user_input) == pass_input:
+                            st.session_state.authenticated = True
+                            st.session_state.username = user_input
+                            st.session_state.hide_limit_modal = True
+                            st.success("✅ Thành công!")
+                            time.sleep(1); st.rerun()
+                        else:
+                            st.error("❌ Sai thông tin")
+        st.stop()
 
 # =====================================================
 # 6. HIỂN THỊ CHAT (KHI CHƯA HẾT LƯỢT)
