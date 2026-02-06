@@ -109,15 +109,15 @@ if status != "OK": st.error(f"Lỗi: {status}"); st.stop()
 db_text, db_image = data_result
 
 # =====================================================
-# 3. HÀM AI THÔNG MINH (CẬP NHẬT: PROFILE & LINK ADMIN)
+# 3. HÀM AI THÔNG MINH (ADMIN INFO + LIMIT 200 TỪ)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
-        # --- 1. CẤU HÌNH THÔNG TIN CÁ NHÂN CỦA BẠN (SỬA Ở ĐÂY) ---
-        ADMIN_NAME = "An Nguyễn" 
-        ADMIN_BIO = "Kỹ sư khoa học máy tính, đam mê khoa học hóa Yoga."
+        # --- 1. THÔNG TIN CÁ NHÂN (BẠN SỬA Ở ĐÂY) ---
+        ADMIN_NAME = "Coach Nguyễn Văn A" 
+        ADMIN_BIO = "Chuyên gia Yoga Trị liệu với 10 năm kinh nghiệm."
         WEBSITE = "yogaismylife.vn"
-        PROFILE_LINK = "https://yogaismylife.vn/nguoi-sang-lap-hanh-trinh-tao-nen-yogaismylife-vn/" 
+        PROFILE_LINK = "https://zalo.me/..."
         
         # --- 2. TÌM MODEL ---
         valid_model = 'models/gemini-1.5-flash'
@@ -128,39 +128,34 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # --- 3. SYSTEM PROMPT (KỊCH BẢN) ---
+        # --- 3. SYSTEM PROMPT ---
         sys_prompt = f"""
         VAI TRÒ & DANH TÍNH:
-        - Bạn là trợ lý AI của hệ thống **{WEBSITE}**.
-        - Người quản lý/Sáng lập là: **{ADMIN_NAME}**.
-        - Thông tin về Admin: "{ADMIN_BIO}".
-        - Link Profile Admin: {PROFILE_LINK}
+        - Bạn là trợ lý AI của **{WEBSITE}**.
+        - Người sáng lập: **{ADMIN_NAME}**.
+        - Thông tin Admin: "{ADMIN_BIO}".
 
-        NHIỆM VỤ 1: XỬ LÝ CÂU HỎI VỀ ADMIN/TÁC GIẢ
-        - Nếu người dùng hỏi "Ai tạo ra bạn?", "Admin là ai?", "Tác giả web này?", "Liên hệ với ai?":
-          -> Hãy trả lời trang trọng, giới thiệu về {ADMIN_NAME} và Bio ở trên.
-          -> BẮT BUỘC cung cấp link profile dưới dạng HTML: <a href='{PROFILE_LINK}' target='_blank'><b>👉 Xem Profile {ADMIN_NAME} tại đây</b></a>.
+        NHIỆM VỤ 1: TRẢ LỜI VỀ ADMIN
+        - Nếu hỏi "Ai tạo ra bạn?", "Admin là ai?": 
+          -> Giới thiệu về {ADMIN_NAME} + Link Profile: <a href='{PROFILE_LINK}' target='_blank'><b>👉 Xem Profile {ADMIN_NAME}</b></a>.
 
         NHIỆM VỤ 2: BỘ LỌC CHỦ ĐỀ
-        - Nếu câu hỏi KHÔNG LIÊN QUAN đến Admin hoặc Yoga/Sức khỏe (ví dụ: xổ số, code, chính trị...):
-          -> Trả lời duy nhất: REFUSE_TOPIC
+        - Nếu hỏi sai chủ đề (xổ số, code, chính trị...): Trả lời duy nhất: REFUSE_TOPIC
 
-        NHIỆM VỤ 3: TƯ VẤN CHUYÊN MÔN (YOGA/SỨC KHỎE)
+        NHIỆM VỤ 3: TƯ VẤN YOGA (Chuyên môn)
         - YÊU CẦU: Trả lời NGẮN GỌN (Tối đa 200 từ). Đi thẳng vào vấn đề.
-        - Dựa CHỦ YẾU vào "DỮ LIỆU TRA CỨU" bên dưới.
+        - Dựa CHỦ YẾU vào "DỮ LIỆU TRA CỨU".
         - Bắt buộc ghi nguồn: [Ref: ID].
         - Trình bày: Thẻ <b> in đậm ý chính, <ul><li> gạch đầu dòng.
-        - Nếu không có dữ liệu trả lời theo hiểu biết, tuyệt đối không được bịa.
 
         DỮ LIỆU TRA CỨU (RAG):
         {context_text}
 
-        LỊCH SỬ TRÒ CHUYỆN:
+        LỊCH SỬ:
         {history_context}
 
-        CÂU HỎI MỚI: "{prompt}"
+        CÂU HỎI: "{prompt}"
         """
-        
         response = model.generate_content(sys_prompt)
         return response.text.strip()
     except Exception as e:
@@ -196,7 +191,7 @@ if "username" not in st.session_state: st.session_state.username = ""
 if "bad_attempts" not in st.session_state: st.session_state.bad_attempts = 0
 if "is_blocked" not in st.session_state: st.session_state.is_blocked = False
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Tôi là Trợ lý Yoga Y Khoa.\nTôi có thể giúp bạn giải đáp về bệnh lý xương khớp hay bài tập nào hôm nay?"}]
+    st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 Tôi là Trợ lý Yoga Y Khoa. Bạn cần hỗ trợ gì?"}]
 
 current_user = st.session_state.username if st.session_state.authenticated else st.session_state.user_id
 used = check_usage(current_user)
@@ -204,8 +199,10 @@ LIMIT = 50 if st.session_state.authenticated else 5
 is_limit_reached = used >= LIMIT
 
 # =====================================================
-# 5. GIAO DIỆN
+# 5. GIAO DIỆN CHÍNH
 # =====================================================
+
+# --- Sidebar (Chỉ hiện khi đã đăng nhập hoặc muốn đăng nhập chủ động) ---
 with st.sidebar:
     st.title("🔐 VIP Access")
     if st.session_state.authenticated:
@@ -214,7 +211,7 @@ with st.sidebar:
             st.session_state.authenticated = False
             st.rerun()
     else:
-        with st.form("login"):
+        with st.form("login_sidebar"):
             u = st.text_input("User"); p = st.text_input("Pass", type="password")
             if st.form_submit_button("Login"):
                 if st.secrets["passwords"].get(u) == p:
@@ -223,7 +220,7 @@ with st.sidebar:
                     st.rerun()
                 else: st.error("Sai mật khẩu")
 
-# Thanh đếm
+# --- Thanh đếm lượt ---
 percent = min(100, int((used / LIMIT) * 100))
 st.markdown(f"""
 <div style="position: fixed; top: 10px; right: 10px; z-index: 100000;">
@@ -238,15 +235,38 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# --- XỬ LÝ KHI HẾT LƯỢT (FIX: HIỆN FORM ĐĂNG NHẬP NGAY GIỮA MÀN HÌNH) ---
 if is_limit_reached:
-    if "hide_limit_modal" not in st.session_state: st.session_state.hide_limit_modal = False
+    # Ẩn thanh chat đi
     st.markdown("""<style>div[data-testid="stChatInput"] {display: none !important;}</style>""", unsafe_allow_html=True)
-    if not st.session_state.hide_limit_modal:
-        st.info("🚫 Đã hết lượt dùng miễn phí. Vui lòng đăng nhập.")
-        if st.button("Đăng nhập ngay"):
-            st.session_state.hide_limit_modal = True
-            st.rerun()
-        st.stop()
+    
+    # Hiện bảng thông báo to ở giữa màn hình
+    with st.container(border=True):
+        st.markdown("<h3 style='text-align:center; color:#d32f2f;'>🚫 HẾT LƯỢT MIỄN PHÍ HÔM NAY</h3>", unsafe_allow_html=True)
+        st.info(f"Bạn ({current_user}) đã dùng hết 5 lượt thử. Vui lòng đăng nhập để dùng tiếp (50 lượt/ngày).")
+        
+        # Form đăng nhập trực tiếp (Không cần tìm sidebar nữa)
+        with st.form("login_limit_screen"):
+            col1, col2 = st.columns(2)
+            with col1: u_limit = st.text_input("Tên đăng nhập")
+            with col2: p_limit = st.text_input("Mật khẩu", type="password")
+            
+            if st.form_submit_button("🔓 Đăng Nhập & Mở Khóa", use_container_width=True):
+                if st.secrets["passwords"].get(u_limit) == p_limit:
+                    st.session_state.authenticated = True
+                    st.session_state.username = u_limit
+                    st.success("Đăng nhập thành công! Đang tải lại...")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Sai thông tin đăng nhập!")
+    
+    # Dừng chương trình để không cho chat tiếp
+    st.stop()
+
+# =====================================================
+# 6. HIỂN THỊ CHAT (KHI CHƯA HẾT LƯỢT)
+# =====================================================
 
 # Lịch sử chat
 if not st.session_state.authenticated:
@@ -263,27 +283,25 @@ for msg in st.session_state.messages:
 
 st.markdown('<div class="bottom-spacer"></div>', unsafe_allow_html=True)
 
-# =====================================================
-# 6. XỬ LÝ CHAT
-# =====================================================
+# XỬ LÝ CHAT
 if st.session_state.is_blocked:
-    st.error("🚫 TÀI KHOẢN ĐÃ BỊ KHÓA do hỏi sai chủ đề nhiều lần. Vui lòng F5 để thử lại.")
+    st.error("🚫 TÀI KHOẢN ĐÃ BỊ KHÓA do hỏi sai chủ đề nhiều lần. Vui lòng F5.")
     st.stop()
 
-if prompt := st.chat_input("Hỏi về đau lưng, cổ vai gáy, bài tập..."):
+if prompt := st.chat_input("Nhập câu hỏi..."):
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     increment_usage(current_user)
 
     with st.chat_message("assistant"):
-        with st.spinner("Đang tra cứu liệu pháp..."):
+        with st.spinner("Đang tra cứu..."):
             
-            # 1. Lấy lịch sử
+            # Lịch sử
             chat_history = ""
             for msg in st.session_state.messages[-5:-1]:
                 chat_history += f"{msg['role']}: {re.sub(r'<[^>]*>', '', msg['content'])}\n"
 
-            # 2. Tìm kiếm (RAG)
+            # Tìm kiếm
             context_text = ""
             source_map = {}
             found_images = []
@@ -298,17 +316,17 @@ if prompt := st.chat_input("Hỏi về đau lưng, cổ vai gáy, bài tập..."
                     context_text += f"\n[Nguồn {idx}]: {d.page_content}\n"
             except: pass
 
-            # 3. GỌI AI
+            # Gọi AI
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
 
-            # 4. Xử lý kết quả
+            # Xử lý kết quả
             if "REFUSE_TOPIC" in ai_raw:
                 st.session_state.bad_attempts += 1
                 if st.session_state.bad_attempts >= 3:
                     st.session_state.is_blocked = True
-                    msg = "🚫 **ĐÃ KHÓA:** Bạn hỏi sai chủ đề 3 lần."
+                    msg = "🚫 ĐÃ KHÓA: Bạn hỏi sai chủ đề 3 lần."
                 else:
-                    msg = f"⚠️ **LỆCH CHỦ ĐỀ:** Tôi là chuyên gia Yoga, xin hãy hỏi về sức khỏe. (Lần {st.session_state.bad_attempts}/3)"
+                    msg = f"⚠️ CHỈNH ĐỐN: Tôi chỉ trả lời về Yoga. (Lần {st.session_state.bad_attempts}/3)"
                 
                 st.markdown(msg)
                 st.session_state.messages.append({"role": "assistant", "content": msg})
@@ -317,7 +335,6 @@ if prompt := st.chat_input("Hỏi về đau lưng, cổ vai gáy, bài tập..."
             elif ai_raw.startswith("ERR_SYS:"):
                 st.error(f"Lỗi: {ai_raw}")
             else:
-                # Format Link
                 def replace_ref(match):
                     rid = int(match.group(1))
                     if rid in source_map:
