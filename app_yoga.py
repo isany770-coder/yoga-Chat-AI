@@ -371,7 +371,7 @@ if prompt := st.chat_input("Ask about back pain, yoga poses... (Hỏi về đau 
                         
                         link = meta.get('url') or meta.get('source') or '#'
                         title = meta.get('title') or f"Source {idx}"
-                        source_map[idx] = {"url": link, "title": title, "type": doc_type}
+                        source_map[idx] = {"id": idx, "url": link, "title": title, "type": doc_type}
 
                         context_text += f"\n[Ref: {idx}] [{type_label}] (Source: {title}):\n{d.page_content}\n"
             except Exception as e:
@@ -420,20 +420,26 @@ if prompt := st.chat_input("Ask about back pain, yoga poses... (Hỏi về đau 
                         if src['url'] != '#': unique_sources[src['url']] = src # Key theo URL để không lặp
 
                 # D. Xây dựng HTML Nguồn
+                # ... (Đoạn code cũ) ...
+                # D. Xây dựng HTML Nguồn (CÓ HIỂN THỊ SỐ REF ID)
                 sources_html = ""
                 if unique_sources:
                     sources_html += "\n\n---\n**📚 References & Scientific Evidence:**\n\n"
                     science_links, expert_links, other_links = [], [], []
                     
-                    for url, info in unique_sources.items():
+                    # Sắp xếp theo ID để dễ tra cứu
+                    sorted_sources = sorted(unique_sources.items(), key=lambda x: x[1]['id'])
+                    
+                    for url, info in sorted_sources:
+                        rid = info['id'] # Lấy ID gốc (1, 2, 3...)
                         title = info['title']
-                        link_md = f"[{title}]({url})"
+                        # Thêm số [1], [2] vào trước link để đối chiếu
+                        link_md = f"**[{rid}]** [{title}]({url})"
                         
-                        if 'SCIENCE' in info['type']: science_links.append(f"- 🧪 **Study:** {link_md}")
-                        elif 'QA' in info['type']: expert_links.append(f"- 🚑 **Expert QA:** {link_md}")
+                        if 'SCIENCE' in info['type']: science_links.append(f"- 🧪 {link_md}")
+                        elif 'QA' in info['type']: expert_links.append(f"- 🚑 {link_md}")
                         else: other_links.append(f"- 🔗 {link_md}")
 
-                    # Ưu tiên hiển thị
                     sources_html += "\n".join(science_links + expert_links + other_links)
 
                 # E. Upsell Logic
