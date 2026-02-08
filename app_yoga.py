@@ -116,11 +116,6 @@ DB_PATH = "user_usage.db"
 # =====================================================
 # HÀM LOAD SIÊU CẤP (FIX LỖI FILE LỚN GOOGLE DRIVE)
 # =====================================================
-# Thêm import gc ở đầu file cùng các import khác
-import gc 
-
-# ... (Các đoạn code khác giữ nguyên)
-
 # Thay thế hàm load_brain_engine_safe cũ bằng hàm này:
 @st.cache_resource
 def load_brain_engine_safe():
@@ -263,29 +258,35 @@ def get_ai_response_custom(prompt, context_text, history_context):
 # =====================================================
 # 5. QUẢN LÝ DATABASE & SESSION
 # =====================================================
+# =====================================================
+# 5. DATABASE NÂNG CẤP (BLACKLIST + USAGE)
+# =====================================================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    # Bảng đếm lượt dùng (Cũ)
+    # Bảng đếm lượt (Cũ)
     c.execute('CREATE TABLE IF NOT EXISTS usage (user_id TEXT, date TEXT, count INTEGER, PRIMARY KEY (user_id, date))')
-    # Bảng sổ đen (Mới) - Lưu ai bị khóa và lý do
+    # Bảng SỔ ĐEN (Mới) - Lưu ID bị khóa vĩnh viễn
     c.execute('CREATE TABLE IF NOT EXISTS blacklist (user_id TEXT PRIMARY KEY, reason TEXT, timestamp TEXT)')
     conn.commit(); conn.close()
 
-# Hàm kiểm tra xem có nằm trong sổ đen không
-def check_is_blacklisted(user_id):
+init_db() # Chạy khởi tạo ngay
+
+def ban_user_forever(user_id, reason):
+    """Hàm tống giam vĩnh viễn vào DB"""
+    try:
+        conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+        now = str(datetime.datetime.now())
+        c.execute("INSERT OR REPLACE INTO blacklist (user_id, reason, timestamp) VALUES (?, ?, ?)", (user_id, reason, now))
+        conn.commit(); conn.close()
+    except Exception as e: print(f"Ban Error: {e}")
+
+def check_ban_status(user_id):
+    """Kiểm tra xem có nằm trong sổ đen không"""
     conn = sqlite3.connect(DB_PATH); c = conn.cursor()
     c.execute("SELECT reason FROM blacklist WHERE user_id=?", (user_id,))
-    r = c.fetchone(); conn.close()
-    return r[0] if r else None
-
-# Hàm tống vào tù
-def ban_user(user_id, reason="Policy Violation"):
-    conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-    import datetime
-    now = str(datetime.datetime.now())
-    c.execute("INSERT OR REPLACE INTO blacklist (user_id, reason, timestamp) VALUES (?, ?, ?)", (user_id, reason, now))
-    conn.commit(); conn.close()
+    row = c.fetchone(); conn.close()
+    return row[0] if row else None
 
 def check_usage(user_id):
     today = str(datetime.date.today())
