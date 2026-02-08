@@ -106,6 +106,28 @@ with st.spinner("Đang khởi động hệ thống..."):
     data_result, status = load_brain_engine_safe()
 
 if status != "OK": st.error(f"Lỗi: {status}"); st.stop()
+# --- CHÈN ĐOẠN NÀY ĐỂ DEBUG ---
+with st.expander("🔍 SOI DỮ LIỆU HỆ THỐNG (Debug)"):
+    st.write(f"Đường dẫn giải nén: {EXTRACT_PATH}")
+    if os.path.exists(EXTRACT_PATH):
+        st.write("✅ Folder tồn tại. Danh sách file bên trong:")
+        for root, dirs, files in os.walk(EXTRACT_PATH):
+            level = root.replace(EXTRACT_PATH, '').count(os.sep)
+            indent = ' ' * 4 * (level)
+            st.text(f"{indent}{os.path.basename(root)}/")
+            for f in files:
+                st.text(f"{indent}    {f}")
+    else:
+        st.error("❌ Folder không tồn tại! Gdown tải lỗi rồi.")
+        
+    # Test thử 1 phát search xem nó ra cái gì
+    try:
+        test_docs = db_text.similarity_search("yoga", k=1)
+        st.write("✅ Test Search: Tìm thấy vector!")
+        st.write(test_docs[0].page_content[:100])
+    except Exception as e:
+        st.error(f"❌ Lỗi khi Test Search: {e}")
+# -----------------------------
 db_text, db_image = data_result
 
 # =====================================================
