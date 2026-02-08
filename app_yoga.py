@@ -7,6 +7,7 @@ import datetime
 import re
 import time
 import uuid
+import gc
 import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -99,31 +100,37 @@ DB_PATH = "user_usage.db"
 # =====================================================
 # HÀM LOAD SIÊU CẤP (FIX LỖI FILE LỚN GOOGLE DRIVE)
 # =====================================================
+# Thêm import gc ở đầu file cùng các import khác
+import gc 
+
+# ... (Các đoạn code khác giữ nguyên)
+
+# Thay thế hàm load_brain_engine_safe cũ bằng hàm này:
 @st.cache_resource
 def load_brain_engine_safe():
-    # 1. Tải và giải nén (Dùng gdown để vượt qua cảnh báo virus)
+    # 1. Tải và giải nén
     if not os.path.exists(EXTRACT_PATH):
         try:
-            # Tạo folder nếu chưa có
             if not os.path.exists("/tmp"): os.makedirs("/tmp")
             
-            # Xóa file lỗi cũ nếu có
+            # Xóa file lỗi cũ
             if os.path.exists(ZIP_PATH): os.remove(ZIP_PATH)
             
-            with st.spinner(f"Đang tải dữ liệu khủng (690MB)... Vui lòng đợi 1-2 phút..."):
-                # Dùng gdown để tải file lớn an toàn
+            with st.spinner(f"Đang tải dữ liệu (Step 1/3)..."):
                 url = f'https://drive.google.com/uc?id={file_id}'
                 gdown.download(url, ZIP_PATH, quiet=False, fuzzy=True)
             
-            # Kiểm tra xem có phải file zip thật không
+            # Check zip
             if not zipfile.is_zipfile(ZIP_PATH):
-                return None, "Lỗi: File tải về không phải là ZIP (Có thể do Link Drive sai quyền)"
+                return None, "Lỗi: File tải về không phải ZIP"
 
-            with st.spinner("Đang giải nén kho tàng tri thức..."):
-                with zipfile.ZipFile(ZIP_PATH, 'r') as z: z.extractall(EXTRACT_PATH)
+            with st.spinner("Đang giải nén (Step 2/3)..."):
+                with zipfile.ZipFile(ZIP_PATH, 'r') as z: 
+                    z.extractall(EXTRACT_PATH)
             
-            # Xóa file ZIP ngay để giải phóng bộ nhớ
-            os.remove(ZIP_PATH)
+            # --- TỐI ƯU RAM: XÓA NGAY FILE ZIP ---
+            os.remove(ZIP_PATH) 
+            gc.collect() # Dọn sạch bộ nhớ đệm ngay lập tức
             
         except Exception as e: return None, f"Lỗi tải/giải nén: {str(e)}"
     
@@ -136,18 +143,23 @@ def load_brain_engine_safe():
         return None
 
     text_db_path = find_db_path("vector_db")
-    if not text_db_path: return None, "Không tìm thấy vector_db (Cấu trúc file zip chưa đúng)"
+    if not text_db_path: return None, "Không tìm thấy vector_db"
 
     # 3. Load Vector DB
     try:
-        # Load model embedding (Khớp với lúc tạo: 001)
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/gemini-embedding-001", 
-            google_api_key=api_key
-        )
-        
-        # Load DB với chế độ cho phép nguy hiểm (cần thiết cho file pickle)
-        db_text = FAISS.load_local(text_db_path, embeddings, allow_dangerous_deserialization=True)
+        with st.spinner("Đang nạp não vào bộ nhớ (Step 3/3)..."):
+            embeddings = GoogleGenerativeAIEmbeddings(
+                model="models/gemini-embedding-001", 
+                google_api_key=api_key
+            )
+            
+            # Load DB
+            db_text = FAISS.load_local(text_db_path, embeddings, allow_dangerous_deserialization=True)
+            
+            # --- TỐI ƯU RAM CUỐI CÙNG ---
+            # Xóa biến embeddings trung gian nếu không dùng nữa (Langchain lưu nó trong db_text rồi)
+            # del embeddings 
+            gc.collect()
             
         return db_text, "OK"
     except Exception as e: return None, f"Lỗi nạp não: {str(e)}"
