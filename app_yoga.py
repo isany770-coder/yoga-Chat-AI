@@ -16,8 +16,8 @@ from langchain_community.vectorstores import FAISS
 # CẤU HÌNH ADMIN & BẢO MẬT (NEW)
 # =====================================================
 ADMIN_PROFILE = {
-    "name": "An Nguyễn",
-    "title": "Kỹ sư khoa học máy tính, 10 năm kinh nghiệm Yoga",
+    "name": "YIML",
+    "title": "Chuyên gia Yoga Y Khóa",
     "certs": "Thông tin y khoa được bảo chứng bởi Bác sĩ Phạm Văn Quân",
     "mission": "Sứ mệnh khoa học hóa Yoga",
     "website": "yogaismylife.vn",
