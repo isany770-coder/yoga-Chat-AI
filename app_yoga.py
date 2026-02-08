@@ -128,39 +128,31 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # --- 3. KIỂM TRA DỮ LIỆU RAG ---
-        # Nếu không tìm thấy dữ liệu (context rỗng), báo cho AI biết để nó tự "chém"
-        data_instruction = "Dữ liệu tra cứu bên dưới."
-        if not context_text.strip():
-            data_instruction = "Hiện tại không tìm thấy tài liệu trong kho lưu trữ. HÃY DÙNG KIẾN THỨC CHUYÊN GIA CỦA BẠN để tư vấn chính xác."
-
-        # --- 4. SYSTEM PROMPT (LINH HOẠT HƠN) ---
+       # --- 3. SYSTEM PROMPT (ÉP BUỘC DÙNG DATA) ---
+        # Chỉ dẫn rõ ràng hơn: Input là Ref ID, Output phải là Ref ID
         sys_prompt = f"""
-        VAI TRÒ: Trợ lý Yoga Y Khoa của **{WEBSITE}** (Admin: {ADMIN_NAME}).
+        VAI TRÒ: Trợ lý Yoga Y Khoa chuyên nghiệp của {WEBSITE}.
         
-        NHIỆM VỤ 1: CHẾ ĐỘ TRẢ LỜI
-        - ƯU TIÊN 1: Dùng thông tin từ "DỮ LIỆU TRA CỨU" (nếu có) -> Ghi nguồn [Ref: ID].
-        - ƯU TIÊN 2: Nếu dữ liệu tra cứu không đủ hoặc không có -> DÙNG KIẾN THỨC Y KHOA/YOGA CỦA BẠN để trả lời chi tiết, đúng chuyên môn. (Lúc này không cần ghi nguồn Ref).
+        QUY TẮC BẤT DI BẤT DỊCH:
+        1. DỮ LIỆU LÀ VUA: Phải ưu tiên tuyệt đối thông tin trong phần "DỮ LIỆU TRA CỨU" bên dưới.
+        2. TRÍCH DẪN: Mọi thông tin lấy từ dữ liệu PHẢI trích dẫn bằng cú pháp chính xác: [Ref: ID].
+           - Ví dụ: "Yoga giúp giảm đau lưng [Ref: 1], cải thiện giấc ngủ [Ref: 2]."
+        3. KHI KHÔNG CÓ DỮ LIỆU: Nếu và CHỈ NẾU trong "DỮ LIỆU TRA CỨU" hoàn toàn không nhắc đến vấn đề hỏi, hãy dùng kiến thức Yoga chuẩn y khoa để trả lời và nói rõ: "Theo kiến thức chuyên môn (chưa có trong tài liệu của {ADMIN_NAME})..."
         
-        NHIỆM VỤ 2: BỘ LỌC
-        - Nếu hỏi sai chủ đề (xổ số, code, chính trị...): Trả lời: REFUSE_TOPIC
-        - Nếu hỏi về Admin: Giới thiệu {ADMIN_NAME} và link {PROFILE_LINK}.
+        ĐỊNH DẠNG TRẢ LỜI:
+        - Dùng thẻ <b> để in đậm ý chính.
+        - Dùng danh sách <ul><li> cho các bước hoặc lợi ích.
+        - Giọng văn: Thân thiện, khuyến khích, chuyên gia (Namaste).
 
-        NHIỆM VỤ 3: TƯ VẤN YOGA (Chuyên môn)
-        - YÊU CẦU: Trả lời NGẮN GỌN (Tối đa 200 từ). Đi thẳng vào vấn đề.
-        - Dựa CHỦ YẾU vào "DỮ LIỆU TRA CỨU".
-        - Bắt buộc ghi nguồn: [Ref: ID].
-        - Trình bày: Thẻ <b> in đậm ý chính, <ul><li> gạch đầu dòng.
-        - Luôn có lưu ý là câu trả lời chỉ mang tính tham khảo.
-
-        TRẠNG THÁI DỮ LIỆU: {data_instruction}
-        DỮ LIỆU TRA CỨU:
+        DỮ LIỆU TRA CỨU (Kèm ID để trích dẫn):
         {context_text}
 
         LỊCH SỬ CHAT:
         {history_context}
 
-        CÂU HỎI: "{prompt}"
+        CÂU HỎI NGƯỜI DÙNG: "{prompt}"
+        
+        TRẢ LỜI (Ngắn gọn, súc tích, CÓ TRÍCH DẪN [Ref: ID]):
         """
         
         response = model.generate_content(sys_prompt)
@@ -322,61 +314,106 @@ if prompt := st.chat_input("Nhập câu hỏi..."):
     increment_usage(current_user)
 
     with st.chat_message("assistant"):
-        with st.spinner("Đang tra cứu..."):
+        with st.spinner("Đang đọc tài liệu Yoga..."):
             
-            # Lịch sử
+            # 1. Lịch sử chat (Lấy 4 câu gần nhất)
             chat_history = ""
-            for msg in st.session_state.messages[-5:-1]:
-                chat_history += f"{msg['role']}: {re.sub(r'<[^>]*>', '', msg['content'])}\n"
+            for msg in st.session_state.messages[-4:]:
+                clean_content = re.sub(r'<[^>]*>', '', msg['content']) # Xóa html cũ
+                chat_history += f"{msg['role']}: {clean_content}\n"
 
-            # Tìm kiếm
+            # 2. Tìm kiếm (Vector Search)
             context_text = ""
             source_map = {}
-            found_images = []
+            found_images = [] # Reset ảnh
+            
             try:
-                docs = db_text.similarity_search(prompt, k=4)
-                if db_image: docs += db_image.similarity_search(prompt, k=2)
-                for i, d in enumerate(docs):
-                    idx = i + 1
-                    meta = d.metadata
-                    source_map[idx] = {"url": meta.get('url', '#'), "title": meta.get('title', 'Nguồn')}
-                    if meta.get('type') == 'image': found_images.append({"url": meta['image_url'], "title": meta.get('title')})
-                    context_text += f"\n[Nguồn {idx}]: {d.page_content}\n"
-            except: pass
+                # Tăng k lên một chút để lấy nhiều ngữ cảnh hơn
+                docs = db_text.similarity_search(prompt, k=5)
+                
+                # Nếu có DB ảnh thì tìm thêm
+                if db_image: 
+                    image_docs = db_image.similarity_search(prompt, k=2)
+                    docs.extend(image_docs)
 
-            # Gọi AI
+                # Xử lý kết quả tìm kiếm
+                if not docs:
+                    context_text = "Không tìm thấy dữ liệu khớp trong kho lưu trữ."
+                else:
+                    for i, d in enumerate(docs):
+                        idx = i + 1 # Index bắt đầu từ 1
+                        meta = d.metadata
+                        
+                        # Lưu nguồn để map lại link sau này
+                        # Ưu tiên lấy 'source' hoặc 'url' từ metadata
+                        link = meta.get('url') or meta.get('source') or '#'
+                        title = meta.get('title') or f"Tài liệu {idx}"
+                        
+                        source_map[idx] = {"url": link, "title": title}
+                        
+                        # Xử lý ảnh đính kèm trong bài viết (nếu có)
+                        if meta.get('type') == 'image' or meta.get('image_url'):
+                            img_url = meta.get('image_url')
+                            if img_url:
+                                found_images.append({"url": img_url, "title": title})
+
+                        # Xây dựng context chuẩn format cho AI đọc
+                        # Quan trọng: Dùng [Ref: ID] ngay ở đây để khớp với Prompt
+                        content_snippet = d.page_content.replace("\n", " ")[:1500] # Cắt bớt nếu quá dài
+                        context_text += f"\n[Ref: {idx}] (Nguồn: {title}): {content_snippet}\n"
+
+            except Exception as e:
+                context_text = f"Lỗi truy xuất dữ liệu: {str(e)}"
+                print(f"RAG Error: {e}")
+
+            # 3. DEBUG: Uncomment dòng dưới để xem bot có thực sự tìm được bài không (chỉ hiện trên web admin)
+            # st.expander("🔍 Debug dữ liệu tìm được").text(context_text)
+
+            # 4. Gọi AI
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
 
-            # Xử lý kết quả
+            # 5. Xử lý hiển thị kết quả
             if "REFUSE_TOPIC" in ai_raw:
                 st.session_state.bad_attempts += 1
-                if st.session_state.bad_attempts >= 3:
-                    st.session_state.is_blocked = True
-                    msg = "🚫 ĐÃ KHÓA: Bạn hỏi sai chủ đề 3 lần."
-                else:
-                    msg = f"⚠️ CHỈNH ĐỐN: Tôi chỉ trả lời về Yoga. (Lần {st.session_state.bad_attempts}/3)"
-                
+                msg = "⚠️ Tôi chỉ hỗ trợ kiến thức về Yoga. Bạn vui lòng đặt lại câu hỏi nhé."
                 st.markdown(msg)
                 st.session_state.messages.append({"role": "assistant", "content": msg})
-                if st.session_state.is_blocked: st.stop()
             
             elif ai_raw.startswith("ERR_SYS:"):
-                st.error(f"Lỗi: {ai_raw}")
+                st.error(f"Lỗi hệ thống: {ai_raw}")
             else:
+                # Hàm thay thế [Ref: 1] thành Link đẹp
                 def replace_ref(match):
-                    rid = int(match.group(1))
-                    if rid in source_map:
-                        info = source_map[rid]
-                        return f" <a href='{info['url']}' target='_blank' class='ref-link'>[{rid}]</a>"
-                    return ""
+                    try:
+                        rid = int(match.group(1))
+                        if rid in source_map:
+                            info = source_map[rid]
+                            # Style cho link tham khảo số nhỏ xinh
+                            return f'''<a href="{info['url']}" target="_blank" 
+                                        style="display:inline-block; background:#e0f2f1; color:#00695c; 
+                                        font-weight:bold; padding:0px 6px; border-radius:4px; 
+                                        text-decoration:none; font-size:0.8em; margin:0 2px;">
+                                        [{rid}]</a>'''
+                    except: pass
+                    return "" # Trả về rỗng nếu lỗi
                 
-                final_html = re.sub(r'\[Ref:?\s*(\d+)\]', replace_ref, ai_raw)
+                # Regex mạnh hơn: Bắt cả [Ref: 1], [Ref:1], [Ref 1]
+                final_html = re.sub(r'\[Ref:?\s*(\d+)\]', replace_ref, ai_raw, flags=re.IGNORECASE)
+                
                 st.markdown(final_html, unsafe_allow_html=True)
                 
+                # Hiển thị ảnh nếu tìm thấy từ vector search
                 if found_images:
                     st.markdown("---")
+                    st.caption(f"📸 Hình ảnh liên quan ({len(found_images)}):")
                     cols = st.columns(3)
                     for i, img in enumerate(found_images):
-                        with cols[i % 3]: st.image(img['url'])
+                        with cols[i % 3]: 
+                            st.image(img['url'], caption=img.get('title', ''), use_container_width=True)
                 
-                st.session_state.messages.append({"role": "assistant", "content": final_html, "images": found_images})
+                # Lưu vào lịch sử (Lưu cả list ảnh để render lại khi F5)
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": final_html, 
+                    "images": found_images
+                })
