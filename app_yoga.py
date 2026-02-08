@@ -75,7 +75,7 @@ DB_PATH = "user_usage.db"
 
 @st.cache_resource
 def load_brain_engine_safe():
-    # 1. Tải và giải nén (như cũ)
+    # 1. Tải và giải nén (Giữ nguyên)
     if not os.path.exists(EXTRACT_PATH):
         try:
             url = f'https://drive.google.com/uc?id={file_id}'
@@ -83,40 +83,27 @@ def load_brain_engine_safe():
             with zipfile.ZipFile(ZIP_PATH, 'r') as z: z.extractall(EXTRACT_PATH)
         except: return None, "Lỗi tải dữ liệu"
     
-    # 2. Hàm tìm đường dẫn bất chấp thư mục lồng nhau
+    # 2. Tìm đường dẫn file index
     def find_db_path(target_folder_name):
         for root, dirs, files in os.walk(EXTRACT_PATH):
             if target_folder_name in dirs:
                 check_path = os.path.join(root, target_folder_name)
-                # Kiểm tra kỹ xem bên trong có file index không
-                if "index.faiss" in os.listdir(check_path): 
-                    return check_path
+                if "index.faiss" in os.listdir(check_path): return check_path
         return None
 
     text_db_path = find_db_path("vector_db")
     image_db_path = find_db_path("vector_db_images")
-    
-    if not text_db_path: return None, "Không tìm thấy vector_db (File cấu trúc sai)"
+    if not text_db_path: return None, "Không tìm thấy vector_db"
 
-    # 3. PHẦN QUAN TRỌNG NHẤT: THỬ CÁC ĐỜI MODEL KHÁC NHAU
-    # Vì dữ liệu của cụ là dữ liệu cũ, nên khả năng cao nó dùng model 001
     try:
-        # Ưu tiên 1: Thử dùng model đời cũ (embedding-001) - KHẢ NĂNG CAO LÀ CÁI NÀY
+        # === SỬA Ở ĐÂY: DÙNG MODEL CỔ ĐIỂN (ỔN ĐỊNH NHẤT) ===
+        # Thay vì text-embedding-004, ta dùng embedding-001
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=api_key)
-        db_text = FAISS.load_local(text_db_path, embeddings, allow_dangerous_deserialization=True)
         
-        # Test thử luôn xem model này có hiểu dữ liệu không
-        try:
-            test = db_text.similarity_search("yoga", k=1)
-        except:
-            # Nếu model 001 lỗi, chuyển sang thử model 004
-            embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004", google_api_key=api_key)
-            db_text = FAISS.load_local(text_db_path, embeddings, allow_dangerous_deserialization=True)
-
+        db_text = FAISS.load_local(text_db_path, embeddings, allow_dangerous_deserialization=True)
         db_image = None
         if image_db_path:
             db_image = FAISS.load_local(image_db_path, embeddings, allow_dangerous_deserialization=True)
-            
         return (db_text, db_image), "OK"
     except Exception as e: return None, str(e)
 
