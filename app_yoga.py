@@ -374,67 +374,62 @@ if prompt := st.chat_input("Nhập câu hỏi..."):
             # Gọi AI
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
 
-            # Xử lý kết quả
+            # Xử lý kết quả & Hiển thị
+            final_content_to_show = "" # Biến chứa nội dung cuối cùng để hiển thị và lưu
+            
             if "REFUSE_TOPIC" in ai_raw:
                 st.session_state.bad_attempts += 1
                 if st.session_state.bad_attempts >= 3:
                     st.session_state.is_blocked = True
-                    msg = "🚫 ĐÃ KHÓA: Hỏi sai chủ đề quá nhiều."
+                    msg = "🚫 ĐÃ KHÓA: Bạn hỏi sai chủ đề quá 3 lần."
                 else:
-                    msg = f"⚠️ Tôi chỉ hỗ trợ Yoga. (Cảnh báo {st.session_state.bad_attempts}/3)"
+                    msg = f"⚠️ Tôi chỉ hỗ trợ chuyên sâu về Yoga & Sức khỏe. (Cảnh báo {st.session_state.bad_attempts}/3)"
+                
                 st.markdown(msg)
-                st.session_state.messages.append({"role": "assistant", "content": msg})
+                final_content_to_show = msg # Gán giá trị
                 if st.session_state.is_blocked: st.stop()
             
             elif ai_raw.startswith("ERR_SYS:"):
-                st.error(f"Lỗi AI: {ai_raw}")
+                error_msg = f"Lỗi hệ thống: {ai_raw}"
+                st.error(error_msg)
+                final_content_to_show = error_msg # Gán giá trị để không lỗi
             else:
-                # =========================================================
-                # LOGIC HIỂN THỊ LINK THÔNG MINH (CHỐNG LẶP & CẮT ĐUÔI THỪA)
-                # =========================================================
-                
-                # 1. Tách các ID được AI trích dẫn ra
+                # 1. Tách và Xử lý Link
                 ref_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_raw)]
                 
-                # 2. Xóa các thẻ [Ref: X] trong bài văn để nhìn cho sạch sẽ
+                # Làm sạch văn bản (Xóa thẻ Ref trong bài để đọc cho mượt)
                 clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
                 
-                # 3. CẮT BỎ phần "Nguồn tham khảo" do AI tự viết (thường nằm cuối)
-                # Tìm các từ khóa AI hay dùng để bắt đầu liệt kê nguồn
-                split_patterns = ["Nguồn tham khảo:", "Tài liệu tham khảo:", "References:", "Sources:"]
-                for p in split_patterns:
-                    if p in clean_text:
-                        clean_text = clean_text.split(p)[0].strip()
-                        break # Cắt xong thì thôi
-
-                # 4. Tạo danh sách nguồn XỊN (Link bấm được)
+                # 2. Tạo danh sách nguồn XỊN (Link bấm được)
                 unique_sources = {}
                 for rid in ref_ids:
                     if rid in source_map:
                         src = source_map[rid]
                         if src['url'] != '#': unique_sources[src['url']] = src
 
-                # 5. Hiển thị nội dung chính (Đã sạch sẽ)
-                st.markdown(clean_text, unsafe_allow_html=True)
-                
-                # 6. Hiển thị danh sách nguồn XỊN ở dưới cùng
+                # 3. Xây dựng khối HTML nguồn
+                sources_html = ""
                 if unique_sources:
-                    st.markdown("---")
-                    st.caption("📚 **Tài liệu tham khảo & Bằng chứng khoa học:**")
+                    sources_html += "\n\n---\n**📚 Tài liệu tham khảo & Bằng chứng khoa học:**\n\n"
                     
                     science_links = []
                     other_links = []
                     
                     for url, info in unique_sources.items():
-                        link_md = f"[{info['title']}]({url})"
-                        if 'SCIENCE' in info['type']: science_links.append(f"🧪 **Nghiên cứu:** {link_md}")
-                        elif 'QA' in info['type']: other_links.append(f"🚑 **Chuyên gia:** {link_md}")
-                        else: other_links.append(f"🔗 {link_md}")
+                        # Icon đẹp cho từng loại
+                        icon = "🔗"
+                        if 'science' in info['type'].lower(): icon = "🧪"
+                        elif 'qa' in info['type'].lower(): icon = "🚑"
+                        
+                        link_md = f"- {icon} [{info['title']}]({url})"
+                        
+                        if 'science' in info['type'].lower(): science_links.append(link_md)
+                        else: other_links.append(link_md)
 
-                    for s in science_links: st.markdown(s)
-                    for o in other_links: st.markdown(o)
+                    # Ưu tiên Nghiên cứu lên trước
+                    sources_html += "\n".join(science_links + other_links)
 
-                # 6. Logic Upsell (Giữ nguyên)
+                # 4. Logic Upsell
                 upsell_html = ""
                 recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
                 if recs:
@@ -448,18 +443,21 @@ if prompt := st.chat_input("Nhập câu hỏi..."):
                         """
                     upsell_html += "</div>"
                 
-                if upsell_html:
-                    st.markdown(upsell_html, unsafe_allow_html=True)
+                # 5. Tổng hợp nội dung
+                final_content_to_show = clean_text
                 
-                # Lưu vào session (Cần lưu cả phần nguồn để hiển thị lại khi F5)
-                # Tái tạo lại HTML nguồn để lưu
-                sources_html_save = ""
-                if unique_sources:
-                    sources_html_save = "\n\n---\n**Nguồn tham khảo:**\n"
-                    for s in science_links + other_links:
-                        sources_html_save += f"\n- {s}"
+                # Hiển thị ra màn hình
+                st.markdown(final_content_to_show, unsafe_allow_html=True) # Bài viết chính
+                if sources_html: st.markdown(sources_html) # Nguồn
+                if upsell_html: st.markdown(upsell_html, unsafe_allow_html=True) # Upsell
 
+                # Gộp lại để lưu vào lịch sử (biến này sẽ đầy đủ cả bài viết + nguồn + upsell)
+                final_content_to_show = final_content_to_show + "\n" + sources_html + "\n" + upsell_html
+
+            # --- LƯU LỊCH SỬ (AN TOÀN TUYỆT ĐỐI) ---
+            # Chỉ lưu khi biến có nội dung
+            if final_content_to_show:
                 st.session_state.messages.append({
                     "role": "assistant", 
-                    "content": final_content + sources_html_save + upsell_html
+                    "content": final_content_to_show
                 })
