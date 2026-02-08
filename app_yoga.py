@@ -434,8 +434,6 @@ if prompt := st.chat_input("Nhập câu hỏi..."):
                     for s in science_links: st.markdown(s)
                     for o in other_links: st.markdown(o)
 
-                # ... (Phần Upsell giữ nguyên) ...
-
                 # 6. Logic Upsell (Giữ nguyên)
                 upsell_html = ""
                 recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
