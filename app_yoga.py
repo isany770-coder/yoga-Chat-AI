@@ -331,12 +331,62 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Màn hình hết hạn
+# =====================================================
+# 4. GIAO DIỆN HẾT HẠN (GIỮ NGUYÊN BẢN GỐC - KHÔNG SỬA)
+# =====================================================
 if is_limit_reached:
+    if "hide_limit_modal" not in st.session_state:
+        st.session_state.hide_limit_modal = False
+    
     st.markdown("""<style>div[data-testid="stChatInput"] {display: none !important;}</style>""", unsafe_allow_html=True)
-    st.warning("⚠️ ĐÃ HẾT LƯỢT DÙNG MIỄN PHÍ HÔM NAY.")
-    st.info(f"Vui lòng liên hệ Admin **{ADMIN_PROFILE['name']}** để đăng ký tài khoản VIP không giới hạn.")
-    st.stop()
+
+    if not st.session_state.hide_limit_modal:
+        col_left, col_center, col_right = st.columns([1, 4, 1]) 
+        with col_center:
+            with st.container(border=True):
+                c1, c2 = st.columns([9, 1])
+                with c2:
+                    if st.button("✕"):
+                        st.session_state.hide_limit_modal = True
+                        st.rerun()
+                
+                st.markdown("""
+                    <div style="text-align: center;">
+                        <div style="font-size: 60px; margin-bottom: 10px;">🧘‍♀️</div>
+                        <h3 style="color: #00897b; margin: 0; font-weight: 800;">ĐÃ ĐẠT GIỚI HẠN!</h3>
+                        <p style="color: #555; font-size: 15px; margin-top: 10px; line-height: 1.5;">
+                            Hệ thống nhận thấy bạn đã dùng hết lượt thử. Hãy quay lại vào ngày mai<br>
+                            Để tra cứu <b>Kho dữ liệu 15 triệu từ</b> và nhận ưu đãi 
+                            <b>Mua Thảm tặng Tài khoản Member</b>, mời bạn liên hệ Admin:
+                        </p>
+                        <a href="https://zalo.me/84963759566" target="_blank" 
+                           style="display: inline-block; width: 100%; background-color: #009688; 
+                                  color: white; padding: 12px 0; border-radius: 30px; 
+                                  text-decoration: none; font-weight: bold; font-size: 16px;
+                                  margin: 15px 0 25px 0; box-shadow: 0 4px 10px rgba(0,150,136,0.3);">
+                           💬 Nhận mã kích hoạt qua Zalo
+                        </a>
+                        <div style="border-top: 1px dashed #ccc; margin: 10px 0;"></div>
+                        <p style="font-size: 13px; color: #666; margin-top: 10px;">Hoặc đăng nhập thành viên:</p>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                with st.form("login_form_limit"):
+                    user_input = st.text_input("Tên đăng nhập")
+                    pass_input = st.text_input("Mật khẩu", type="password")
+                    btn_login = st.form_submit_button("Đăng Nhập Ngay", use_container_width=True)
+                    
+                    if btn_login:
+                        if st.secrets["passwords"].get(user_input) == pass_input:
+                            st.session_state.authenticated = True
+                            st.session_state.username = user_input
+                            st.session_state.hide_limit_modal = True
+                            st.success("✅ Đăng nhập thành công!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("❌ Sai tên đăng nhập hoặc mật khẩu")
+        st.stop()
 
 # =====================================================
 # 7. XỬ LÝ CHAT CHÍNH (LOGIC PHẠT & REF MỚI)
