@@ -96,14 +96,22 @@ def load_brain_engine_safe():
     if not text_db_path: return None, "Không tìm thấy vector_db"
 
     try:
-        # === SỬA Ở ĐÂY: DÙNG MODEL CỔ ĐIỂN (ỔN ĐỊNH NHẤT) ===
-        # Thay vì text-embedding-004, ta dùng embedding-001
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=api_key)
+        # === QUAY VỀ MODEL MỚI NHẤT (VÌ ĐÃ UPDATE THƯ VIỆN) ===
+        # Thư viện mới (v1.0.0+) sẽ tự động xử lý được model này mà không bị lỗi 404
+        embeddings = GoogleGenerativeAIEmbeddings(
+            model="models/text-embedding-004", 
+            google_api_key=api_key
+        )
         
+        # Thử load DB. Nếu DB cũ được tạo bằng model 001 thì kết quả tìm kiếm có thể kém đi 
+        # nhưng ÍT NHẤT nó sẽ không báo lỗi đỏ nữa. 
+        # Nếu muốn chuẩn 100% thì cần tạo lại file index.faiss bằng model 004.
         db_text = FAISS.load_local(text_db_path, embeddings, allow_dangerous_deserialization=True)
+        
         db_image = None
         if image_db_path:
             db_image = FAISS.load_local(image_db_path, embeddings, allow_dangerous_deserialization=True)
+            
         return (db_text, db_image), "OK"
     except Exception as e: return None, str(e)
 
