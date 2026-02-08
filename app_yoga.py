@@ -164,7 +164,6 @@ def get_ai_response_custom(prompt, context_text, history_context):
     try:
         # --- 1. THÔNG TIN CÁ NHÂN ---
         ADMIN_NAME = "An Nguyễn" 
-        ADMIN_BIO = "Kỹ sư khoa học máy tính"
         WEBSITE = "yogaismylife.vn"
         PROFILE_LINK = "https://yogaismylife.vn/nguoi-sang-lap-hanh-trinh-tao-nen-yogaismylife-vn/"
         
@@ -177,35 +176,39 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # --- 3. KIỂM TRA DỮ LIỆU RAG ---
+        # --- 3. KIỂM TRA DỮ LIỆU & BỆNH LÝ ---
         data_instruction = "Dữ liệu tra cứu bên dưới."
         if not context_text.strip():
-            data_instruction = "Hiện tại không tìm thấy tài liệu trong kho lưu trữ. HÃY DÙNG KIẾN THỨC CHUYÊN GIA CỦA BẠN để tư vấn chính xác."
+            data_instruction = "Không tìm thấy tài liệu. Dùng kiến thức chuyên môn để trả lời."
+        
+        # Kiểm tra xem có nghiên cứu khoa học trong context không
+        science_priority = ""
+        if "[LOẠI: BẰNG CHỨNG KHOA HỌC]" in context_text:
+            science_priority = """
+            ‼️ QUAN TRỌNG: Đã tìm thấy NGHIÊN CỨU KHOA HỌC trong dữ liệu.
+            - Bắt buộc phải trích dẫn ít nhất 1 nghiên cứu để chứng minh (Ví dụ: "Nghiên cứu năm 2024 cho thấy...").
+            - Đặt trích dẫn nghiên cứu lên đầu hoặc lồng ghép khéo léo vào câu trả lời.
+            """
 
-        # --- 4. SYSTEM PROMPT (LINH HOẠT HƠN) ---
+        # --- 4. SYSTEM PROMPT (THÉP) ---
         sys_prompt = f"""
         VAI TRÒ: Trợ lý Yoga Y Khoa của **{WEBSITE}** (Admin: {ADMIN_NAME}).
         
-        NHIỆM VỤ 1: CHẾ ĐỘ TRẢ LỜI
-        - ƯU TIÊN 1: Dùng thông tin từ "DỮ LIỆU TRA CỨU" (nếu có) -> Ghi nguồn [Ref: ID].
-        - ƯU TIÊN 2: Nếu dữ liệu tra cứu không đủ hoặc không có -> DÙNG KIẾN THỨC Y KHOA/YOGA CỦA BẠN để trả lời chi tiết, đúng chuyên môn. (Lúc này không cần ghi nguồn Ref).
+        NHIỆM VỤ:
+        1. Trả lời câu hỏi dựa CHỦ YẾU vào "DỮ LIỆU TRA CỨU".
+        {science_priority}
+        2. Nếu dữ liệu là Bài viết/Hỏi đáp: Trích dẫn ý chính và ghi nguồn [Ref: ID].
+        3. Nếu câu hỏi về bệnh lý (Thoát vị, Đau lưng...): Phải trả lời theo hướng Y học + Yoga phục hồi.
         
-        NHIỆM VỤ 2: BỘ LỌC
-        - Nếu hỏi sai chủ đề (xổ số, code, chính trị...): Trả lời: REFUSE_TOPIC
-        - Nếu hỏi về Admin: Giới thiệu {ADMIN_NAME} và link {PROFILE_LINK}.
-
-        NHIỆM VỤ 3: TƯ VẤN YOGA (Chuyên môn)
-        - YÊU CẦU: Trả lời NGẮN GỌN (Tối đa 300 từ). Đi thẳng vào vấn đề.
-        - Dựa CHỦ YẾU vào "DỮ LIỆU TRA CỨU". Đặc biệt chú ý các nhãn [KHOA HỌC] hoặc [CHUYÊN GIA].
-        - Bắt buộc ghi nguồn: [Ref: ID].
-        - Trình bày: Thẻ <b> in đậm ý chính, <ul><li> gạch đầu dòng.
-        - Luôn có lưu ý là câu trả lời chỉ mang tính tham khảo.
-
-        TRẠNG THÁI DỮ LIỆU: {data_instruction}
+        ĐỊNH DẠNG:
+        - Trả lời Ngắn gọn, Súc tích (Dưới 300 từ).
+        - Dùng thẻ <b> in đậm ý chính.
+        - Luôn ghi nguồn [Ref: ID] ngay sau câu thông tin.
+        
         DỮ LIỆU TRA CỨU:
         {context_text}
 
-        LỊCH SỬ CHAT:
+        LỊCH SỬ:
         {history_context}
 
         CÂU HỎI: "{prompt}"
@@ -385,56 +388,52 @@ if prompt := st.chat_input("Nhập câu hỏi..."):
                 st.error(f"Lỗi AI: {ai_raw}")
             else:
                 # =========================================================
-                # LOGIC HIỂN THỊ LINK THÔNG MINH (CHỐNG LẶP & RÕ RÀNG)
+                # LOGIC HIỂN THỊ LINK THÔNG MINH (GOM NHÓM & BẤM ĐƯỢC)
                 # =========================================================
                 
                 # 1. Tách các ID được AI trích dẫn ra
-                # Ví dụ: AI trả lời "...[Ref: 1]... [Ref: 2]... [Ref: 1]"
                 ref_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_raw)]
                 
-                # 2. Xử lý nội dung bài viết (Xóa các thẻ [Ref: X] trong bài để nhìn cho sạch)
-                # Hoặc cụ có thể để lại nếu muốn, ở đây tôi xóa đi để hiển thị list nguồn bên dưới cho đẹp
+                # 2. Xóa các thẻ [Ref: X] trong bài văn để nhìn cho sạch sẽ
                 final_content = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
                 
-                # 3. Tạo danh sách nguồn (Duy nhất, không lặp)
+                # 3. Tạo danh sách nguồn (Duy nhất, không lặp, có phân loại)
                 unique_sources = {}
                 for rid in ref_ids:
                     if rid in source_map:
                         src = source_map[rid]
-                        # Dùng URL làm khóa để loại bỏ các đoạn văn khác nhau nhưng cùng 1 bài viết
-                        unique_sources[src['url']] = src
+                        # Dùng URL làm khóa để không lặp lại bài viết
+                        if src['url'] != '#':
+                            unique_sources[src['url']] = src
 
                 # 4. Hiển thị nội dung chính
                 st.markdown(final_content, unsafe_allow_html=True)
                 
-                # 5. Hiển thị danh sách nguồn (Đẹp & Rõ ràng)
+                # 5. Hiển thị danh sách nguồn (Đẹp & Phân loại)
                 if unique_sources:
                     st.markdown("---")
                     st.caption("📚 **Tài liệu tham khảo & Bằng chứng khoa học:**")
                     
-                    # Gom nhóm theo loại để dễ nhìn
+                    # Gom nhóm để hiển thị Nghiên cứu lên trước
                     science_links = []
-                    expert_links = []
                     other_links = []
                     
                     for url, info in unique_sources.items():
-                        # Tạo HTML cho link
-                        link_html = f"- [{info['title']}]({url})"
+                        # Tạo link Markdown: [Tiêu đề](Link)
+                        link_md = f"[{info['title']}]({url})"
                         
                         if 'SCIENCE' in info['type']:
-                            science_links.append(f"🧪 **Nghiên cứu:** [{info['title']}]({url})")
+                            science_links.append(f"🧪 **Nghiên cứu:** {link_md}")
                         elif 'QA' in info['type']:
-                            expert_links.append(f"🚑 **Chuyên gia:** [{info['title']}]({url})")
-                        elif url != '#':
-                            other_links.append(f"🔗 [{info['title']}]({url})")
+                            other_links.append(f"🚑 **Chuyên gia:** {link_md}")
+                        else:
+                            other_links.append(f"🔗 {link_md}")
 
-                    # In ra theo thứ tự ưu tiên
+                    # In ra (Nghiên cứu trước, bài viết sau)
                     if science_links:
-                        st.markdown("\n".join(science_links))
-                    if expert_links:
-                        st.markdown("\n".join(expert_links))
+                        for s in science_links: st.markdown(s)
                     if other_links:
-                        st.markdown("\n".join(other_links))
+                        for o in other_links: st.markdown(o)
 
                 # 6. Logic Upsell (Giữ nguyên)
                 upsell_html = ""
@@ -453,11 +452,13 @@ if prompt := st.chat_input("Nhập câu hỏi..."):
                 if upsell_html:
                     st.markdown(upsell_html, unsafe_allow_html=True)
                 
-                # Lưu lịch sử (Lưu cả html nguồn để hiển thị lại)
-                # Tái tạo lại html nguồn để lưu vào session
+                # Lưu vào session (Cần lưu cả phần nguồn để hiển thị lại khi F5)
+                # Tái tạo lại HTML nguồn để lưu
                 sources_html_save = ""
                 if unique_sources:
-                    sources_html_save = "\n\n**Nguồn:**\n" + "\n".join(science_links + expert_links + other_links)
+                    sources_html_save = "\n\n---\n**Nguồn tham khảo:**\n"
+                    for s in science_links + other_links:
+                        sources_html_save += f"\n- {s}"
 
                 st.session_state.messages.append({
                     "role": "assistant", 
