@@ -11,6 +11,30 @@ import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
+# --- DÁN ĐOẠN NÀY VÀO SAU CÁC DÒNG IMPORT ---
+import google.generativeai as genai
+
+# Code kiểm tra kết nối thực tế
+st.sidebar.markdown("---")
+st.sidebar.header("🔍 Kiểm tra Kết Nối Google")
+try:
+    if "GOOGLE_API_KEY" in st.secrets:
+        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+        # Lấy danh sách model Embedding mà Key này được phép dùng
+        models = [m.name for m in genai.list_models() if 'embed' in m.name]
+        
+        if models:
+            st.sidebar.success(f"✅ Key TỐT! Tìm thấy {len(models)} model:")
+            st.sidebar.code("\n".join(models), language="text")
+        else:
+            st.sidebar.warning("⚠️ Key kết nối được nhưng không thấy model Embedding nào!")
+    else:
+        st.sidebar.error("❌ Chưa nhập API Key trong Secrets")
+except Exception as e:
+    st.sidebar.error(f"❌ Key HỎNG hoặc Lỗi Mạng:\n{e}")
+st.sidebar.markdown("---")
+# ---------------------------------------------
+
 # =====================================================
 # 1. CẤU HÌNH TRANG
 # =====================================================
