@@ -206,7 +206,8 @@ def get_ai_response_custom(prompt, context_text, history_context):
         2. **ACCURACY IS PARAMOUNT:** When you state a fact, you MUST check which [Ref: ID] it came from.
         3. **DO NOT MIX SOURCES:** If information is in [Ref: 1], do NOT cite [Ref: 2]. 
         4. If a fact is NOT in the provided [DATA], do NOT attach a [Ref].
-        5. **Science First:** If the user asks for evidence, prioritize sources labeled [LOẠI: BẰNG CHỨNG KHOA HỌC].
+        5. **SOURCE HIERARCHY:** If you find a study (e.g., Cramer 2025) mentioned in a General Article (Source A) BUT you also see the Original Study File (Source B) in the list, **YOU MUST CITE SOURCE B** as the primary evidence. Source A is just a secondary reference.
+        6. **Science First:** If the user asks for evidence, prioritize sources labeled [LOẠI: BẰNG CHỨNG KHOA HỌC].
 
         STRUCTURE:
         - Direct Answer.
