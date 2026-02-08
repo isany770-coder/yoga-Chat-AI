@@ -326,110 +326,104 @@ if st.session_state.is_blocked:
     st.error("🚫 TÀI KHOẢN ĐÃ BỊ KHÓA do hỏi sai chủ đề nhiều lần. Vui lòng F5.")
     st.stop()
 
+# =====================================================
+# THAY THẾ TOÀN BỘ PHẦN XỬ LÝ CHAT Ở CUỐI FILE BẰNG ĐOẠN NÀY
+# =====================================================
+
 if prompt := st.chat_input("Nhập câu hỏi..."):
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     increment_usage(current_user)
 
     with st.chat_message("assistant"):
-        with st.spinner("Đang đọc tài liệu Yoga..."):
+        with st.spinner("Đang đọc tài liệu..."):
             
-            # 1. Lịch sử chat (Lấy 4 câu gần nhất)
+            # 1. Lịch sử chat
             chat_history = ""
             for msg in st.session_state.messages[-4:]:
-                clean_content = re.sub(r'<[^>]*>', '', msg['content']) # Xóa html cũ
+                clean_content = re.sub(r'<[^>]*>', '', msg['content'])
                 chat_history += f"{msg['role']}: {clean_content}\n"
 
-            # 2. Tìm kiếm (Vector Search)
+            # 2. Tìm kiếm (CÓ BÁO LỖI)
             context_text = ""
             source_map = {}
-            found_images = [] # Reset ảnh
+            found_images = []
             
+            # --- DEBUG BLOCK: Kiểm tra xem DB có dữ liệu không ---
             try:
-                # Tăng k lên một chút để lấy nhiều ngữ cảnh hơn
+                # Nếu index chưa load được thì db_text sẽ None hoặc lỗi
+                num_docs = db_text.index.ntotal
+                # st.caption(f"🔍 Trạng thái kho: {num_docs} vector. Model: {db_text.embeddings.model}")
+            except:
+                st.error("❌ Lỗi nghiêm trọng: Kho dữ liệu chưa được nạp thành công!")
+                st.stop()
+            # ---------------------------------------------------
+
+            try:
+                # Tăng k lên 5 để tìm kỹ hơn
                 docs = db_text.similarity_search(prompt, k=5)
                 
-                # Nếu có DB ảnh thì tìm thêm
                 if db_image: 
-                    image_docs = db_image.similarity_search(prompt, k=2)
-                    docs.extend(image_docs)
+                    try:
+                        docs += db_image.similarity_search(prompt, k=2)
+                    except Exception as e_img:
+                        st.warning(f"⚠️ Lỗi tìm ảnh (bỏ qua): {str(e_img)}")
 
-                # Xử lý kết quả tìm kiếm
                 if not docs:
-                    context_text = "Không tìm thấy dữ liệu khớp trong kho lưu trữ."
+                    context_text = "" # Để trống để AI tự xử lý
                 else:
                     for i, d in enumerate(docs):
-                        idx = i + 1 # Index bắt đầu từ 1
+                        idx = i + 1
                         meta = d.metadata
-                        
-                        # Lưu nguồn để map lại link sau này
-                        # Ưu tiên lấy 'source' hoặc 'url' từ metadata
                         link = meta.get('url') or meta.get('source') or '#'
                         title = meta.get('title') or f"Tài liệu {idx}"
-                        
                         source_map[idx] = {"url": link, "title": title}
                         
-                        # Xử lý ảnh đính kèm trong bài viết (nếu có)
                         if meta.get('type') == 'image' or meta.get('image_url'):
-                            img_url = meta.get('image_url')
-                            if img_url:
-                                found_images.append({"url": img_url, "title": title})
+                            found_images.append({"url": meta.get('image_url'), "title": title})
 
-                        # Xây dựng context chuẩn format cho AI đọc
-                        # Quan trọng: Dùng [Ref: ID] ngay ở đây để khớp với Prompt
-                        content_snippet = d.page_content.replace("\n", " ")[:1500] # Cắt bớt nếu quá dài
+                        content_snippet = d.page_content.replace("\n", " ")[:1500]
                         context_text += f"\n[Ref: {idx}] (Nguồn: {title}): {content_snippet}\n"
 
             except Exception as e:
-                context_text = f"Lỗi truy xuất dữ liệu: {str(e)}"
-                print(f"RAG Error: {e}")
+                # ĐÂY LÀ CHỖ QUAN TRỌNG NHẤT: BÁO LỖI RA MÀN HÌNH
+                st.error(f"❌ Lỗi Tìm Kiếm: {str(e)}")
+                st.info("💡 Mẹo: Chụp ảnh lỗi này gửi cho kỹ thuật để sửa ngay lập tức.")
+                st.stop()
 
-            # 3. DEBUG: Uncomment dòng dưới để xem bot có thực sự tìm được bài không (chỉ hiện trên web admin)
-            # st.expander("🔍 Debug dữ liệu tìm được").text(context_text)
-
-            # 4. Gọi AI
+            # 3. Gọi AI
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
 
-            # 5. Xử lý hiển thị kết quả
+            # 4. Xử lý hiển thị
             if "REFUSE_TOPIC" in ai_raw:
                 st.session_state.bad_attempts += 1
-                msg = "⚠️ Tôi chỉ hỗ trợ kiến thức về Yoga. Bạn vui lòng đặt lại câu hỏi nhé."
+                msg = "⚠️ Tôi chỉ hỗ trợ kiến thức về Yoga."
                 st.markdown(msg)
                 st.session_state.messages.append({"role": "assistant", "content": msg})
             
             elif ai_raw.startswith("ERR_SYS:"):
-                st.error(f"Lỗi hệ thống: {ai_raw}")
+                st.error(f"Lỗi AI: {ai_raw}")
             else:
-                # Hàm thay thế [Ref: 1] thành Link đẹp
                 def replace_ref(match):
                     try:
                         rid = int(match.group(1))
                         if rid in source_map:
                             info = source_map[rid]
-                            # Style cho link tham khảo số nhỏ xinh
                             return f'''<a href="{info['url']}" target="_blank" 
-                                        style="display:inline-block; background:#e0f2f1; color:#00695c; 
-                                        font-weight:bold; padding:0px 6px; border-radius:4px; 
-                                        text-decoration:none; font-size:0.8em; margin:0 2px;">
-                                        [{rid}]</a>'''
+                                        style="background:#e0f2f1; color:#00695c; font-weight:bold; 
+                                        padding:0 5px; border-radius:4px; text-decoration:none; 
+                                        font-size:0.8em;">[{rid}]</a>'''
                     except: pass
-                    return "" # Trả về rỗng nếu lỗi
+                    return ""
                 
-                # Regex mạnh hơn: Bắt cả [Ref: 1], [Ref:1], [Ref 1]
                 final_html = re.sub(r'\[Ref:?\s*(\d+)\]', replace_ref, ai_raw, flags=re.IGNORECASE)
-                
                 st.markdown(final_html, unsafe_allow_html=True)
                 
-                # Hiển thị ảnh nếu tìm thấy từ vector search
                 if found_images:
-                    st.markdown("---")
-                    st.caption(f"📸 Hình ảnh liên quan ({len(found_images)}):")
                     cols = st.columns(3)
                     for i, img in enumerate(found_images):
-                        with cols[i % 3]: 
-                            st.image(img['url'], caption=img.get('title', ''), use_container_width=True)
+                        with cols[i % 3]: st.image(img['url'], use_container_width=True)
                 
-                # Lưu vào lịch sử (Lưu cả list ảnh để render lại khi F5)
                 st.session_state.messages.append({
                     "role": "assistant", 
                     "content": final_html, 
