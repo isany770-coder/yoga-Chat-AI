@@ -17,7 +17,7 @@ from langchain_community.vectorstores import FAISS
 # =====================================================
 ADMIN_PROFILE = {
     "name": "YIML",
-    "title": "Chuyên gia Yoga Y Khóa",
+    "title": "Chuyên gia Yoga Y Khoa",
     "certs": "Thông tin y khoa được bảo chứng bởi Bác sĩ Phạm Văn Quân",
     "mission": "Sứ mệnh khoa học hóa Yoga",
     "website": "yogaismylife.vn",
