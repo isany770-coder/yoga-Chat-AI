@@ -390,52 +390,51 @@ if prompt := st.chat_input("Nhập câu hỏi..."):
                 st.error(f"Lỗi AI: {ai_raw}")
             else:
                 # =========================================================
-                # LOGIC HIỂN THỊ LINK THÔNG MINH (GOM NHÓM & BẤM ĐƯỢC)
+                # LOGIC HIỂN THỊ LINK THÔNG MINH (CHỐNG LẶP & CẮT ĐUÔI THỪA)
                 # =========================================================
                 
                 # 1. Tách các ID được AI trích dẫn ra
                 ref_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_raw)]
                 
                 # 2. Xóa các thẻ [Ref: X] trong bài văn để nhìn cho sạch sẽ
-                final_content = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
+                clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
                 
-                # 3. Tạo danh sách nguồn (Duy nhất, không lặp, có phân loại)
+                # 3. CẮT BỎ phần "Nguồn tham khảo" do AI tự viết (thường nằm cuối)
+                # Tìm các từ khóa AI hay dùng để bắt đầu liệt kê nguồn
+                split_patterns = ["Nguồn tham khảo:", "Tài liệu tham khảo:", "References:", "Sources:"]
+                for p in split_patterns:
+                    if p in clean_text:
+                        clean_text = clean_text.split(p)[0].strip()
+                        break # Cắt xong thì thôi
+
+                # 4. Tạo danh sách nguồn XỊN (Link bấm được)
                 unique_sources = {}
                 for rid in ref_ids:
                     if rid in source_map:
                         src = source_map[rid]
-                        # Dùng URL làm khóa để không lặp lại bài viết
-                        if src['url'] != '#':
-                            unique_sources[src['url']] = src
+                        if src['url'] != '#': unique_sources[src['url']] = src
 
-                # 4. Hiển thị nội dung chính
-                st.markdown(final_content, unsafe_allow_html=True)
+                # 5. Hiển thị nội dung chính (Đã sạch sẽ)
+                st.markdown(clean_text, unsafe_allow_html=True)
                 
-                # 5. Hiển thị danh sách nguồn (Đẹp & Phân loại)
+                # 6. Hiển thị danh sách nguồn XỊN ở dưới cùng
                 if unique_sources:
                     st.markdown("---")
                     st.caption("📚 **Tài liệu tham khảo & Bằng chứng khoa học:**")
                     
-                    # Gom nhóm để hiển thị Nghiên cứu lên trước
                     science_links = []
                     other_links = []
                     
                     for url, info in unique_sources.items():
-                        # Tạo link Markdown: [Tiêu đề](Link)
                         link_md = f"[{info['title']}]({url})"
-                        
-                        if 'SCIENCE' in info['type']:
-                            science_links.append(f"🧪 **Nghiên cứu:** {link_md}")
-                        elif 'QA' in info['type']:
-                            other_links.append(f"🚑 **Chuyên gia:** {link_md}")
-                        else:
-                            other_links.append(f"🔗 {link_md}")
+                        if 'SCIENCE' in info['type']: science_links.append(f"🧪 **Nghiên cứu:** {link_md}")
+                        elif 'QA' in info['type']: other_links.append(f"🚑 **Chuyên gia:** {link_md}")
+                        else: other_links.append(f"🔗 {link_md}")
 
-                    # In ra (Nghiên cứu trước, bài viết sau)
-                    if science_links:
-                        for s in science_links: st.markdown(s)
-                    if other_links:
-                        for o in other_links: st.markdown(o)
+                    for s in science_links: st.markdown(s)
+                    for o in other_links: st.markdown(o)
+
+                # ... (Phần Upsell giữ nguyên) ...
 
                 # 6. Logic Upsell (Giữ nguyên)
                 upsell_html = ""
