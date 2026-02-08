@@ -384,29 +384,64 @@ if prompt := st.chat_input("Nhập câu hỏi..."):
             elif ai_raw.startswith("ERR_SYS:"):
                 st.error(f"Lỗi AI: {ai_raw}")
             else:
-                # 1. Thay thế [Ref: ID] thành Link đẹp
-                def replace_ref(match):
-                    try:
-                        rid = int(match.group(1))
-                        if rid in source_map:
-                            info = source_map[rid]
-                            icon = "🔗"
-                            if info['type'] == 'SCIENCE': icon = "🧪"
-                            elif info['type'] == 'QA': icon = "🚑"
-                            
-                            return f'''<a href="{info['url']}" target="_blank" class="ref-link" title="{info['title']}">{icon} [{rid}]</a>'''
-                    except: pass
-                    return ""
+                # =========================================================
+                # LOGIC HIỂN THỊ LINK THÔNG MINH (CHỐNG LẶP & RÕ RÀNG)
+                # =========================================================
                 
-                final_html = re.sub(r'\[Ref:?\s*(\d+)\]', replace_ref, ai_raw, flags=re.IGNORECASE)
+                # 1. Tách các ID được AI trích dẫn ra
+                # Ví dụ: AI trả lời "...[Ref: 1]... [Ref: 2]... [Ref: 1]"
+                ref_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_raw)]
                 
-                # 2. Logic Upsell (Tích hợp từ App 5)
+                # 2. Xử lý nội dung bài viết (Xóa các thẻ [Ref: X] trong bài để nhìn cho sạch)
+                # Hoặc cụ có thể để lại nếu muốn, ở đây tôi xóa đi để hiển thị list nguồn bên dưới cho đẹp
+                final_content = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
+                
+                # 3. Tạo danh sách nguồn (Duy nhất, không lặp)
+                unique_sources = {}
+                for rid in ref_ids:
+                    if rid in source_map:
+                        src = source_map[rid]
+                        # Dùng URL làm khóa để loại bỏ các đoạn văn khác nhau nhưng cùng 1 bài viết
+                        unique_sources[src['url']] = src
+
+                # 4. Hiển thị nội dung chính
+                st.markdown(final_content, unsafe_allow_html=True)
+                
+                # 5. Hiển thị danh sách nguồn (Đẹp & Rõ ràng)
+                if unique_sources:
+                    st.markdown("---")
+                    st.caption("📚 **Tài liệu tham khảo & Bằng chứng khoa học:**")
+                    
+                    # Gom nhóm theo loại để dễ nhìn
+                    science_links = []
+                    expert_links = []
+                    other_links = []
+                    
+                    for url, info in unique_sources.items():
+                        # Tạo HTML cho link
+                        link_html = f"- [{info['title']}]({url})"
+                        
+                        if 'SCIENCE' in info['type']:
+                            science_links.append(f"🧪 **Nghiên cứu:** [{info['title']}]({url})")
+                        elif 'QA' in info['type']:
+                            expert_links.append(f"🚑 **Chuyên gia:** [{info['title']}]({url})")
+                        elif url != '#':
+                            other_links.append(f"🔗 [{info['title']}]({url})")
+
+                    # In ra theo thứ tự ưu tiên
+                    if science_links:
+                        st.markdown("\n".join(science_links))
+                    if expert_links:
+                        st.markdown("\n".join(expert_links))
+                    if other_links:
+                        st.markdown("\n".join(other_links))
+
+                # 6. Logic Upsell (Giữ nguyên)
                 upsell_html = ""
                 recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
-                
                 if recs:
                     upsell_html += "<div class='upsell-box'><b>💡 Gợi ý giải pháp:</b><br>"
-                    for r in recs[:2]: # Tối đa 2 gợi ý
+                    for r in recs[:2]:
                         upsell_html += f"""
                         <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
                             <span style="color:#33691e; font-weight:500">👉 {r['name']}</span>
@@ -415,12 +450,16 @@ if prompt := st.chat_input("Nhập câu hỏi..."):
                         """
                     upsell_html += "</div>"
                 
-                # Hiển thị
-                final_content = final_html + upsell_html
-                st.markdown(final_content, unsafe_allow_html=True)
+                if upsell_html:
+                    st.markdown(upsell_html, unsafe_allow_html=True)
                 
-                # Lưu lịch sử
+                # Lưu lịch sử (Lưu cả html nguồn để hiển thị lại)
+                # Tái tạo lại html nguồn để lưu vào session
+                sources_html_save = ""
+                if unique_sources:
+                    sources_html_save = "\n\n**Nguồn:**\n" + "\n".join(science_links + expert_links + other_links)
+
                 st.session_state.messages.append({
                     "role": "assistant", 
-                    "content": final_content
+                    "content": final_content + sources_html_save + upsell_html
                 })
