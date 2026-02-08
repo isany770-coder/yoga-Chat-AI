@@ -265,9 +265,27 @@ def get_ai_response_custom(prompt, context_text, history_context):
 # =====================================================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
-    conn.execute('CREATE TABLE IF NOT EXISTS usage (user_id TEXT, date TEXT, count INTEGER, PRIMARY KEY (user_id, date))')
+    c = conn.cursor()
+    # Bảng đếm lượt dùng (Cũ)
+    c.execute('CREATE TABLE IF NOT EXISTS usage (user_id TEXT, date TEXT, count INTEGER, PRIMARY KEY (user_id, date))')
+    # Bảng sổ đen (Mới) - Lưu ai bị khóa và lý do
+    c.execute('CREATE TABLE IF NOT EXISTS blacklist (user_id TEXT PRIMARY KEY, reason TEXT, timestamp TEXT)')
     conn.commit(); conn.close()
-init_db()
+
+# Hàm kiểm tra xem có nằm trong sổ đen không
+def check_is_blacklisted(user_id):
+    conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+    c.execute("SELECT reason FROM blacklist WHERE user_id=?", (user_id,))
+    r = c.fetchone(); conn.close()
+    return r[0] if r else None
+
+# Hàm tống vào tù
+def ban_user(user_id, reason="Policy Violation"):
+    conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+    import datetime
+    now = str(datetime.datetime.now())
+    c.execute("INSERT OR REPLACE INTO blacklist (user_id, reason, timestamp) VALUES (?, ?, ?)", (user_id, reason, now))
+    conn.commit(); conn.close()
 
 def check_usage(user_id):
     today = str(datetime.date.today())
@@ -292,6 +310,12 @@ if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Namaste! 🙏 I am your Medical Yoga Assistant. How can I help you today? (Tôi có thể hỗ trợ gì cho bạn?)"}]
 
 current_user = st.session_state.username if st.session_state.authenticated else st.session_state.user_id
+# --- CHÈN ĐOẠN NÀY VÀO ---
+ban_reason = check_is_blacklisted(current_user)
+if ban_reason:
+    st.error(f"🚫 TÀI KHOẢN ĐÃ BỊ KHÓA VĨNH VIỄN.\n\nLý do: {ban_reason}\nLiên hệ Admin để giải quyết.")
+    st.stop() # Dừng hình tại đây, F5 nghìn lần vẫn thế
+# -------------------------
 used = check_usage(current_user)
 LIMIT = 50 if st.session_state.authenticated else 5
 is_limit_reached = used >= LIMIT
@@ -422,6 +446,7 @@ if prompt := st.chat_input("Ask about back pain, yoga poses... (Hỏi về đau 
                 
                 # Nếu quá 3 lần -> KHÓA
                 if st.session_state.bad_attempts >= 3:
+                    ban_user(current_user, reason="Spam/Hỏi sai chủ đề quá 3 lần")
                     st.session_state.is_blocked = True
                     msg = f"🚫 **TÀI KHOẢN TẠM KHÓA / ACCOUNT BLOCKED**\n\nHệ thống phát hiện bạn cố tình hỏi sai chủ đề (Code, Xổ số, Chính trị...) quá 3 lần.\n\n👉 Vui lòng liên hệ Admin **{ADMIN_PROFILE['name']}** qua Zalo: **{ADMIN_PROFILE['contact']}** để mở khóa."
                 
