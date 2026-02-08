@@ -244,7 +244,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         - **Scientific Explanation:** Biomechanics/Physiology details.
         - **Specific Evidence:** "Research shows... [Ref: X]" (Must match Data ID).
         - **Conclusion/Advice:** Actionable advice from a Medical Yoga perspective.
-        - ** Maximum: 20
+        - ** Maximum: 250 words.
 
         [DATA (CONTEXT)]:
         {context_text}
