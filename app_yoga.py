@@ -13,6 +13,22 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
 
 # =====================================================
+# CẤU HÌNH ADMIN & BẢO MẬT (NEW)
+# =====================================================
+ADMIN_PROFILE = {
+    "name": "An Nguyễn",
+    "title": "Kỹ sư khoa học máy tính, 10 năm kinh nghiệm Yoga",
+    "certs": "Thông tin y khoa được bảo chứng bởi Bác sĩ Phạm Văn Quân",
+    "mission": "Sứ mệnh khoa học hóa Yoga",
+    "website": "yogaismylife.vn",
+    "contact": "Zalo: 0963.759.566",
+    "bio_intro": "Tôi là Trợ lý của YIML, mọi câu trả lời đều dựa trên bằng chứng và sự kiểm duyệt đa tầng"
+}
+
+# Danh sách từ cấm (Python lọc trước cho nhanh)
+BLOCKED_KEYWORDS = ["xổ số", "lô đề", "đánh bạc", "sex", "khiêu dâm", "chính trị", "phản động", "code python", "lập trình", "viết code", "thời tiết"]
+
+# =====================================================
 # 1. CẤU HÌNH TRANG & GIAO DIỆN (STYLE APP 7 + UPSELL APP 5)
 # =====================================================
 st.set_page_config(
@@ -175,11 +191,12 @@ db_text = data_result # Chỉ lấy não chữ
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
-        # --- 1. THÔNG TIN CÁ NHÂN ---
-        ADMIN_NAME = "An Nguyễn" 
-        WEBSITE = "yogaismylife.vn"
+        # 1. KIỂM TRA TỪ KHÓA CẤM (Lớp bảo vệ 1)
+        for kw in BLOCKED_KEYWORDS:
+            if kw in prompt.lower():
+                return "VIOLATION_DETECTED"
         
-        # --- 2. TÌM MODEL ---
+        # --- 2. TÌM MODEL (Giữ nguyên code chuẩn của cụ) ---
         valid_model = 'models/gemini-1.5-flash'
         try:
             for m in genai.list_models():
@@ -188,14 +205,26 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # --- 3. KIỂM TRA DỮ LIỆU ---
-        data_instruction = "Dữ liệu tra cứu bên dưới."
-        if not context_text.strip():
-            data_instruction = "Không tìm thấy tài liệu cụ thể. Hãy trả lời dựa trên kiến thức chuyên gia YOGA chuẩn y khoa."
-        
-        # --- 4. SYSTEM PROMPT (PHIÊN BẢN SIẾT KỶ LUẬT SOURCE) ---
+        # --- 3. SYSTEM PROMPT (LAI TẠO: IDENTITY + SOURCE STRICT) ---
         sys_prompt = f"""
-        ROLE: World-class Medical Yoga Expert & Researcher for **{WEBSITE}**.
+        🛑 **INSTRUCTION 1: IDENTITY & SECURITY CHECK (PRIORITY)**
+        
+        **YOUR IDENTITY:**
+        - Name: {ADMIN_PROFILE['name']} ({ADMIN_PROFILE['title']}).
+        - Qualifications: {ADMIN_PROFILE['certs']}.
+        - Context: You are the official AI Assistant for **{ADMIN_PROFILE['website']}**.
+        - Tone: Professional, Empathetic, Medical, Authoritative.
+
+        **SECURITY GUARDRAIL:**
+        - User Input: "{prompt}"
+        - **TASK:** Analyze if the input relates to Yoga, Health, Anatomy, Pain, Mental Wellness, or Admin Info.
+        - **IF NO** (e.g. asking about coding, politics, lottery, weather, general chit-chat unrelated to health):
+          >>> REPLY EXACTLY ONE WORD: "VIOLATION_DETECTED"
+        - **IF YES:** Proceed to INSTRUCTION 2 below.
+
+        ---------------------------------------------------------
+
+        🛑 **INSTRUCTION 2: ANSWERING RULES (STRICT CITATION)**
         
         🌍 **LANGUAGE:**
         - User asks in English -> Reply in English.
@@ -206,14 +235,16 @@ def get_ai_response_custom(prompt, context_text, history_context):
         2. **ACCURACY IS PARAMOUNT:** When you state a fact, you MUST check which [Ref: ID] it came from.
         3. **DO NOT MIX SOURCES:** If information is in [Ref: 1], do NOT cite [Ref: 2]. 
         4. If a fact is NOT in the provided [DATA], do NOT attach a [Ref].
-        5. **SOURCE HIERARCHY:** If you find a study (e.g., Cramer 2025) mentioned in a General Article (Source A) BUT you also see the Original Study File (Source B) in the list, **YOU MUST CITE SOURCE B** as the primary evidence. Source A is just a secondary reference.
+        5. **SOURCE HIERARCHY:** If you find a study (e.g., Cramer 2025) mentioned in a General Article (Source A) BUT you also see the Original Study File (Source B) in the list, **YOU MUST CITE SOURCE B** as the primary evidence.
         6. **Science First:** If the user asks for evidence, prioritize sources labeled [LOẠI: BẰNG CHỨNG KHOA HỌC].
 
         STRUCTURE:
-        - Direct Answer.
-        - Scientific Explanation (Biomechanics/Physiology).
-        - **Specific Evidence:** "Research shows... [Ref: X]" (Make sure X is the CORRECT ID from the Data below).
-        - Conclusion/Advice.
+        - **Introduction:** Brief greeting as {ADMIN_PROFILE['name']}.
+        - **Direct Answer:** Clear and concise.
+        - **Scientific Explanation:** Biomechanics/Physiology details.
+        - **Specific Evidence:** "Research shows... [Ref: X]" (Must match Data ID).
+        - **Conclusion/Advice:** Actionable advice from a Medical Yoga perspective.
+        - ** Maximum: 20
 
         [DATA (CONTEXT)]:
         {context_text}
@@ -384,18 +415,28 @@ if prompt := st.chat_input("Ask about back pain, yoga poses... (Hỏi về đau 
             # 3. Xử lý kết quả & Hiển thị
             final_content_to_show = "" # Biến an toàn
             
-            if "REFUSE_TOPIC" in ai_raw:
+            # --- TRƯỜNG HỢP 1: PHÁT HIỆN VI PHẠM ---
+            if ai_raw == "VIOLATION_DETECTED":
                 st.session_state.bad_attempts += 1
+                remaining = 3 - st.session_state.bad_attempts
+                
+                # Nếu quá 3 lần -> KHÓA
                 if st.session_state.bad_attempts >= 3:
                     st.session_state.is_blocked = True
-                    msg = "🚫 BLOCKED: Off-topic questions detected."
+                    msg = f"🚫 **TÀI KHOẢN TẠM KHÓA / ACCOUNT BLOCKED**\n\nHệ thống phát hiện bạn cố tình hỏi sai chủ đề (Code, Xổ số, Chính trị...) quá 3 lần.\n\n👉 Vui lòng liên hệ Admin **{ADMIN_PROFILE['name']}** qua Zalo: **{ADMIN_PROFILE['contact']}** để mở khóa."
+                
+                # Nếu chưa quá 3 lần -> CẢNH BÁO
                 else:
-                    msg = f"⚠️ I only answer Yoga & Health questions. (Warning {st.session_state.bad_attempts}/3)"
+                    msg = f"⚠️ **CẢNH BÁO / WARNING ({st.session_state.bad_attempts}/3)**\n\nTôi là **{ADMIN_PROFILE['name']}** - Trợ lý Yoga Trị liệu.\nTôi **từ chối trả lời** các câu hỏi không liên quan đến Sức khỏe & Yoga (Xổ số, Code, Chính trị...).\n\n*Bạn còn {remaining} lần thử trước khi bị khóa tài khoản.*"
                 
                 st.markdown(msg)
                 final_content_to_show = msg
-                if st.session_state.is_blocked: st.stop()
-            
+                # Nếu bị khóa thì dừng luôn
+                if st.session_state.is_blocked: 
+                    time.sleep(3)
+                    st.rerun()
+
+            # --- TRƯỜNG HỢP 2: LỖI HỆ THỐNG ---
             elif ai_raw.startswith("ERR_SYS:"):
                 error_msg = f"System Error: {ai_raw}"
                 st.error(error_msg)
