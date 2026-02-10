@@ -441,7 +441,8 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                         link = meta.get('url') or meta.get('source') or '#'
                         title = meta.get('title') or f"Source {idx}"
                         
-                        doi = meta.get("doi") or extract_doi(d.page_content)
+                        raw_doi = meta.get("doi")
+                        doi = raw_doi if raw_doi and raw_doi.lower() != "not provided" else extract_doi(d.page_content)
                         source_map[idx] = {
                         "id": idx,
                         "url": link,
@@ -509,9 +510,9 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                     for info in list_src:
                         icon = "🧪" if 'SCIENCE' in info['type'].upper() else "🔗"
                         sources_html += f"- {icon} **[{info['id']}]** {info['title']}\n"
-                    if info.get("doi"):
+                        if info.get("doi"):
                         sources_html += f"  - DOI: `{info['doi']}`\n"
-                        sources_html += f"  - Link: {info['url']}\n""
+                        sources_html += f"  - Link: {info['url']}\n"
 
                 # HTML Upsell
                 upsell_html = ""
@@ -525,11 +526,14 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                 # Hiển thị
                 if any('SCIENCE' in source_map[rid]['type'].upper() for rid in ref_ids):
                     if not re.search(r'10\.\d{4,9}/', clean_text):
+                        added = False
                         for rid in ref_ids:
                             doi = source_map[rid].get("doi")
                             if doi:
-                                clean_text += f"\n\n**Evidence DOI:** `{doi}`"
-                                break
+                            clean_text += f"\n\n**Evidence DOI:** `{doi}`"
+                            break
+                        if not added:
+                            clean_text += "\n\n⚠️ **No DOI available in provided scientific sources.**"
                 final_content = clean_text
                 st.markdown(final_content, unsafe_allow_html=True)
                 if sources_html: st.markdown(sources_html)
