@@ -176,11 +176,11 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Lỗi Data: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN FINAL: CẤU TRÚC CŨ + IDENTITY + SECURITY)
+# 4. HÀM AI THÔNG MINH (TỐI ƯU HÓA: KHOA HỌC + ĐIỀU HƯỚNG VỀ WEB)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
-        # 1. CHECK TỪ KHÓA CẤM (Lớp vỏ cứng Python - giữ nguyên)
+        # 1. CHECK TỪ KHÓA CẤM
         for kw in BLOCKED_KEYWORDS:
             if kw in prompt.lower(): return "VIOLATION_DETECTED"
 
@@ -192,40 +192,23 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # 3. SYSTEM PROMPT (TỔNG HÒA: ADMIN + SECURITY + LOGIC CŨ)
+        # 3. SYSTEM PROMPT
         sys_prompt = f"""
-        🛑 **SECURITY PROTOCOL (PRIORITY 1):**
+        🛑 **SECURITY PROTOCOL:**
         - Input: "{prompt}"
-        - Check: If user asks about Lottery, Gambling, Sex, Politics, Coding, or NON-HEALTH topics -> REPLY EXACTLY: "VIOLATION_DETECTED".
-        - If valid -> Proceed to ROLE & LOGIC below.
-
+        - Check: If user asks about Lottery, Gambling, Sex, Politics, Coding -> REPLY: "VIOLATION_DETECTED".
+        
         --------------------------------------------------
-
-        ROLE: You are **{ADMIN_PROFILE['name']}** ({ADMIN_PROFILE['role']}), the official Medical Yoga Expert for **{ADMIN_PROFILE.get('website', 'YogaIsMyLife.vn')}**.
-        MISSION: {ADMIN_PROFILE['mission']}
-
-        🌍 **LANGUAGE:**
-        - User asks in English -> Reply in English.
-        - User asks in Vietnamese -> Reply in Vietnamese.
-
-        🧠 **CONTEXT AWARENESS:**
-        - You must read the [HISTORY] below to understand the conversation flow (e.g., if user says "bài tập đó", refer to the previous exercise mentioned).
-
-        🎯 **STRICT CITATION RULES (TUÂN THỦ TUYỆT ĐỐI - CORE LOGIC):**
-        1. You are provided with context chunks labeled [Ref: 1], [Ref: 2], etc.
-        2. **ACCURACY IS PARAMOUNT:** When you state a fact, you MUST check which [Ref: ID] it came from.
-        3. **DO NOT MIX SOURCES:** If information is in [Ref: 1], do NOT cite [Ref: 2]. 
-        4. If a fact is NOT in the provided [DATA], do NOT attach a [Ref].
-        5. **SOURCE HIERARCHY:** If you find a study (e.g., Cramer 2025) mentioned in a General Article (Source A) BUT you also see the Original Study File (Source B) in the list, **YOU MUST CITE SOURCE B** as the primary evidence. Source A is just a secondary reference.
-        6. **Science First:** If the user asks for evidence, prioritize sources labeled [LOẠI: BẰNG CHỨNG KHOA HỌC].
-        7. Maximum: 300 words.
-
-        STRUCTURE:
-        - **Greeting:** Short & warm (e.g., "Chào bạn, tôi là {ADMIN_PROFILE['name']}...").
-        - **Direct Answer:** Answer the question clearly.
-        - **Scientific Explanation:** Biomechanics/Physiology details.
-        - **Specific Evidence:** "Research shows... [Ref: X]" (Make sure X is the CORRECT ID from the Data below).
-        - **Conclusion/Advice:** Actionable advice.
+        ROLE: Bạn là **{ADMIN_PROFILE['name']}** ({ADMIN_PROFILE['role']}).
+        TONE: Chuyên gia y khoa, khách quan, nhưng luôn hướng người dùng về giải pháp chi tiết trên Website.
+        
+        🎯 **QUY TẮC TRẢ LỜI:**
+        1. **Dựa trên dữ liệu:** Chỉ trả lời dựa trên [DATA] bên dưới.
+        2. **Trích dẫn đanh thép:** Khi đưa ra thông tin y khoa, bắt buộc trích dẫn: "Theo nghiên cứu năm [Year] của [Author] [Ref: ID]..."
+        3. **CALL TO ACTION (QUAN TRỌNG):** - Nếu trong [DATA] có thông tin về "Link bài viết" (Website YogaIsMyLife), hãy kết thúc câu trả lời bằng lời mời: 
+           - Ví dụ: "Để hiểu rõ hơn về phác đồ này, mời bạn xem bài viết chi tiết số [Ref: ID] trên trang chủ của chúng tôi."
+        4. **Ngôn ngữ:** Tiếng Việt.
+        5. **Độ dài:** Tối đa 350 từ.
 
         [DATA (CONTEXT)]:
         {context_text}
@@ -388,7 +371,7 @@ if is_limit_reached:
         st.stop()
 
 # =====================================================
-# 7. XỬ LÝ CHAT CHÍNH (LOGIC PHẠT & REF MỚI)
+# 7. XỬ LÝ CHAT CHÍNH (LOGIC MỚI: ƯU TIÊN WEB CỤ + DOI)
 # =====================================================
 if not st.session_state.authenticated:
     st.markdown("""<div class="promo-banner"><div class="promo-text">🎁 Ưu đãi: Thảm Yoga + Tài khoản VIP giảm 30%!</div><a href="https://yogaismylife.vn/cua-hang/" class="promo-btn">Xem ngay</a></div>""", unsafe_allow_html=True)
@@ -403,7 +386,7 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
     increment_usage(current_user)
 
     with st.chat_message("assistant"):
-        with st.spinner(f"{ADMIN_PROFILE['name']} đang tra cứu hồ sơ y khoa..."):
+        with st.spinner(f"🔍 {ADMIN_PROFILE['name']} đang tra cứu hồ sơ y khoa..."):
             
             # Context History
             chat_history = ""
@@ -411,7 +394,7 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                 clean_content = re.sub(r'<[^>]*>', '', msg['content'])
                 chat_history += f"{msg['role']}: {clean_content}\n"
 
-            # 1. Vector Search
+            # 1. Vector Search & BÓC TÁCH DỮ LIỆU
             context_text = ""
             source_map = {}
             try:
@@ -420,81 +403,126 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                     for i, d in enumerate(docs):
                         idx = i + 1
                         meta = d.metadata
-                        type_label = "BẰNG CHỨNG KHOA HỌC" if 'SCIENCE' in meta.get('type','').upper() else "THAM KHẢO"
-                        link = meta.get('url') or meta.get('source') or '#'
-                        title = meta.get('title') or f"Source {idx}"
-                        source_map[idx] = {"id": idx, "url": link, "title": title, "type": meta.get('type','')}
-                        context_text += f"\n[Ref: {idx}] [{type_label}] ({title}):\n{d.page_content}\n"
-            except: pass
+                        
+                        # --- BÓC TÁCH (Metadata Extraction) ---
+                        # 1. Khoa học (DOI/Author)
+                        doi = meta.get('doi', '#')
+                        year = meta.get('year', 'N/A')
+                        authors = meta.get('authors', [])
+                        if isinstance(authors, list): authors = ", ".join(authors[:2]) + " et al."
+                        elif isinstance(authors, str): authors = authors
+                        else: authors = "Nhóm nghiên cứu"
+                        
+                        # 2. Web của cụ (Article/Topic)
+                        article_link = meta.get('article', '#')
+                        topic_link = meta.get('topic_link', '#')
+                        # Ưu tiên lấy link bài viết cụ thể, nếu không có thì lấy link chủ đề
+                        my_web_link = article_link if (article_link and article_link != '#') else topic_link
+                        
+                        title_en = meta.get('title_en', meta.get('title', 'Tài liệu tham khảo'))
+                        title_vi = meta.get('title_vi', title_en)
+
+                        # Lưu vào map để hiển thị sau
+                        source_map[idx] = {
+                            "id": idx, 
+                            "doi_url": doi if 'http' in doi else '#',
+                            "web_url": my_web_link if (my_web_link and 'http' in my_web_link) else '#',
+                            "title": title_vi, 
+                            "year": year,
+                            "authors": authors
+                        }
+                        
+                        # Đưa vào Context cho AI đọc
+                        context_text += f"\n[Ref: {idx}] [Năm: {year}] [Tác giả: {authors}]\nTiêu đề: {title_vi}\nLink bài viết: {my_web_link}\nNội dung: {d.page_content}\n"
+            except Exception as e: print(f"Vector Error: {e}")
 
             # 2. Gọi AI
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
 
-            # 3. Xử lý Kết quả (Logic Phạt)
+            # 3. Xử lý Kết quả
             final_content = ""
             
-            # --- A. TRƯỜNG HỢP VI PHẠM ---
             if ai_raw == "VIOLATION_DETECTED":
                 st.session_state.bad_attempts += 1
-                
                 if st.session_state.bad_attempts >= 3:
-                    # GHI VÀO SỔ ĐEN DATABASE -> KHÓA VĨNH VIỄN
-                    ban_user_forever(current_user, "Spam/Hỏi sai chủ đề 3 lần")
+                    ban_user_forever(current_user, "Spam 3 lần")
                     st.session_state.is_blocked = True
-                    msg = f"🚫 **TÀI KHOẢN ĐÃ BỊ KHÓA!**\n\nBạn đã cố tình hỏi sai chủ đề 3 lần. ID {current_user} đã bị đưa vào danh sách hạn chế vĩnh viễn."
+                    msg = "🚫 TÀI KHOẢN ĐÃ BỊ KHÓA DO VI PHẠM."
                 else:
-                    # Cảnh cáo
-                    left = 3 - st.session_state.bad_attempts
-                    msg = f"⚠️ **CẢNH BÁO ({st.session_state.bad_attempts}/3)**\n\nTôi là **{ADMIN_PROFILE['name']}**. Tôi chỉ hỗ trợ chuyên môn về YOGA & SỨC KHỎE.\n\nVui lòng không hỏi về Xổ số, Code, Chính trị...\n*Bạn còn {left} lần thử trước khi bị khóa tài khoản.*"
-                
+                    msg = f"⚠️ CẢNH BÁO ({st.session_state.bad_attempts}/3): Vui lòng chỉ hỏi về YOGA & SỨC KHỎE."
                 st.markdown(msg)
                 final_content = msg
-                # Nếu bị khóa -> Rerun để dính vào Chốt chặn ở đầu file
-                if st.session_state.is_blocked:
-                    time.sleep(3)
-                    st.rerun()
+                if st.session_state.is_blocked: time.sleep(3); st.rerun()
 
-            # --- B. TRƯỜNG HỢP LỖI ---
             elif ai_raw.startswith("ERR_SYS:"):
-                st.error(f"Lỗi hệ thống: {ai_raw}")
-                final_content = "Xin lỗi, hệ thống đang bảo trì."
+                st.error("Lỗi hệ thống."); final_content = "Hệ thống đang bảo trì."
 
-            # --- C. TRƯỜNG HỢP THÀNH CÔNG ---
             else:
-                # Xử lý nguồn (Giữ nguyên logic Ref xịn của cụ)
+                # --- XỬ LÝ HIỂN THỊ NGUỒN (UI ĐẸP) ---
                 ref_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_raw)]
                 clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
-                # Cắt đuôi thừa
-                for p in ["Nguồn tham khảo", "References", "📚 Tài liệu"]:
+                for p in ["Nguồn tham khảo", "References"]: 
                     if p in clean_text: clean_text = clean_text.split(p)[0].strip(); break
 
-                # HTML Nguồn
-                unique_sources = {source_map[rid]['url']: source_map[rid] for rid in ref_ids if rid in source_map and source_map[rid]['url'] != '#'}
+                # Lọc nguồn duy nhất
+                unique_sources = {}
+                for rid in ref_ids:
+                    if rid in source_map and source_map[rid]['id'] not in unique_sources:
+                        unique_sources[source_map[rid]['id']] = source_map[rid]
+                
                 sources_html = ""
                 if unique_sources:
-                    sources_html += "\n\n---\n**📚 Nguồn tham khảo & Bằng chứng:**\n\n"
-                    list_src = sorted(unique_sources.values(), key=lambda x: x['id'])
-                    for info in list_src:
-                        icon = "🧪" if 'SCIENCE' in info['type'].upper() else "🔗"
-                        sources_html += f"- {icon} **[{info['id']}]** [{info['title']}]({info['url']})\n"
+                    sources_html += "\n\n---\n**📚 Tài liệu chi tiết & Bằng chứng:**\n"
+                    for info in unique_sources.values():
+                        # Logic nút bấm: Có Web cụ thì hiện nút Xanh, Có DOI thì hiện nút Xám nhỏ
+                        buttons_html = ""
+                        
+                        # Nút 1: Về Web Cụ (Quan trọng nhất - Nổi bật)
+                        if info['web_url'] != '#':
+                            buttons_html += f"""
+                            <a href="{info['web_url']}" target="_blank" style="
+                                display: inline-block; text-decoration: none; 
+                                background-color: #00796b; color: white; 
+                                padding: 6px 12px; border-radius: 15px; 
+                                font-size: 13px; font-weight: bold; margin-right: 8px; margin-top:5px;">
+                                📖 Đọc bài chi tiết (Tiếng Việt)
+                            </a>
+                            """
+                        
+                        # Nút 2: Về DOI (Uy tín - Phụ trợ)
+                        if info['doi_url'] != '#':
+                            buttons_html += f"""
+                            <a href="{info['doi_url']}" target="_blank" style="
+                                display: inline-block; text-decoration: none; 
+                                color: #555; border: 1px solid #ccc; background: #fff;
+                                padding: 5px 10px; border-radius: 15px; 
+                                font-size: 12px; margin-top:5px;">
+                                🔬 Nguồn gốc (DOI)
+                            </a>
+                            """
 
-                # HTML Upsell
+                        sources_html += f"""
+<div style="margin-bottom: 10px; background: #f4fdfc; padding: 10px; border-radius: 8px; border-left: 4px solid #009688;">
+    <div style="font-weight: bold; color: #2c3e50; font-size: 14px;">{info['title']}</div>
+    <div style="color: #666; font-size: 12px; margin-bottom: 5px;">👨‍⚕️ Nghiên cứu bởi: {info['authors']} ({info['year']})</div>
+    {buttons_html}
+</div>
+"""
+
+                # Upsell
                 upsell_html = ""
                 recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
                 if recs:
-                    upsell_html += "<div class='upsell-box'><b>💡 Giải pháp gợi ý từ Chuyên gia:</b><br>"
+                    upsell_html += "<div class='upsell-box'><b>💡 Gợi ý từ chuyên gia:</b><br>"
                     for r in recs[:2]:
-                        upsell_html += f"""<div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;"><span style="color:#33691e; font-weight:500">👉 {r['name']}</span><a href="{r['url']}" target="_blank" class="upsell-btn">Xem</a></div>"""
+                        upsell_html += f"""<div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;"><span style="color:#33691e; font-weight:500">👉 {r['name']}</span><a href="{r['url']}" target="_blank" class="upsell-btn">Xem ngay</a></div>"""
                     upsell_html += "</div>"
                 
-                # Hiển thị
-                final_content = clean_text
-                st.markdown(final_content, unsafe_allow_html=True)
-                if sources_html: st.markdown(sources_html)
+                st.markdown(clean_text, unsafe_allow_html=True)
+                if sources_html: st.markdown(sources_html, unsafe_allow_html=True)
                 if upsell_html: st.markdown(upsell_html, unsafe_allow_html=True)
                 
-                final_content = final_content + "\n" + sources_html + "\n" + upsell_html
+                final_content = clean_text + "\n" + sources_html + "\n" + upsell_html
 
-            # Lưu vào session
             if final_content:
                 st.session_state.messages.append({"role": "assistant", "content": final_content})
