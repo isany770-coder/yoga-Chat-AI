@@ -8,18 +8,10 @@ import re
 import time
 import uuid
 import gc
+import textwrap
 import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
-def extract_doi(text):
-    if not text:
-        return None
-    match = re.search(
-        r'(10\.\d{4,9}/[-._;()/:A-Z0-9]+)',
-        text,
-        re.IGNORECASE
-    )
-    return match.group(1) if match else None
 
 # =====================================================
 # 1. CẤU HÌNH TRANG & GIAO DIỆN
@@ -31,43 +23,44 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-st.markdown("""
-<style>
-    header[data-testid="stHeader"], footer, .stDeployButton {display: none !important;}
-    
-    div[data-testid="stChatInput"] {
-        position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
-        width: 95%; max-width: 800px; z-index: 1000;
-        background-color: white; border-radius: 30px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08); padding: 5px; border: 1px solid #e0e0e0;
-    }
-    
-    .promo-banner {
-        background: linear-gradient(90deg, #e0f2f1 0%, #b2dfdb 100%);
-        padding: 10px 15px; margin-bottom: 20px; border-radius: 10px;
-        display: flex; align-items: center; justify-content: space-between;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #80cbc4;
-    }
-    .promo-text { color: #00695c; font-weight: bold; font-size: 14px; }
-    .promo-btn {
-        background-color: #00796b; color: white !important; padding: 6px 12px;
-        border-radius: 15px; text-decoration: none; font-weight: bold; font-size: 12px;
-        white-space: nowrap;
-    }
-    
-    .upsell-box {
-        background: linear-gradient(135deg, #f1f8e9 0%, #dcedc8 100%);
-        padding: 12px; border-radius: 12px; margin-top: 15px;
-        border: 1px solid #aed581; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    .upsell-btn {
-        background-color: #33691e; color: white !important; padding: 6px 15px;
-        border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: bold;
-        float: right; margin-top: -2px;
-    }
-    .bottom-spacer { height: 100px; }
-</style>
-""", unsafe_allow_html=True)
+# Sử dụng textwrap.dedent để tránh lỗi thụt dòng CSS
+st.markdown(textwrap.dedent("""
+    <style>
+        header[data-testid="stHeader"], footer, .stDeployButton {display: none !important;}
+        
+        div[data-testid="stChatInput"] {
+            position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
+            width: 95%; max-width: 800px; z-index: 1000;
+            background-color: white; border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08); padding: 5px; border: 1px solid #e0e0e0;
+        }
+        
+        .promo-banner {
+            background: linear-gradient(90deg, #e0f2f1 0%, #b2dfdb 100%);
+            padding: 10px 15px; margin-bottom: 20px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #80cbc4;
+        }
+        .promo-text { color: #00695c; font-weight: bold; font-size: 14px; }
+        .promo-btn {
+            background-color: #00796b; color: white !important; padding: 6px 12px;
+            border-radius: 15px; text-decoration: none; font-weight: bold; font-size: 12px;
+            white-space: nowrap;
+        }
+        
+        .upsell-box {
+            background: linear-gradient(135deg, #f1f8e9 0%, #dcedc8 100%);
+            padding: 12px; border-radius: 12px; margin-top: 15px;
+            border: 1px solid #aed581; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .upsell-btn {
+            background-color: #33691e; color: white !important; padding: 6px 15px;
+            border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: bold;
+            float: right; margin-top: -2px;
+        }
+        .bottom-spacer { height: 100px; }
+    </style>
+"""), unsafe_allow_html=True)
 
 # =====================================================
 # 2. CẤU HÌNH ADMIN & UPSELL
@@ -81,14 +74,24 @@ ADMIN_PROFILE = {
     "bio_full": "Tôi là Trợ lý YIML- Chuyên gia Yoga. Tôi chỉ trả lời các vấn đề về Sức khỏe, Giải phẫu và Yoga."
 }
 
-# Từ khóa cấm (Check nhanh bằng Python)
+# Từ khóa cấm
 BLOCKED_KEYWORDS = ["xổ số", "lô đề", "đánh bạc", "sex", "khiêu dâm", "chính trị", "phản động", "code python", "lập trình", "viết code"]
 
 YOGA_SOLUTIONS = {
-    "QUY_TRINH": {"name": "🗺️ Lộ trình Trị Liệu 8 Bước", "url": "https://yogaismylife.vn/kiem-tra-suc-khoe-toan-dien/", "key": ["đau","bệnh","trị liệu","phục hồi","lưng","gối","cột sống","thoát vị","tim mạch","huyết áp","mất ngủ","cổ vai gáy","pain","therapy","recovery","back","knee","spine","herniated"]},
-    "AI_COACH": {"name": "🤖 AI Coach Chỉnh Tư Thế", "url": "https://yogaismylife.vn/kiem-tra-tu-the-yoga/", "key": ["tập đúng","sai kỹ thuật","kỹ thuật","định tuyến","chỉnh dáng","hướng dẫn","căn chỉnh","bắt đầu","correct","form","alignment","technique"]},
-    "KHOA_HOC": {"name": "🎓 Khóa Đào Tạo HLV", "url": "https://yogaismylife.vn/dao-tao-hlv/", "key": ["huấn luyện viên","dạy yoga","bằng cấp","chứng chỉ","nghề yoga","teacher","training","certification"]}
+    "QUY_TRINH": {"name": "🗺️ Lộ trình Trị Liệu 8 Bước", "url": "https://yogaismylife.vn/kiem-tra-suc-khoe-toan-dien/", "key": ["đau", "bệnh", "trị liệu", "phục hồi", "lưng", "gối", "cột sống", "thoát vị", "tim mạch", "huyết áp", "mất ngủ", "cổ vai gáy", "pain", "therapy", "recovery", "back", "knee", "spine", "herniated"]},
+    "AI_COACH": {"name": "🤖 AI Coach Chỉnh Tư Thế", "url": "https://yogaismylife.vn/kiem-tra-tu-the-yoga/", "key": ["tập đúng", "sai kỹ thuật", "kỹ thuật", "định tuyến", "chỉnh dáng", "hướng dẫn", "căn chỉnh", "bắt đầu", "correct", "form", "alignment", "technique"]},
+    "KHOA_HOC": {"name": "🎓 Khóa Đào Tạo HLV", "url": "https://yogaismylife.vn/dao-tao-hlv/", "key": ["huấn luyện viên", "dạy yoga", "bằng cấp", "chứng chỉ", "nghề yoga", "teacher", "training", "certification"]}
 }
+
+def extract_doi(text):
+    if not text:
+        return None
+    match = re.search(
+        r'(10\.\d{4,9}/[-._;()/:A-Z0-9]+)',
+        text,
+        re.IGNORECASE
+    )
+    return match.group(1) if match else None
 
 # =====================================================
 # 3. KẾT NỐI DATA & DATABASE
@@ -113,6 +116,7 @@ def init_db():
     # Bảng SỔ ĐEN (Lưu ID bị khóa vĩnh viễn)
     c.execute('CREATE TABLE IF NOT EXISTS blacklist (user_id TEXT PRIMARY KEY, reason TEXT, timestamp TEXT)')
     conn.commit(); conn.close()
+
 init_db()
 
 def check_ban_status(user_id):
@@ -185,11 +189,11 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Lỗi Data: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN FINAL: CẤU TRÚC CŨ + IDENTITY + SECURITY)
+# 4. HÀM AI THÔNG MINH (BẢN FINAL)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
-        # 1. CHECK TỪ KHÓA CẤM (Lớp vỏ cứng Python - giữ nguyên)
+        # 1. CHECK TỪ KHÓA CẤM
         for kw in BLOCKED_KEYWORDS:
             if kw in prompt.lower(): return "VIOLATION_DETECTED"
 
@@ -200,81 +204,75 @@ def get_ai_response_custom(prompt, context_text, history_context):
                 if 'flash' in m.name.lower(): valid_model = m.name; break
         except: pass
         model = genai.GenerativeModel(valid_model)
-        import textwrap
 
-# =====================================================
-# 3. SYSTEM PROMPT (EVIDENCE-ONLY – FINAL LOCKED VERSION)
-# =====================================================
-import textwrap
+        # 3. SYSTEM PROMPT (Dùng textwrap.dedent để an toàn tuyệt đối về thụt dòng)
+        sys_prompt = textwrap.dedent(f"""
+            🛑 **SECURITY PROTOCOL (PRIORITY 1):**
+            - Input: "{prompt}"
+            - Check: If user asks about Lottery, Gambling, Sex, Politics, Coding, or NON-HEALTH topics -> REPLY EXACTLY: "VIOLATION_DETECTED".
+            - If valid -> Proceed to ROLE & LOGIC below.
 
-sys_prompt = f"""
-🛑 **SECURITY PROTOCOL (PRIORITY 1):**
-- Input: "{prompt}"
-- Check: If user asks about Lottery, Gambling, Sex, Politics, Coding, or NON-HEALTH topics -> REPLY EXACTLY: "VIOLATION_DETECTED".
-- If valid -> Proceed to ROLE & LOGIC below.
+            --------------------------------------------------
 
---------------------------------------------------
+            ROLE: You are **{ADMIN_PROFILE['name']}** ({ADMIN_PROFILE['role']}), the official Medical Yoga Expert for **{ADMIN_PROFILE.get('website', 'YogaIsMyLife.vn')}**.
+            MISSION: {ADMIN_PROFILE['mission']}
 
-ROLE: You are **{ADMIN_PROFILE['name']}** ({ADMIN_PROFILE['role']}), the official Medical Yoga Expert for **{ADMIN_PROFILE.get('website', 'YogaIsMyLife.vn')}**.
-MISSION: {ADMIN_PROFILE['mission']}
+            🌍 **LANGUAGE:**
+            - User asks in English -> Reply in English.
+            - User asks in Vietnamese -> Reply in Vietnamese.
 
-🌍 **LANGUAGE:**
-- User asks in English -> Reply in English.
-- User asks in Vietnamese -> Reply in Vietnamese.
+            🧠 **CONTEXT AWARENESS:**
+            - You must read the [HISTORY] below to understand the conversation flow (e.g., if user says "bài tập đó", refer to the previous exercise mentioned).
 
-🧠 **CONTEXT AWARENESS:**
-- You must read the [HISTORY] below to understand the conversation flow (e.g., if user says "bài tập đó", refer to the previous exercise mentioned).
+            --------------------------------------------------
+            🧬 **EVIDENCE-ONLY ANSWER ELIGIBILITY (ABSOLUTE RULE):**
+            - ANY question related to disease, disorder, symptoms, treatment, prevention, rehabilitation, or health outcomes
+              MUST be answered using evidence from at least ONE explicitly identified scientific study (author + year).
+            - General medical explanations or textbook-style answers WITHOUT anchoring to a specific study are STRICTLY FORBIDDEN.
+            - If no suitable study exists in the provided [DATA], you MUST respond:
+              "No eligible scientific study with DOI is available in the provided data to answer this question."
 
---------------------------------------------------
-🧬 **EVIDENCE-ONLY ANSWER ELIGIBILITY (ABSOLUTE RULE):**
-- ANY question related to disease, disorder, symptoms, treatment, prevention, rehabilitation, or health outcomes
-  MUST be answered using evidence from at least ONE explicitly identified scientific study (author + year).
-- General medical explanations or textbook-style answers WITHOUT anchoring to a specific study are STRICTLY FORBIDDEN.
-- If no suitable study exists in the provided [DATA], you MUST respond:
-  "No eligible scientific study with DOI is available in the provided data to answer this question."
+            --------------------------------------------------
+            🎯 **STRICT CITATION RULES (TUÂN THỦ TUYỆT ĐỐI - CORE LOGIC):**
+            1. You are provided with context chunks labeled [Ref: 1], [Ref: 2], etc.
+            2. **ACCURACY IS PARAMOUNT:** When you state a fact, you MUST check which [Ref: ID] it came from.
+            3. **DO NOT MIX SOURCES:** If information is in [Ref: 1], do NOT cite [Ref: 2]. 
+            4. If a fact is NOT in the provided [DATA], do NOT attach a [Ref].
+            5. **SOURCE HIERARCHY:** If you find a study (e.g., Cramer 2025) mentioned in a General Article (Source A) BUT you also see the Original Study File (Source B) in the list, **YOU MUST CITE SOURCE B** as the primary evidence. Source A is just a secondary reference.
+            6. **Science First:** For ALL health-related questions, prioritize sources labeled [LOẠI: BẰNG CHỨNG KHOA HỌC].
+            7. Maximum: 300 words.
+            8. If a scientific reference shows a DOI in [DATA], you MUST explicitly display the DOI.
+            9. If the DOI is not shown in [DATA], you MUST state: "The DOI is not available in the provided data."
+            10. You are strictly forbidden from guessing or recalling DOIs from memory.
+            11. Any answer that relies on scientific evidence MUST explicitly include at least one DOI in the main answer text.
+            12. If multiple studies are cited, include the DOI of the highest-level evidence (systematic review or meta-analysis).
+            13. The DOI must appear inline in the answer, not only in the reference list.
+            14. When explaining or interpreting research findings, you MUST mention at least one DOI inline in the explanatory text
+                (e.g., “as shown in a systematic review, DOI: xxxx”), not only in the reference section.
 
---------------------------------------------------
-🎯 **STRICT CITATION RULES (TUÂN THỦ TUYỆT ĐỐI - CORE LOGIC):**
-1. You are provided with context chunks labeled [Ref: 1], [Ref: 2], etc.
-2. **ACCURACY IS PARAMOUNT:** When you state a fact, you MUST check which [Ref: ID] it came from.
-3. **DO NOT MIX SOURCES:** If information is in [Ref: 1], do NOT cite [Ref: 2]. 
-4. If a fact is NOT in the provided [DATA], do NOT attach a [Ref].
-5. **SOURCE HIERARCHY:** If you find a study (e.g., Cramer 2025) mentioned in a General Article (Source A) BUT you also see the Original Study File (Source B) in the list, **YOU MUST CITE SOURCE B** as the primary evidence. Source A is just a secondary reference.
-6. **Science First:** For ALL health-related questions, prioritize sources labeled [LOẠI: BẰNG CHỨNG KHOA HỌC].
-7. Maximum: 300 words.
-8. If a scientific reference shows a DOI in [DATA], you MUST explicitly display the DOI.
-9. If the DOI is not shown in [DATA], you MUST state: "The DOI is not available in the provided data."
-10. You are strictly forbidden from guessing or recalling DOIs from memory.
-11. Any answer that relies on scientific evidence MUST explicitly include at least one DOI in the main answer text.
-12. If multiple studies are cited, include the DOI of the highest-level evidence (systematic review or meta-analysis).
-13. The DOI must appear inline in the answer, not only in the reference list.
-14. When explaining or interpreting research findings, you MUST mention at least one DOI inline in the explanatory text
-    (e.g., “as shown in a systematic review, DOI: xxxx”), not only in the reference section.
+            --------------------------------------------------
+            🖥️ **OUTPUT DISPLAY RULES (MANDATORY):**
+            - References must be displayed as single-line markdown anchor text: [Title](URL).
+            - Never output raw URLs.
+            - Never separate title and link into different lines.
+            - Never use labels such as "Link:" or "URL:".
 
---------------------------------------------------
-🖥️ **OUTPUT DISPLAY RULES (MANDATORY):**
-- References must be displayed as single-line markdown anchor text: [Title](URL).
-- Never output raw URLs.
-- Never separate title and link into different lines.
-- Never use labels such as "Link:" or "URL:".
+            --------------------------------------------------
+            STRUCTURE:
+            - **Greeting:** Short & warm (e.g., "Chào bạn, tôi là {ADMIN_PROFILE['name']}...").
+            - **Direct Answer:** Answer the question clearly.
+            - **Scientific Explanation:** MUST be anchored to at least one cited study.
+            - **Specific Evidence:** Explicitly name the study and DOI inline.
+            - **Conclusion/Advice:** Actionable advice, consistent with cited evidence.
 
---------------------------------------------------
-STRUCTURE:
-- **Greeting:** Short & warm (e.g., "Chào bạn, tôi là {ADMIN_PROFILE['name']}...").
-- **Direct Answer:** Answer the question clearly.
-- **Scientific Explanation:** MUST be anchored to at least one cited study.
-- **Specific Evidence:** Explicitly name the study and DOI inline.
-- **Conclusion/Advice:** Actionable advice, consistent with cited evidence.
+            [DATA (CONTEXT)]:
+            {context_text}
 
-[DATA (CONTEXT)]:
-{context_text}
+            [HISTORY]:
+            {history_context}
 
-[HISTORY]:
-{history_context}
-
-USER QUESTION: "{prompt}"
-""").strip()
-
+            USER QUESTION: "{prompt}"
+        """).strip()
         
         response = model.generate_content(sys_prompt)
         return response.text.strip()
@@ -283,9 +281,8 @@ USER QUESTION: "{prompt}"
 # =====================================================
 # 5. QUẢN LÝ SESSION "DÍNH CHẶT" (CHỐNG F5)
 # =====================================================
-# Lấy ID từ URL (Nếu F5 thì ID này vẫn còn trên thanh địa chỉ)
 try:
-    # Streamlit mới dùng query_params, cũ dùng experimental_get_query_params
+    # Streamlit mới dùng query_params
     qp = st.query_params
     url_uid = qp.get("uid", None)
 except:
@@ -293,14 +290,12 @@ except:
 
 if "user_id" not in st.session_state:
     if url_uid:
-        # Nếu trên URL có ID -> Dùng lại ID cũ (Người quen F5)
         st.session_state.user_id = url_uid
     else:
-        # Khách mới tinh -> Tạo ID mới & Gắn lên URL ngay lập tức
         new_uid = str(uuid.uuid4())[:8]
         st.session_state.user_id = new_uid
         try:
-            st.query_params["uid"] = new_uid # Dán ID lên URL (Sticky)
+            st.query_params["uid"] = new_uid
         except: pass
 
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
@@ -313,11 +308,10 @@ if "messages" not in st.session_state:
 # Xác định User & Kiểm tra SỔ ĐEN
 current_user = st.session_state.username if st.session_state.authenticated else st.session_state.user_id
 
-# --- CHỐT CHẶN: KIỂM TRA SỔ ĐEN NGAY ĐẦU CỔNG ---
 ban_reason = check_ban_status(current_user)
 if ban_reason:
     st.error(f"🚫 **TÀI KHOẢN ĐÃ BỊ KHÓA VĨNH VIỄN**\n\nLý do: {ban_reason}\n\nLiên hệ Admin: {ADMIN_PROFILE['contact']}")
-    st.stop() # Dừng hình, không cho load tiếp
+    st.stop()
 
 used = check_usage(current_user)
 LIMIT = 50 if st.session_state.authenticated else 5
@@ -357,21 +351,21 @@ with st.sidebar:
 
 # Thanh đếm lượt
 percent = min(100, int((used / LIMIT) * 100))
-st.markdown(f"""
-<div style="position: fixed; top: 10px; right: 10px; z-index: 100000;">
-    <div style="background: rgba(255,255,255,0.95); padding: 5px 12px; border-radius: 20px; 
-                border: 1px solid #009688; box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
-                font-size: 12px; font-weight: bold; color: #00796b; display: flex; align-items: center; gap: 8px;">
-        <span>⚡ {used}/{LIMIT}</span>
-        <div style="width: 40px; height: 4px; background: #e0e0e0; border-radius: 2px;">
-            <div style="width: {percent}%; height: 100%; background: linear-gradient(90deg, #009688, #80cbc4); border-radius: 2px;"></div>
+st.markdown(textwrap.dedent(f"""
+    <div style="position: fixed; top: 10px; right: 10px; z-index: 100000;">
+        <div style="background: rgba(255,255,255,0.95); padding: 5px 12px; border-radius: 20px; 
+                    border: 1px solid #009688; box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+                    font-size: 12px; font-weight: bold; color: #00796b; display: flex; align-items: center; gap: 8px;">
+            <span>⚡ {used}/{LIMIT}</span>
+            <div style="width: 40px; height: 4px; background: #e0e0e0; border-radius: 2px;">
+                <div style="width: {percent}%; height: 100%; background: linear-gradient(90deg, #009688, #80cbc4); border-radius: 2px;"></div>
+            </div>
         </div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+"""), unsafe_allow_html=True)
 
 # =====================================================
-# 4. GIAO DIỆN HẾT HẠN (GIỮ NGUYÊN BẢN GỐC - KHÔNG SỬA)
+# 4. GIAO DIỆN HẾT HẠN
 # =====================================================
 if is_limit_reached:
     if "hide_limit_modal" not in st.session_state:
@@ -389,7 +383,8 @@ if is_limit_reached:
                         st.session_state.hide_limit_modal = True
                         st.rerun()
                 
-                st.markdown("""
+                # HTML dài cũng được dùng dedent để code gọn
+                st.markdown(textwrap.dedent("""
                     <div style="text-align: center;">
                         <div style="font-size: 60px; margin-bottom: 10px;">🧘‍♀️</div>
                         <h3 style="color: #00897b; margin: 0; font-weight: 800;">ĐÃ ĐẠT GIỚI HẠN!</h3>
@@ -408,7 +403,7 @@ if is_limit_reached:
                         <div style="border-top: 1px dashed #ccc; margin: 10px 0;"></div>
                         <p style="font-size: 13px; color: #666; margin-top: 10px;">Hoặc đăng nhập thành viên:</p>
                     </div>
-                """, unsafe_allow_html=True)
+                """), unsafe_allow_html=True)
 
                 with st.form("login_form_limit"):
                     user_input = st.text_input("Tên đăng nhập")
@@ -428,7 +423,7 @@ if is_limit_reached:
         st.stop()
 
 # =====================================================
-# 7. XỬ LÝ CHAT CHÍNH (LOGIC PHẠT & REF MỚI)
+# 7. XỬ LÝ CHAT CHÍNH
 # =====================================================
 if not st.session_state.authenticated:
     st.markdown("""<div class="promo-banner"><div class="promo-text">🎁 Ưu đãi: Thảm Yoga + Tài khoản VIP giảm 30%!</div><a href="https://yogaismylife.vn/cua-hang/" class="promo-btn">Xem ngay</a></div>""", unsafe_allow_html=True)
@@ -467,11 +462,11 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                         raw_doi = meta.get("doi")
                         doi = raw_doi if raw_doi and raw_doi.lower() != "not provided" else extract_doi(d.page_content)
                         source_map[idx] = {
-                        "id": idx,
-                        "url": link,
-                        "title": title,
-                        "type": meta.get('type',''),
-                        "doi": doi
+                            "id": idx,
+                            "url": link,
+                            "title": title,
+                            "type": meta.get('type',''),
+                            "doi": doi
                         }
 
                         doi_line = f"DOI: {doi}" if doi else "DOI: Not provided"
@@ -515,7 +510,7 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                 st.error(f"Lỗi hệ thống: {ai_raw}")
                 final_content = "Xin lỗi, hệ thống đang bảo trì."
 
-                        # --- C. TRƯỜNG HỢP THÀNH CÔNG ---
+            # --- C. TRƯỜNG HỢP THÀNH CÔNG ---
             else:
                 ref_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_raw)]
                 clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
@@ -588,7 +583,6 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                     st.markdown(upsell_html, unsafe_allow_html=True)
 
                 final_content = final_content + "\n" + sources_html + "\n" + upsell_html
-
 
             # Lưu vào session
             if final_content:
