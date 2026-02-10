@@ -404,7 +404,7 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                 clean_content = re.sub(r'<[^>]*>', '', msg['content'])
                 chat_history += f"{msg['role']}: {clean_content}\n"
 
-            # 1. Vector Search (OPTIMIZED FOR DOI/TITLE)
+            # 1. Vector Search (ĐÃ SỬA: LẤY THÊM TRƯỜNG DOI VÀ TITLE)
             context_text = ""
             source_map = {}
             try:
@@ -414,73 +414,66 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                         idx = i + 1
                         meta = d.metadata
                         
-                        # --- TRÍCH XUẤT DỮ LIỆU CHI TIẾT TỪ METADATA ---
-                        # Ưu tiên lấy Title tiếng Việt, nếu không có thì lấy tiếng Anh
+                        # --- THAY ĐỔI Ở ĐÂY: MÓC DỮ LIỆU TỪ JSON RA ---
+                        # Lấy Title tiếng Việt, nếu ko có thì lấy Anh
                         title_vi = meta.get('title_vi', '')
                         title_en = meta.get('title_en', '')
                         display_title = title_vi if title_vi else (title_en if title_en else meta.get('title', f"Tài liệu {idx}"))
                         
-                        # Lấy DOI và URL
+                        # Lấy DOI (Quan trọng nhất)
                         doi_code = meta.get('doi', 'N/A')
                         link = meta.get('article') or meta.get('topic_link') or meta.get('url') or '#'
                         
                         type_label = "BẰNG CHỨNG KHOA HỌC" if 'SCIENCE' in meta.get('type','').upper() else "THAM KHẢO"
                         
-                        # Lưu vào map để hiển thị ở footer
+                        # Lưu vào map để tí nữa hiển thị ở Footer
                         source_map[idx] = {
                             "id": idx, 
                             "url": link, 
                             "title": display_title, 
-                            "doi": doi_code,
+                            "doi": doi_code,  # <--- Lưu DOI vào map
                             "type": meta.get('type','')
                         }
                         
-                        # Xây dựng Context Text tường minh cho AI đọc
+                        # Nhét DOI vào đoạn văn cảnh cho AI đọc
                         context_text += f"\n=== [Ref: {idx}] ===\n"
                         context_text += f"Type: {type_label}\n"
-                        context_text += f"Title (VN): {title_vi}\n"
-                        context_text += f"Title (EN): {title_en}\n"
-                        context_text += f"DOI: {doi_code}\n"
-                        context_text += f"Content Summary:\n{d.page_content}\n"
+                        context_text += f"Title (VN): {title_vi}\n" # <--- AI đọc được cái này
+                        context_text += f"DOI: {doi_code}\n"         # <--- AI đọc được cái này
+                        context_text += f"Content: {d.page_content}\n"
                         context_text += "==================\n"
             except: pass
 
             # 2. Gọi AI
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
 
-            # 3. Xử lý Kết quả (Logic Phạt & Hiển thị)
+            # 3. Xử lý Kết quả
             final_content = ""
             
-            # --- A. TRƯỜNG HỢP VI PHẠM ---
             if ai_raw == "VIOLATION_DETECTED":
                 st.session_state.bad_attempts += 1
                 if st.session_state.bad_attempts >= 3:
                     ban_user_forever(current_user, "Spam/Hỏi sai chủ đề 3 lần")
                     st.session_state.is_blocked = True
-                    msg = f"🚫 **TÀI KHOẢN ĐÃ BỊ KHÓA!**\n\nBạn đã cố tình hỏi sai chủ đề 3 lần. ID {current_user} đã bị đưa vào danh sách hạn chế vĩnh viễn."
+                    msg = "🚫 TÀI KHOẢN ĐÃ BỊ KHÓA VĨNH VIỄN."
                 else:
-                    left = 3 - st.session_state.bad_attempts
-                    msg = f"⚠️ **CẢNH BÁO ({st.session_state.bad_attempts}/3)**\n\nTôi là **{ADMIN_PROFILE['name']}**. Tôi chỉ hỗ trợ chuyên môn về YOGA & SỨC KHỎE.\n\nVui lòng không hỏi về Xổ số, Code, Chính trị...\n*Bạn còn {left} lần thử trước khi bị khóa tài khoản.*"
-                
+                    msg = f"⚠️ CẢNH BÁO ({st.session_state.bad_attempts}/3): Vui lòng chỉ hỏi về Sức khỏe/Yoga."
                 st.markdown(msg)
                 final_content = msg
-                if st.session_state.is_blocked:
-                    time.sleep(3); st.rerun()
+                if st.session_state.is_blocked: time.sleep(3); st.rerun()
 
-            # --- B. TRƯỜNG HỢP LỖI ---
             elif ai_raw.startswith("ERR_SYS:"):
                 st.error(f"Lỗi hệ thống: {ai_raw}")
                 final_content = "Xin lỗi, hệ thống đang bảo trì."
 
-            # --- C. TRƯỜNG HỢP THÀNH CÔNG ---
             else:
                 # Xử lý nguồn (Ref)
                 ref_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_raw)]
                 clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
-                for p in ["Nguồn tham khảo", "References", "📚 Tài liệu", "Sources:"]:
+                for p in ["Nguồn tham khảo", "References", "📚 Tài liệu"]:
                     if p in clean_text: clean_text = clean_text.split(p)[0].strip(); break
 
-                # Tạo HTML Nguồn (Hiển thị cả DOI ở footer)
+                # Tạo HTML Nguồn (HIỂN THỊ DOI Ở CHÂN TRANG)
                 unique_sources = {source_map[rid]['url']: source_map[rid] for rid in ref_ids if rid in source_map}
                 sources_html = ""
                 if unique_sources:
@@ -488,8 +481,10 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                     list_src = sorted(unique_sources.values(), key=lambda x: x['id'])
                     for info in list_src:
                         icon = "🧪" if 'SCIENCE' in info['type'].upper() else "🔗"
-                        # Hiển thị Title và DOI nếu có
-                        doi_str = f" (DOI: `{info['doi']}`)" if info['doi'] != 'N/A' else ""
+                        
+                        # --- THAY ĐỔI Ở ĐÂY: HIỂN THỊ DOI RA MÀN HÌNH ---
+                        doi_str = f" (DOI: `{info['doi']}`)" if info['doi'] and info['doi'] != 'N/A' else ""
+                        
                         sources_html += f"- {icon} **[{info['id']}]** [{info['title']}]({info['url']}){doi_str}\n"
 
                 # HTML Upsell
@@ -501,7 +496,6 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                         upsell_html += f"""<div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;"><span style="color:#33691e; font-weight:500">👉 {r['name']}</span><a href="{r['url']}" target="_blank" class="upsell-btn">Xem</a></div>"""
                     upsell_html += "</div>"
                 
-                # Hiển thị
                 final_content = clean_text
                 st.markdown(final_content, unsafe_allow_html=True)
                 if sources_html: st.markdown(sources_html)
@@ -509,6 +503,5 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                 
                 final_content = final_content + "\n" + sources_html + "\n" + upsell_html
 
-            # Lưu vào session
             if final_content:
                 st.session_state.messages.append({"role": "assistant", "content": final_content})
