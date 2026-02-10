@@ -176,7 +176,7 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Lỗi Data: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (PHIÊN BẢN ƯU TIÊN DOI/TITLE)
+# 4. HÀM AI THÔNG MINH (PHIÊN BẢN ÉP ĐỌC METADATA)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
@@ -192,31 +192,31 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # 3. SYSTEM PROMPT
+        # 3. SYSTEM PROMPT (STRICT METADATA USAGE)
         sys_prompt = f"""
         🛑 **SECURITY PROTOCOL:**
         - Check Input: "{prompt}"
-        - If violating (Gambling, Politics, Coding, etc) -> REPLY: "VIOLATION_DETECTED".
+        - If violating -> REPLY: "VIOLATION_DETECTED".
         - Else -> Proceed.
 
         --------------------------------------------------
 
-        ROLE: You are **{ADMIN_PROFILE['name']}** ({ADMIN_PROFILE['role']}), expert at **{ADMIN_PROFILE.get('website', 'YogaIsMyLife.vn')}**.
+        ROLE: You are **{ADMIN_PROFILE['name']}** ({ADMIN_PROFILE['role']}), medical expert at **{ADMIN_PROFILE.get('website', 'YogaIsMyLife.vn')}**.
         MISSION: {ADMIN_PROFILE['mission']}
 
-        🧠 **INPUT DATA:**
-        You are provided with search results labeled [Ref: 1], [Ref: 2]...
-        Each Ref contains:
-        - **Title:** The study name.
-        - **DOI:** The digital object identifier (or Link).
-        - **Content:** The summary.
+        🧠 **DATA SOURCE INSTRUCTION (CRITICAL):**
+        - You are provided with [DATA] chunks. Each chunk has:
+          * **[Ref: ID]**: The source ID.
+          * **META-DOI**: The DOI or URL link from the database.
+          * **META-TITLE**: The official study title.
+          * **CONTENT**: The summary text.
 
-        🎯 **MANDATORY CITATION RULES:**
-        1. When you mention a study, you **MUST** include its **Title** and **DOI** (if the data has it) in your text.
-           - Example: "Theo nghiên cứu **'Yoga for Heart'** (DOI: 10.1007/...) [Ref: 1], các chỉ số đã cải thiện..."
-        2. If the DOI is a URL (e.g., https://doi.org/10.xxx), extract just the "10.xxx" part if possible, otherwise print the URL.
-        3. **Priority:** Base your answer *strictly* on the provided [DATA].
-        4. Language: Same as user's question.
+        🎯 **CITATION RULES:**
+        1. When citing a study, you **MUST** include the Title and the DOI/Link provided in the "META-DOI" field.
+           - Format: "Nghiên cứu **'Title'** (DOI: ...) [Ref: X]"
+        2. If "META-DOI" contains a link (http...), show it as the DOI.
+        3. If "META-DOI" is 'N/A' or empty in the data, only then say (DOI: N/A).
+        4. **Do not hallucinate DOIs.** Only use what is explicitly written in the [DATA] block below.
 
         [DATA (CONTEXT)]:
         {context_text}
@@ -396,56 +396,55 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
     with st.chat_message("assistant"):
         with st.spinner(f"{ADMIN_PROFILE['name']} đang tra cứu hồ sơ y khoa..."):
             
-            # Context History
             chat_history = ""
             for msg in st.session_state.messages[-4:]:
                 clean_content = re.sub(r'<[^>]*>', '', msg['content'])
                 chat_history += f"{msg['role']}: {clean_content}\n"
 
-            # 1. Vector Search (ĐÃ SỬA: LẤY META DỮ LIỆU)
+            # 1. Vector Search (OPTIMIZED: "VÉT" SẠCH METADATA)
             context_text = ""
             source_map = {}
             try:
-                # Tìm kiếm 6 kết quả gần nhất
                 docs = db_text.similarity_search(prompt, k=6)
                 if docs:
                     for i, d in enumerate(docs):
                         idx = i + 1
-                        meta = d.metadata # Lấy metadata từ Vector DB
+                        meta = d.metadata
                         
-                        # --- TRÍCH XUẤT THÔNG TIN ---
-                        # 1. Lấy Title: Ưu tiên Tiếng Việt > Tiếng Anh > Mặc định
+                        # --- "VÉT" DỮ LIỆU TỪ METADATA ---
+                        # 1. Tìm Title (Ưu tiên Việt -> Anh -> Mặc định)
                         title_vi = meta.get('title_vi', '')
                         title_en = meta.get('title_en', '')
                         final_title = title_vi if title_vi else (title_en if title_en else meta.get('title', f"Tài liệu {idx}"))
                         
-                        # 2. Lấy DOI: Kiểm tra các trường có thể chứa DOI
-                        doi_raw = meta.get('doi', '') or meta.get('url', '') or 'N/A'
+                        # 2. Tìm DOI/Link (Ưu tiên DOI -> Article -> Topic -> URL -> Source)
+                        # Code cũ có thể bị sót nếu DOI nằm ở trường 'article' hoặc 'url' thay vì 'doi'
+                        raw_doi = meta.get('doi')
+                        if not raw_doi or raw_doi == 'N/A':
+                            raw_doi = meta.get('article') or meta.get('topic_link') or meta.get('url') or meta.get('source') or 'N/A'
                         
-                        # 3. Lấy Link: Để bấm vào xem
-                        link = meta.get('article') or meta.get('topic_link') or meta.get('url') or '#'
-                        
-                        # 4. Loại tài liệu
+                        # 3. Loại tài liệu
                         type_label = "BẰNG CHỨNG KHOA HỌC" if 'SCIENCE' in meta.get('type','').upper() else "THAM KHẢO"
                         
-                        # Lưu vào map để hiển thị footer
+                        # Lưu map hiển thị
                         source_map[idx] = {
                             "id": idx, 
-                            "url": link, 
+                            "url": raw_doi if 'http' in str(raw_doi) else '#', 
                             "title": final_title, 
-                            "doi": doi_raw,
+                            "doi": raw_doi,
                             "type": meta.get('type','')
                         }
                         
-                        # --- QUAN TRỌNG: GHI DOI VÀ TITLE VÀO CONTEXT CHO AI ĐỌC ---
+                        # --- BƠM DỮ LIỆU VÀO CONTEXT CHO AI ---
+                        # Cháu ghi rõ nhãn "META-DOI" để khớp với lệnh ở Phần 4
                         context_text += f"\n=== [Ref: {idx}] ===\n"
-                        context_text += f"Type: {type_label}\n"
-                        context_text += f"Title: {final_title}\n" 
-                        context_text += f"DOI: {doi_raw}\n"  # <--- Dòng này giúp AI thấy DOI
-                        context_text += f"Content: {d.page_content}\n"
+                        context_text += f"TYPE: {type_label}\n"
+                        context_text += f"META-TITLE: {final_title}\n"
+                        context_text += f"META-DOI: {raw_doi}\n"  # <--- Ép AI nhìn thấy dòng này
+                        context_text += f"CONTENT: {d.page_content}\n"
                         context_text += "==================\n"
             except Exception as e:
-                print(f"Lỗi search: {e}")
+                print(f"Search Error: {e}")
 
             # 2. Gọi AI
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
@@ -470,13 +469,13 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                 final_content = "Xin lỗi, hệ thống đang bảo trì."
 
             else:
-                # Tách phần tham khảo (nếu AI tự viết) để mình tự render cho đẹp
+                # Xử lý nguồn (Ref)
                 ref_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_raw)]
                 clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
                 for p in ["Nguồn tham khảo", "References", "📚 Tài liệu", "Sources:"]:
                     if p in clean_text: clean_text = clean_text.split(p)[0].strip(); break
 
-                # Render lại phần Nguồn ở dưới cùng
+                # Tạo HTML Nguồn (Hiển thị đẹp ở dưới)
                 unique_sources = {source_map[rid]['url']: source_map[rid] for rid in ref_ids if rid in source_map}
                 sources_html = ""
                 if unique_sources:
@@ -485,12 +484,14 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                     for info in list_src:
                         icon = "🧪" if 'SCIENCE' in info['type'].upper() else "🔗"
                         
-                        # Hiển thị DOI trong danh sách nguồn nếu có
+                        # Xử lý hiển thị DOI cho gọn
                         doi_str = ""
-                        if info['doi'] and info['doi'] != 'N/A':
-                            # Làm sạch DOI nếu nó là link dài
-                            clean_doi = info['doi'].replace('https://doi.org/', '').replace('https://pubmed.ncbi.nlm.nih.gov/', 'PubMed:')
-                            doi_str = f" (`{clean_doi}`)"
+                        d_val = str(info['doi'])
+                        if d_val and d_val != 'N/A':
+                            # Nếu là link dài thì cắt ngắn hiển thị, nếu là mã số thì để nguyên
+                            short_doi = d_val.replace('https://doi.org/', '').replace('https://pubmed.ncbi.nlm.nih.gov/', 'PubMed:')
+                            if len(short_doi) > 30: short_doi = "Xem liên kết" # Cắt nếu quá dài
+                            doi_str = f" (`{short_doi}`)"
                             
                         sources_html += f"- {icon} **[{info['id']}]** [{info['title']}]({info['url']}){doi_str}\n"
 
