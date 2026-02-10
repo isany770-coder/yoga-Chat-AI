@@ -11,6 +11,15 @@ import gc
 import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import FAISS
+def extract_doi(text):
+    if not text:
+        return None
+    match = re.search(
+        r'(10\.\d{4,9}/[-._;()/:A-Z0-9]+)',
+        text,
+        re.IGNORECASE
+    )
+    return match.group(1) if match else None
 
 # =====================================================
 # 1. CẤU HÌNH TRANG & GIAO DIỆN
@@ -219,6 +228,10 @@ def get_ai_response_custom(prompt, context_text, history_context):
         5. **SOURCE HIERARCHY:** If you find a study (e.g., Cramer 2025) mentioned in a General Article (Source A) BUT you also see the Original Study File (Source B) in the list, **YOU MUST CITE SOURCE B** as the primary evidence. Source A is just a secondary reference.
         6. **Science First:** If the user asks for evidence, prioritize sources labeled [LOẠI: BẰNG CHỨNG KHOA HỌC].
         7. Maximum: 300 words.
+        8. If a scientific reference shows a DOI in [DATA], you MUST explicitly display the DOI.
+        9. If the DOI is not shown in [DATA], you MUST state: "The DOI is not available in the provided data."
+        10. You are strictly forbidden from guessing or recalling DOIs from memory.
+                                    
 
         STRUCTURE:
         - **Greeting:** Short & warm (e.g., "Chào bạn, tôi là {ADMIN_PROFILE['name']}...").
@@ -423,8 +436,23 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                         type_label = "BẰNG CHỨNG KHOA HỌC" if 'SCIENCE' in meta.get('type','').upper() else "THAM KHẢO"
                         link = meta.get('url') or meta.get('source') or '#'
                         title = meta.get('title') or f"Source {idx}"
-                        source_map[idx] = {"id": idx, "url": link, "title": title, "type": meta.get('type','')}
-                        context_text += f"\n[Ref: {idx}] [{type_label}] ({title}):\n{d.page_content}\n"
+                        
+                        doi = meta.get("doi") or extract_doi(d.page_content)
+                        source_map[idx] = {
+                        "id": idx,
+                        "url": link,
+                        "title": title,
+                        "type": meta.get('type',''),
+                        "doi": doi
+                        }
+
+                        doi_line = f"DOI: {doi}" if doi else "DOI: Not provided"
+
+                        context_text += f"""
+                        [Ref: {idx}] [{type_label}] ({title})
+                        {doi_line}
+                        {d.page_content}
+                        """
             except: pass
 
             # 2. Gọi AI
@@ -476,7 +504,10 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                     list_src = sorted(unique_sources.values(), key=lambda x: x['id'])
                     for info in list_src:
                         icon = "🧪" if 'SCIENCE' in info['type'].upper() else "🔗"
-                        sources_html += f"- {icon} **[{info['id']}]** [{info['title']}]({info['url']})\n"
+                        sources_html += f"- {icon} **[{info['id']}]** {info['title']}\n"
+                    if info.get("doi"):
+                        sources_html += f"  - DOI: `{info['doi']}`\n"
+                        sources_html += f"  - Link: {info['url']}\n""
 
                 # HTML Upsell
                 upsell_html = ""
