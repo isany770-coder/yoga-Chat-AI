@@ -231,6 +231,10 @@ def get_ai_response_custom(prompt, context_text, history_context):
         8. If a scientific reference shows a DOI in [DATA], you MUST explicitly display the DOI.
         9. If the DOI is not shown in [DATA], you MUST state: "The DOI is not available in the provided data."
         10. You are strictly forbidden from guessing or recalling DOIs from memory.
+        11. Any answer that relies on scientific evidence MUST explicitly include at least one DOI in the main answer text.
+        12. If multiple studies are cited, include the DOI of the highest-level evidence (systematic review or meta-analysis).
+        13. The DOI must appear inline in the answer, not only in the reference list.
+
                                     
 
         STRUCTURE:
@@ -519,6 +523,13 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                     upsell_html += "</div>"
                 
                 # Hiển thị
+                if any('SCIENCE' in source_map[rid]['type'].upper() for rid in ref_ids):
+                    if not re.search(r'10\.\d{4,9}/', clean_text):
+                        for rid in ref_ids:
+                            doi = source_map[rid].get("doi")
+                            if doi:
+                                clean_text += f"\n\n**Evidence DOI:** `{doi}`"
+                                break
                 final_content = clean_text
                 st.markdown(final_content, unsafe_allow_html=True)
                 if sources_html: st.markdown(sources_html)
