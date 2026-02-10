@@ -205,10 +205,6 @@ def get_ai_response_custom(prompt, context_text, history_context):
 # =====================================================
 # 3. SYSTEM PROMPT (EVIDENCE-ONLY – FINAL LOCKED VERSION)
 # =====================================================
-
-# Sử dụng textwrap.dedent để tự động loại bỏ khoảng trắng thừa ở đầu dòng
-# Giúp cụ có thể indent (thụt lề) đoạn code này thoải mái mà không sợ sai nội dung.
-
 sys_prompt = textwrap.dedent(f"""
     🛑 **SECURITY PROTOCOL (PRIORITY 1):**
     - Input: "{prompt}"
@@ -275,8 +271,7 @@ sys_prompt = textwrap.dedent(f"""
     {history_context}
 
     USER QUESTION: "{prompt}"
-""").strip()
-            
+""")
         
         response = model.generate_content(sys_prompt)
         return response.text.strip()
