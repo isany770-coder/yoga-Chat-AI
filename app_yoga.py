@@ -205,14 +205,9 @@ def get_ai_response_custom(prompt, context_text, history_context):
 # =====================================================
 # 3. SYSTEM PROMPT (EVIDENCE-ONLY – FINAL LOCKED VERSION)
 # =====================================================
-# =====================================================
-# 3. SYSTEM PROMPT (EVIDENCE-ONLY – FINAL LOCKED VERSION)
-# =====================================================
+import textwrap
 
-# Lưu ý: Đảm bảo các biến prompt, ADMIN_PROFILE, context_text, history_context
-# đã được định nghĩa trước khi chạy dòng lệnh dưới đây.
-
-sys_prompt = f"""\
+sys_prompt = f"""
 🛑 **SECURITY PROTOCOL (PRIORITY 1):**
 - Input: "{prompt}"
 - Check: If user asks about Lottery, Gambling, Sex, Politics, Coding, or NON-HEALTH topics -> REPLY EXACTLY: "VIOLATION_DETECTED".
@@ -242,7 +237,7 @@ MISSION: {ADMIN_PROFILE['mission']}
 🎯 **STRICT CITATION RULES (TUÂN THỦ TUYỆT ĐỐI - CORE LOGIC):**
 1. You are provided with context chunks labeled [Ref: 1], [Ref: 2], etc.
 2. **ACCURACY IS PARAMOUNT:** When you state a fact, you MUST check which [Ref: ID] it came from.
-3. **DO NOT MIX SOURCES:** If information is in [Ref: 1], do NOT cite [Ref: 2].
+3. **DO NOT MIX SOURCES:** If information is in [Ref: 1], do NOT cite [Ref: 2]. 
 4. If a fact is NOT in the provided [DATA], do NOT attach a [Ref].
 5. **SOURCE HIERARCHY:** If you find a study (e.g., Cramer 2025) mentioned in a General Article (Source A) BUT you also see the Original Study File (Source B) in the list, **YOU MUST CITE SOURCE B** as the primary evidence. Source A is just a secondary reference.
 6. **Science First:** For ALL health-related questions, prioritize sources labeled [LOẠI: BẰNG CHỨNG KHOA HỌC].
@@ -278,7 +273,8 @@ STRUCTURE:
 {history_context}
 
 USER QUESTION: "{prompt}"
-"""
+""").strip()
+
         
         response = model.generate_content(sys_prompt)
         return response.text.strip()
