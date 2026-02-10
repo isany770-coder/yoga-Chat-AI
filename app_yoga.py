@@ -176,7 +176,7 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Lỗi Data: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (OPTIMIZED: DOI & TITLE EXTRACTION)
+# 4. HÀM AI THÔNG MINH (ĐÃ SỬA: ÉP AI ĐỌC DOI VÀ TITLE)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
@@ -192,7 +192,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # 3. SYSTEM PROMPT (CẬP NHẬT LUẬT TRÍCH DẪN DOI/TITLE)
+        # 3. SYSTEM PROMPT (THAY ĐỔI LỚN Ở ĐÂY: BẮT BUỘC TRÍCH DẪN DOI)
         sys_prompt = f"""
         🛑 **SECURITY PROTOCOL (PRIORITY 1):**
         - Input: "{prompt}"
@@ -201,7 +201,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
 
         --------------------------------------------------
 
-        ROLE: You are **{ADMIN_PROFILE['name']}** ({ADMIN_PROFILE['role']}), the official Medical Yoga Expert for **{ADMIN_PROFILE.get('website', 'YogaIsMyLife.vn')}**.
+        ROLE: You are **{ADMIN_PROFILE['name']}** ({ADMIN_PROFILE['role']}), the official Medical Yoga Expert.
         MISSION: {ADMIN_PROFILE['mission']}
 
         🌍 **LANGUAGE:**
@@ -212,20 +212,13 @@ def get_ai_response_custom(prompt, context_text, history_context):
         - You must read the [HISTORY] below to understand the conversation flow.
 
         🎯 **STRICT CITATION RULES (QUAN TRỌNG - BẮT BUỘC):**
-        1. You are provided with context chunks labeled [Ref: 1], [Ref: 2], etc.
+        1. You are provided with context chunks labeled [Ref: 1], [Ref: 2].
         2. **CITATION FORMAT:** When citing a study, you MUST explicitly mention the **Vietnamese Title** (or English if VI is missing) and the **DOI** (if available) in the text.
            - *Incorrect:* "Theo một nghiên cứu [Ref: 1]..."
            - *Correct:* "Theo nghiên cứu **'Tác động của Yoga lên tim mạch'** (DOI: 10.1007/s42977...) [Ref: 1], kết quả cho thấy..."
         3. **ACCURACY:** Only use the DOI and Title provided in the [DATA] block. Do not invent them.
         4. If a fact is NOT in the provided [DATA], do NOT attach a [Ref].
-        5. **Science First:** Prioritize sources labeled [LOẠI: BẰNG CHỨNG KHOA HỌC/SCIENCE].
-        6. Maximum length: 400 words.
-
-        STRUCTURE:
-        - **Greeting:** Short & warm.
-        - **Direct Answer:** Answer the question clearly.
-        - **Scientific Evidence:** Detail the specific study (Name + DOI) and its findings (Method, Result).
-        - **Conclusion/Advice:** Actionable advice based on the data.
+        5. Maximum length: 400 words.
 
         [DATA (CONTEXT - WITH DOI/TITLES)]:
         {context_text}
