@@ -176,7 +176,7 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Lỗi Data: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (ĐÃ SỬA: ÉP AI ĐỌC DOI VÀ TITLE)
+# 4. HÀM AI THÔNG MINH (PHIÊN BẢN ƯU TIÊN DOI/TITLE)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
@@ -192,35 +192,33 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # 3. SYSTEM PROMPT (THAY ĐỔI LỚN Ở ĐÂY: BẮT BUỘC TRÍCH DẪN DOI)
+        # 3. SYSTEM PROMPT
         sys_prompt = f"""
-        🛑 **SECURITY PROTOCOL (PRIORITY 1):**
-        - Input: "{prompt}"
-        - Check: If user asks about Lottery, Gambling, Sex, Politics, Coding, or NON-HEALTH topics -> REPLY EXACTLY: "VIOLATION_DETECTED".
-        - If valid -> Proceed to ROLE & LOGIC below.
+        🛑 **SECURITY PROTOCOL:**
+        - Check Input: "{prompt}"
+        - If violating (Gambling, Politics, Coding, etc) -> REPLY: "VIOLATION_DETECTED".
+        - Else -> Proceed.
 
         --------------------------------------------------
 
-        ROLE: You are **{ADMIN_PROFILE['name']}** ({ADMIN_PROFILE['role']}), the official Medical Yoga Expert.
+        ROLE: You are **{ADMIN_PROFILE['name']}** ({ADMIN_PROFILE['role']}), expert at **{ADMIN_PROFILE.get('website', 'YogaIsMyLife.vn')}**.
         MISSION: {ADMIN_PROFILE['mission']}
 
-        🌍 **LANGUAGE:**
-        - User asks in English -> Reply in English.
-        - User asks in Vietnamese -> Reply in Vietnamese.
+        🧠 **INPUT DATA:**
+        You are provided with search results labeled [Ref: 1], [Ref: 2]...
+        Each Ref contains:
+        - **Title:** The study name.
+        - **DOI:** The digital object identifier (or Link).
+        - **Content:** The summary.
 
-        🧠 **CONTEXT AWARENESS:**
-        - You must read the [HISTORY] below to understand the conversation flow.
+        🎯 **MANDATORY CITATION RULES:**
+        1. When you mention a study, you **MUST** include its **Title** and **DOI** (if the data has it) in your text.
+           - Example: "Theo nghiên cứu **'Yoga for Heart'** (DOI: 10.1007/...) [Ref: 1], các chỉ số đã cải thiện..."
+        2. If the DOI is a URL (e.g., https://doi.org/10.xxx), extract just the "10.xxx" part if possible, otherwise print the URL.
+        3. **Priority:** Base your answer *strictly* on the provided [DATA].
+        4. Language: Same as user's question.
 
-        🎯 **STRICT CITATION RULES (QUAN TRỌNG - BẮT BUỘC):**
-        1. You are provided with context chunks labeled [Ref: 1], [Ref: 2].
-        2. **CITATION FORMAT:** When citing a study, you MUST explicitly mention the **Vietnamese Title** (or English if VI is missing) and the **DOI** (if available) in the text.
-           - *Incorrect:* "Theo một nghiên cứu [Ref: 1]..."
-           - *Correct:* "Theo nghiên cứu **'Tác động của Yoga lên tim mạch'** (DOI: 10.1007/s42977...) [Ref: 1], kết quả cho thấy..."
-        3. **ACCURACY:** Only use the DOI and Title provided in the [DATA] block. Do not invent them.
-        4. If a fact is NOT in the provided [DATA], do NOT attach a [Ref].
-        5. Maximum length: 400 words.
-
-        [DATA (CONTEXT - WITH DOI/TITLES)]:
+        [DATA (CONTEXT)]:
         {context_text}
 
         [HISTORY]:
@@ -404,45 +402,50 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                 clean_content = re.sub(r'<[^>]*>', '', msg['content'])
                 chat_history += f"{msg['role']}: {clean_content}\n"
 
-            # 1. Vector Search (ĐÃ SỬA: LẤY THÊM TRƯỜNG DOI VÀ TITLE)
+            # 1. Vector Search (ĐÃ SỬA: LẤY META DỮ LIỆU)
             context_text = ""
             source_map = {}
             try:
+                # Tìm kiếm 6 kết quả gần nhất
                 docs = db_text.similarity_search(prompt, k=6)
                 if docs:
                     for i, d in enumerate(docs):
                         idx = i + 1
-                        meta = d.metadata
+                        meta = d.metadata # Lấy metadata từ Vector DB
                         
-                        # --- THAY ĐỔI Ở ĐÂY: MÓC DỮ LIỆU TỪ JSON RA ---
-                        # Lấy Title tiếng Việt, nếu ko có thì lấy Anh
+                        # --- TRÍCH XUẤT THÔNG TIN ---
+                        # 1. Lấy Title: Ưu tiên Tiếng Việt > Tiếng Anh > Mặc định
                         title_vi = meta.get('title_vi', '')
                         title_en = meta.get('title_en', '')
-                        display_title = title_vi if title_vi else (title_en if title_en else meta.get('title', f"Tài liệu {idx}"))
+                        final_title = title_vi if title_vi else (title_en if title_en else meta.get('title', f"Tài liệu {idx}"))
                         
-                        # Lấy DOI (Quan trọng nhất)
-                        doi_code = meta.get('doi', 'N/A')
+                        # 2. Lấy DOI: Kiểm tra các trường có thể chứa DOI
+                        doi_raw = meta.get('doi', '') or meta.get('url', '') or 'N/A'
+                        
+                        # 3. Lấy Link: Để bấm vào xem
                         link = meta.get('article') or meta.get('topic_link') or meta.get('url') or '#'
                         
+                        # 4. Loại tài liệu
                         type_label = "BẰNG CHỨNG KHOA HỌC" if 'SCIENCE' in meta.get('type','').upper() else "THAM KHẢO"
                         
-                        # Lưu vào map để tí nữa hiển thị ở Footer
+                        # Lưu vào map để hiển thị footer
                         source_map[idx] = {
                             "id": idx, 
                             "url": link, 
-                            "title": display_title, 
-                            "doi": doi_code,  # <--- Lưu DOI vào map
+                            "title": final_title, 
+                            "doi": doi_raw,
                             "type": meta.get('type','')
                         }
                         
-                        # Nhét DOI vào đoạn văn cảnh cho AI đọc
+                        # --- QUAN TRỌNG: GHI DOI VÀ TITLE VÀO CONTEXT CHO AI ĐỌC ---
                         context_text += f"\n=== [Ref: {idx}] ===\n"
                         context_text += f"Type: {type_label}\n"
-                        context_text += f"Title (VN): {title_vi}\n" # <--- AI đọc được cái này
-                        context_text += f"DOI: {doi_code}\n"         # <--- AI đọc được cái này
+                        context_text += f"Title: {final_title}\n" 
+                        context_text += f"DOI: {doi_raw}\n"  # <--- Dòng này giúp AI thấy DOI
                         context_text += f"Content: {d.page_content}\n"
                         context_text += "==================\n"
-            except: pass
+            except Exception as e:
+                print(f"Lỗi search: {e}")
 
             # 2. Gọi AI
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
@@ -467,13 +470,13 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                 final_content = "Xin lỗi, hệ thống đang bảo trì."
 
             else:
-                # Xử lý nguồn (Ref)
+                # Tách phần tham khảo (nếu AI tự viết) để mình tự render cho đẹp
                 ref_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_raw)]
                 clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
-                for p in ["Nguồn tham khảo", "References", "📚 Tài liệu"]:
+                for p in ["Nguồn tham khảo", "References", "📚 Tài liệu", "Sources:"]:
                     if p in clean_text: clean_text = clean_text.split(p)[0].strip(); break
 
-                # Tạo HTML Nguồn (HIỂN THỊ DOI Ở CHÂN TRANG)
+                # Render lại phần Nguồn ở dưới cùng
                 unique_sources = {source_map[rid]['url']: source_map[rid] for rid in ref_ids if rid in source_map}
                 sources_html = ""
                 if unique_sources:
@@ -482,12 +485,16 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                     for info in list_src:
                         icon = "🧪" if 'SCIENCE' in info['type'].upper() else "🔗"
                         
-                        # --- THAY ĐỔI Ở ĐÂY: HIỂN THỊ DOI RA MÀN HÌNH ---
-                        doi_str = f" (DOI: `{info['doi']}`)" if info['doi'] and info['doi'] != 'N/A' else ""
-                        
+                        # Hiển thị DOI trong danh sách nguồn nếu có
+                        doi_str = ""
+                        if info['doi'] and info['doi'] != 'N/A':
+                            # Làm sạch DOI nếu nó là link dài
+                            clean_doi = info['doi'].replace('https://doi.org/', '').replace('https://pubmed.ncbi.nlm.nih.gov/', 'PubMed:')
+                            doi_str = f" (`{clean_doi}`)"
+                            
                         sources_html += f"- {icon} **[{info['id']}]** [{info['title']}]({info['url']}){doi_str}\n"
 
-                # HTML Upsell
+                # Upsell
                 upsell_html = ""
                 recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
                 if recs:
