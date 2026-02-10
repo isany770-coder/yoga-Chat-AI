@@ -492,54 +492,80 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                 st.error(f"Lỗi hệ thống: {ai_raw}")
                 final_content = "Xin lỗi, hệ thống đang bảo trì."
 
-            # --- C. TRƯỜNG HỢP THÀNH CÔNG ---
+                        # --- C. TRƯỜNG HỢP THÀNH CÔNG ---
             else:
-                # Xử lý nguồn (Giữ nguyên logic Ref xịn của cụ)
                 ref_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_raw)]
                 clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
-                # Cắt đuôi thừa
-                for p in ["Nguồn tham khảo", "References", "📚 Tài liệu"]:
-                    if p in clean_text: clean_text = clean_text.split(p)[0].strip(); break
 
-                # HTML Nguồn
-                unique_sources = {source_map[rid]['url']: source_map[rid] for rid in ref_ids if rid in source_map and source_map[rid]['url'] != '#'}
+                for p in ["Nguồn tham khảo", "References", "📚 Tài liệu"]:
+                    if p in clean_text:
+                        clean_text = clean_text.split(p)[0].strip()
+                        break
+
+                unique_sources = {
+                    source_map[rid]['url']: source_map[rid]
+                    for rid in ref_ids
+                    if rid in source_map and source_map[rid]['url'] != '#'
+                }
+
                 sources_html = ""
                 if unique_sources:
                     sources_html += "\n\n---\n**📚 Nguồn tham khảo & Bằng chứng:**\n\n"
                     list_src = sorted(unique_sources.values(), key=lambda x: x['id'])
+
                     for info in list_src:
                         icon = "🧪" if 'SCIENCE' in info['type'].upper() else "🔗"
                         sources_html += f"- {icon} **[{info['id']}]** {info['title']}\n"
+
                         if info.get("doi"):
-                        sources_html += f"  - DOI: `{info['doi']}`\n"
+                            sources_html += f"  - DOI: `{info['doi']}`\n"
+
                         sources_html += f"  - Link: {info['url']}\n"
 
-                # HTML Upsell
                 upsell_html = ""
-                recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
+                recs = [
+                    v for v in YOGA_SOLUTIONS.values()
+                    if any(key in prompt.lower() for key in v['key'])
+                ]
+
                 if recs:
                     upsell_html += "<div class='upsell-box'><b>💡 Giải pháp gợi ý từ Chuyên gia:</b><br>"
                     for r in recs[:2]:
-                        upsell_html += f"""<div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;"><span style="color:#33691e; font-weight:500">👉 {r['name']}</span><a href="{r['url']}" target="_blank" class="upsell-btn">Xem</a></div>"""
+                        upsell_html += (
+                            "<div style='margin-top:8px; display:flex; justify-content:space-between; align-items:center;'>"
+                            f"<span style='color:#33691e; font-weight:500'>👉 {r['name']}</span>"
+                            f"<a href='{r['url']}' target='_blank' class='upsell-btn'>Xem</a>"
+                            "</div>"
+                        )
                     upsell_html += "</div>"
-                
-                # Hiển thị
-                if any('SCIENCE' in source_map[rid]['type'].upper() for rid in ref_ids):
+
+                if any(
+                    'SCIENCE' in source_map[rid]['type'].upper()
+                    for rid in ref_ids
+                    if rid in source_map
+                ):
                     if not re.search(r'10\.\d{4,9}/', clean_text):
                         added = False
                         for rid in ref_ids:
-                            doi = source_map[rid].get("doi")
+                            doi = source_map.get(rid, {}).get("doi")
                             if doi:
-                            clean_text += f"\n\n**Evidence DOI:** `{doi}`"
-                            break
+                                clean_text += f"\n\n**Evidence DOI:** `{doi}`"
+                                added = True
+                                break
+
                         if not added:
                             clean_text += "\n\n⚠️ **No DOI available in provided scientific sources.**"
+
                 final_content = clean_text
+
                 st.markdown(final_content, unsafe_allow_html=True)
-                if sources_html: st.markdown(sources_html)
-                if upsell_html: st.markdown(upsell_html, unsafe_allow_html=True)
-                
+                if sources_html:
+                    st.markdown(sources_html)
+                if upsell_html:
+                    st.markdown(upsell_html, unsafe_allow_html=True)
+
                 final_content = final_content + "\n" + sources_html + "\n" + upsell_html
+
 
             # Lưu vào session
             if final_content:
