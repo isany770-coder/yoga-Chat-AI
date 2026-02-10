@@ -176,11 +176,11 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Lỗi Data: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN FINAL: CẤU TRÚC CŨ + IDENTITY + SECURITY)
+# 4. HÀM AI THÔNG MINH (OPTIMIZED: DOI & TITLE EXTRACTION)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
-        # 1. CHECK TỪ KHÓA CẤM (Lớp vỏ cứng Python - giữ nguyên)
+        # 1. CHECK TỪ KHÓA CẤM
         for kw in BLOCKED_KEYWORDS:
             if kw in prompt.lower(): return "VIOLATION_DETECTED"
 
@@ -192,7 +192,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # 3. SYSTEM PROMPT (TỔNG HÒA: ADMIN + SECURITY + LOGIC CŨ)
+        # 3. SYSTEM PROMPT (CẬP NHẬT LUẬT TRÍCH DẪN DOI/TITLE)
         sys_prompt = f"""
         🛑 **SECURITY PROTOCOL (PRIORITY 1):**
         - Input: "{prompt}"
@@ -209,25 +209,25 @@ def get_ai_response_custom(prompt, context_text, history_context):
         - User asks in Vietnamese -> Reply in Vietnamese.
 
         🧠 **CONTEXT AWARENESS:**
-        - You must read the [HISTORY] below to understand the conversation flow (e.g., if user says "bài tập đó", refer to the previous exercise mentioned).
+        - You must read the [HISTORY] below to understand the conversation flow.
 
-        🎯 **STRICT CITATION RULES (TUÂN THỦ TUYỆT ĐỐI - CORE LOGIC):**
+        🎯 **STRICT CITATION RULES (QUAN TRỌNG - BẮT BUỘC):**
         1. You are provided with context chunks labeled [Ref: 1], [Ref: 2], etc.
-        2. **ACCURACY IS PARAMOUNT:** When you state a fact, you MUST check which [Ref: ID] it came from.
-        3. **DO NOT MIX SOURCES:** If information is in [Ref: 1], do NOT cite [Ref: 2]. 
+        2. **CITATION FORMAT:** When citing a study, you MUST explicitly mention the **Vietnamese Title** (or English if VI is missing) and the **DOI** (if available) in the text.
+           - *Incorrect:* "Theo một nghiên cứu [Ref: 1]..."
+           - *Correct:* "Theo nghiên cứu **'Tác động của Yoga lên tim mạch'** (DOI: 10.1007/s42977...) [Ref: 1], kết quả cho thấy..."
+        3. **ACCURACY:** Only use the DOI and Title provided in the [DATA] block. Do not invent them.
         4. If a fact is NOT in the provided [DATA], do NOT attach a [Ref].
-        5. **SOURCE HIERARCHY:** If you find a study (e.g., Cramer 2025) mentioned in a General Article (Source A) BUT you also see the Original Study File (Source B) in the list, **YOU MUST CITE SOURCE B** as the primary evidence. Source A is just a secondary reference.
-        6. **Science First:** If the user asks for evidence, prioritize sources labeled [LOẠI: BẰNG CHỨNG KHOA HỌC].
-        7. Maximum: 300 words.
+        5. **Science First:** Prioritize sources labeled [LOẠI: BẰNG CHỨNG KHOA HỌC/SCIENCE].
+        6. Maximum length: 400 words.
 
         STRUCTURE:
-        - **Greeting:** Short & warm (e.g., "Chào bạn, tôi là {ADMIN_PROFILE['name']}...").
+        - **Greeting:** Short & warm.
         - **Direct Answer:** Answer the question clearly.
-        - **Scientific Explanation:** Biomechanics/Physiology details.
-        - **Specific Evidence:** "Research shows... [Ref: X]" (Make sure X is the CORRECT ID from the Data below).
-        - **Conclusion/Advice:** Actionable advice.
+        - **Scientific Evidence:** Detail the specific study (Name + DOI) and its findings (Method, Result).
+        - **Conclusion/Advice:** Actionable advice based on the data.
 
-        [DATA (CONTEXT)]:
+        [DATA (CONTEXT - WITH DOI/TITLES)]:
         {context_text}
 
         [HISTORY]:
@@ -411,7 +411,7 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                 clean_content = re.sub(r'<[^>]*>', '', msg['content'])
                 chat_history += f"{msg['role']}: {clean_content}\n"
 
-            # 1. Vector Search
+            # 1. Vector Search (OPTIMIZED FOR DOI/TITLE)
             context_text = ""
             source_map = {}
             try:
@@ -420,39 +420,59 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                     for i, d in enumerate(docs):
                         idx = i + 1
                         meta = d.metadata
+                        
+                        # --- TRÍCH XUẤT DỮ LIỆU CHI TIẾT TỪ METADATA ---
+                        # Ưu tiên lấy Title tiếng Việt, nếu không có thì lấy tiếng Anh
+                        title_vi = meta.get('title_vi', '')
+                        title_en = meta.get('title_en', '')
+                        display_title = title_vi if title_vi else (title_en if title_en else meta.get('title', f"Tài liệu {idx}"))
+                        
+                        # Lấy DOI và URL
+                        doi_code = meta.get('doi', 'N/A')
+                        link = meta.get('article') or meta.get('topic_link') or meta.get('url') or '#'
+                        
                         type_label = "BẰNG CHỨNG KHOA HỌC" if 'SCIENCE' in meta.get('type','').upper() else "THAM KHẢO"
-                        link = meta.get('url') or meta.get('source') or '#'
-                        title = meta.get('title') or f"Source {idx}"
-                        source_map[idx] = {"id": idx, "url": link, "title": title, "type": meta.get('type','')}
-                        context_text += f"\n[Ref: {idx}] [{type_label}] ({title}):\n{d.page_content}\n"
+                        
+                        # Lưu vào map để hiển thị ở footer
+                        source_map[idx] = {
+                            "id": idx, 
+                            "url": link, 
+                            "title": display_title, 
+                            "doi": doi_code,
+                            "type": meta.get('type','')
+                        }
+                        
+                        # Xây dựng Context Text tường minh cho AI đọc
+                        context_text += f"\n=== [Ref: {idx}] ===\n"
+                        context_text += f"Type: {type_label}\n"
+                        context_text += f"Title (VN): {title_vi}\n"
+                        context_text += f"Title (EN): {title_en}\n"
+                        context_text += f"DOI: {doi_code}\n"
+                        context_text += f"Content Summary:\n{d.page_content}\n"
+                        context_text += "==================\n"
             except: pass
 
             # 2. Gọi AI
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
 
-            # 3. Xử lý Kết quả (Logic Phạt)
+            # 3. Xử lý Kết quả (Logic Phạt & Hiển thị)
             final_content = ""
             
             # --- A. TRƯỜNG HỢP VI PHẠM ---
             if ai_raw == "VIOLATION_DETECTED":
                 st.session_state.bad_attempts += 1
-                
                 if st.session_state.bad_attempts >= 3:
-                    # GHI VÀO SỔ ĐEN DATABASE -> KHÓA VĨNH VIỄN
                     ban_user_forever(current_user, "Spam/Hỏi sai chủ đề 3 lần")
                     st.session_state.is_blocked = True
                     msg = f"🚫 **TÀI KHOẢN ĐÃ BỊ KHÓA!**\n\nBạn đã cố tình hỏi sai chủ đề 3 lần. ID {current_user} đã bị đưa vào danh sách hạn chế vĩnh viễn."
                 else:
-                    # Cảnh cáo
                     left = 3 - st.session_state.bad_attempts
                     msg = f"⚠️ **CẢNH BÁO ({st.session_state.bad_attempts}/3)**\n\nTôi là **{ADMIN_PROFILE['name']}**. Tôi chỉ hỗ trợ chuyên môn về YOGA & SỨC KHỎE.\n\nVui lòng không hỏi về Xổ số, Code, Chính trị...\n*Bạn còn {left} lần thử trước khi bị khóa tài khoản.*"
                 
                 st.markdown(msg)
                 final_content = msg
-                # Nếu bị khóa -> Rerun để dính vào Chốt chặn ở đầu file
                 if st.session_state.is_blocked:
-                    time.sleep(3)
-                    st.rerun()
+                    time.sleep(3); st.rerun()
 
             # --- B. TRƯỜNG HỢP LỖI ---
             elif ai_raw.startswith("ERR_SYS:"):
@@ -461,22 +481,23 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
 
             # --- C. TRƯỜNG HỢP THÀNH CÔNG ---
             else:
-                # Xử lý nguồn (Giữ nguyên logic Ref xịn của cụ)
+                # Xử lý nguồn (Ref)
                 ref_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_raw)]
                 clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
-                # Cắt đuôi thừa
-                for p in ["Nguồn tham khảo", "References", "📚 Tài liệu"]:
+                for p in ["Nguồn tham khảo", "References", "📚 Tài liệu", "Sources:"]:
                     if p in clean_text: clean_text = clean_text.split(p)[0].strip(); break
 
-                # HTML Nguồn
-                unique_sources = {source_map[rid]['url']: source_map[rid] for rid in ref_ids if rid in source_map and source_map[rid]['url'] != '#'}
+                # Tạo HTML Nguồn (Hiển thị cả DOI ở footer)
+                unique_sources = {source_map[rid]['url']: source_map[rid] for rid in ref_ids if rid in source_map}
                 sources_html = ""
                 if unique_sources:
                     sources_html += "\n\n---\n**📚 Nguồn tham khảo & Bằng chứng:**\n\n"
                     list_src = sorted(unique_sources.values(), key=lambda x: x['id'])
                     for info in list_src:
                         icon = "🧪" if 'SCIENCE' in info['type'].upper() else "🔗"
-                        sources_html += f"- {icon} **[{info['id']}]** [{info['title']}]({info['url']})\n"
+                        # Hiển thị Title và DOI nếu có
+                        doi_str = f" (DOI: `{info['doi']}`)" if info['doi'] != 'N/A' else ""
+                        sources_html += f"- {icon} **[{info['id']}]** [{info['title']}]({info['url']}){doi_str}\n"
 
                 # HTML Upsell
                 upsell_html = ""
