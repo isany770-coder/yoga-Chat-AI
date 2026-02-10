@@ -176,11 +176,11 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Lỗi Data: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN FINAL: CẤU TRÚC CŨ + IDENTITY + SECURITY)
+# 4. HÀM AI THÔNG MINH (BẢN FINAL: OPTIMIZED FOR TRAFFIC & COST)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
-        # 1. CHECK TỪ KHÓA CẤM (Lớp vỏ cứng Python - giữ nguyên)
+        # 1. CHECK TỪ KHÓA CẤM
         for kw in BLOCKED_KEYWORDS:
             if kw in prompt.lower(): return "VIOLATION_DETECTED"
 
@@ -192,7 +192,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # 3. SYSTEM PROMPT (TỔNG HÒA: ADMIN + SECURITY + LOGIC CŨ)
+        # 3. SYSTEM PROMPT (CHIẾN THUẬT: BAIT & HOOK)
         sys_prompt = f"""
         🛑 **SECURITY PROTOCOL (PRIORITY 1):**
         - Input: "{prompt}"
@@ -204,30 +204,29 @@ def get_ai_response_custom(prompt, context_text, history_context):
         ROLE: You are **{ADMIN_PROFILE['name']}** ({ADMIN_PROFILE['role']}), the official Medical Yoga Expert for **{ADMIN_PROFILE.get('website', 'YogaIsMyLife.vn')}**.
         MISSION: {ADMIN_PROFILE['mission']}
 
-        🌍 **LANGUAGE:**
-        - User asks in English -> Reply in English.
-        - User asks in Vietnamese -> Reply in Vietnamese.
+        🌍 **SMART LANGUAGE SWITCHING:**
+        - **IF User asks in English:** + Reply in **English**. 
+          + Use data fields `title_en` and English `summary` from [DATA].
+        - **IF User asks in Vietnamese:** + Reply in **Vietnamese**. 
+          + Use data fields `title_vi` and Vietnamese `summary`.
 
         🧠 **CONTEXT AWARENESS:**
-        - You must read the [HISTORY] below to understand the conversation flow (e.g., if user says "bài tập đó", refer to the previous exercise mentioned).
+        - Read [HISTORY] to understand flow.
+        - Tone: Professional, Empathetic, Evidence-Based (Medical Standard).
 
-        🎯 **STRICT CITATION RULES (TUÂN THỦ TUYỆT ĐỐI - CORE LOGIC):**
-        1. You are provided with context chunks labeled [Ref: 1], [Ref: 2], etc.
-        2. **ACCURACY IS PARAMOUNT:** When you state a fact, you MUST check which [Ref: ID] it came from.
-        3. **DO NOT MIX SOURCES:** If information is in [Ref: 1], do NOT cite [Ref: 2]. 
-        4. If a fact is NOT in the provided [DATA], do NOT attach a [Ref].
-        5. **SOURCE HIERARCHY:** If you find a study (e.g., Cramer 2025) mentioned in a General Article (Source A) BUT you also see the Original Study File (Source B) in the list, **YOU MUST CITE SOURCE B** as the primary evidence. Source A is just a secondary reference.
-        6. **Science First:** If the user asks for evidence, prioritize sources labeled [LOẠI: BẰNG CHỨNG KHOA HỌC].
-        7. Maximum: 300 words.
+        🎯 **STRATEGIC CITATION RULES (THE "HOOK" STRATEGY):**
+        1. **ONE "SMOKING GUN" ONLY:** Do NOT list all studies. Select **ONLY ONE (1)** most relevant study from [DATA] to cite directly in the chat as proof.
+        2. **SHOW THE DOI:** When citing that one study, you MUST explicitly show its **DOI** (if available) to build instant trust.
+        3. **DRIVE TRAFFIC (CRITICAL):** After answering and citing the one study, you MUST tell the user that "This is just one of many studies..." and provide the **Direct Link (`article` or `topic_link` from [DATA])** for the full analysis.
+        4. **Source Hierarchy:** Prioritize Original Studies (Source B) over General Articles.
+        5. **Token Economy:** Keep answer concise (< 250 words). Don't waffle.
 
         STRUCTURE:
-        - **Greeting:** Short & warm (e.g., "Chào bạn, tôi là {ADMIN_PROFILE['name']}...").
-        - **Direct Answer:** Answer the question clearly.
-        - **Scientific Explanation:** Biomechanics/Physiology details.
-        - **Specific Evidence:** "Research shows... [Ref: X]" (Make sure X is the CORRECT ID from the Data below).
-        - **Conclusion/Advice:** Actionable advice.
-
-        [DATA (CONTEXT)]:
+        - **Direct Answer:** Clear, medical-grade answer based on [DATA].
+        - **The Evidence (The Hook):** "For instance, a key study by [Author] ({ADMIN_PROFILE.get('year', 'recent')})..." -> Show **DOI**.
+        - **The Call to Action (The Sink):** "I have analyzed [Total_Studies]+ other studies on this topic with full EMG data. Read the full report here: [Link from Data]"
+        
+        [DATA (JSON CONTEXT)]:
         {context_text}
 
         [HISTORY]:
