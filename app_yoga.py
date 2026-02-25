@@ -118,6 +118,7 @@ def init_db():
     c = conn.cursor()
     c.execute('CREATE TABLE IF NOT EXISTS usage (user_id TEXT, date TEXT, count INTEGER, PRIMARY KEY (user_id, date))')
     c.execute('CREATE TABLE IF NOT EXISTS blacklist (user_id TEXT PRIMARY KEY, reason TEXT, timestamp TEXT)')
+    c.execute('CREATE TABLE IF NOT EXISTS chat_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, timestamp TEXT, prompt TEXT)')
     conn.commit(); conn.close()
 init_db()
 
@@ -148,6 +149,15 @@ def increment_usage(user_id):
     c.execute("INSERT OR IGNORE INTO usage (user_id, date, count) VALUES (?, ?, 0)", (user_id, today))
     c.execute("UPDATE usage SET count = count + 1 WHERE user_id=? AND date=?", (user_id, today))
     conn.commit(); conn.close()
+
+def log_user_prompt(user_id, prompt):
+    """Âm thầm lưu câu hỏi của khách vào DB"""
+    try:
+        conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        c.execute("INSERT INTO chat_logs (user_id, timestamp, prompt) VALUES (?, ?, ?)", (user_id, now, prompt))
+        conn.commit(); conn.close()
+    except Exception as e: pass
 
 # --- B. LOAD AI ENGINE ---
 @st.cache_resource
@@ -320,6 +330,22 @@ with st.sidebar:
     
     if st.session_state.authenticated:
         st.success(f"Hi {st.session_state.username}")
+        if st.session_state.authenticated:
+        st.success(f"Hi {st.session_state.username}")
+        
+        # ---> KHU VỰC ĐẶC QUYỀN CỦA ADMIN <---
+        if st.session_state.username == "admin_yiml": # Tên user cụ đặt cho admin
+            import pandas as pd
+            if st.button("👁️ Xem lịch sử khách hỏi"):
+                st.markdown("### 🕵️ Hồ sơ Chat")
+                try:
+                    conn = sqlite3.connect(DB_PATH)
+                    # Lấy 50 câu hỏi gần nhất
+                    df = pd.read_sql_query("SELECT timestamp, prompt, user_id FROM chat_logs ORDER BY id DESC LIMIT 50", conn)
+                    st.dataframe(df, use_container_width=True)
+                    conn.close()
+                except Exception as e: st.error("Chưa có data!")
+        # ---------------------------------------
         if st.button("Logout"): st.session_state.authenticated = False; st.rerun()
     else:
         with st.form("login_sidebar"):
@@ -415,6 +441,7 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / H
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     increment_usage(current_user)
+    log_user_prompt(current_user, prompt)
 
     with st.chat_message("assistant"):
         with st.spinner("Analyzing medical databases / Đang tra cứu hồ sơ y khoa..."):
