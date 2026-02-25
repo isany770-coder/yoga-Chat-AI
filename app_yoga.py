@@ -39,9 +39,9 @@ st.markdown("""
     /* SỬA LỖI 2: Nâng ô chat lên cao hơn (bottom: 35px)    */
     /* ---------------------------------------------------- */
     div[data-testid="stChatInput"] {
-        position: fixed; bottom: 35px !important; left: 50%; transform: translateX(-50%);
+        bottom: 35px !important; left: 50%; transform: translateX(-50%);
         width: 95%; max-width: 800px; z-index: 1000;
-        background-color: white; border-radius: 30px;
+        background-color: white; border-radius: 10px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.08); padding: 5px; border: 1px solid #e0e0e0;
     }
     
