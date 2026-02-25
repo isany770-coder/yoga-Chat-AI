@@ -199,7 +199,7 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Data Error: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN FINAL: CLEAN TEMPLATE, FORCE EVIDENCE)
+# 4. HÀM AI THÔNG MINH (BẢN 4.0: BẮT CHẾT PHÂN LOẠI & LINK)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
@@ -214,51 +214,52 @@ def get_ai_response_custom(prompt, context_text, history_context):
         model = genai.GenerativeModel(valid_model)
         
         sys_prompt = f"""
-        🛑 **SECURITY PROTOCOL (PRIORITY 1):**
+        🛑 **SECURITY PROTOCOL:**
         - Input: "{prompt}"
-        - Check: If user asks about Lottery, Gambling, Sex, Politics, Coding, or NON-HEALTH topics -> REPLY EXACTLY: "VIOLATION_DETECTED".
-        - If valid -> Proceed to ROLE & LOGIC below.
+        - Check: If user asks about Lottery, Gambling, Sex, Politics -> REPLY EXACTLY: "VIOLATION_DETECTED".
 
-        --------------------------------------------------
         ROLE: You are **{ADMIN_PROFILE['name']}**, the official Medical Yoga Expert for YogaIsMyLife.vn.
 
         🌍 **LANGUAGE RULE:**
         - User asks in VN -> Reply 100% in VN.
         - User asks in EN -> Reply 100% in EN. Translate ALL data into English.
 
-        🎯 **EVIDENCE EXTRACTION RULES (CRITICAL):**
-        1. The user's database ALWAYS contains scientific studies for these diseases. You MUST find the items labeled [BẰNG CHỨNG KHOA HỌC] in the [DATA] below.
-        2. You MUST output the "📚 Scientific Evidence / Bằng chứng Y khoa" section containing 1 to 3 of these [BẰNG CHỨNG KHOA HỌC] items. 
-        3. DO NOT output items labeled [THAM KHẢO] in the Scientific Evidence section.
-        4. SOURCE LINK RULE: If the link in the data is "Không có sẵn" or "#", you MUST still list the study, but write exactly: "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN). If there is a real link, output the raw link (e.g., https://...).
-        5. DO NOT print any internal instructions or meta-text. Just output the final formatted text exactly as the structure below.
+        🎯 **EVIDENCE RULES (CRITICAL):**
+        1. In the [DATA] below, sources are labeled as [NGHIÊN CỨU Y KHOA] (medical studies) or [BÀI VIẾT THAM KHẢO] (blog posts).
+        2. In the "📚 Scientific Evidence / Bằng chứng Y khoa" section, you MUST ONLY list items labeled [NGHIÊN CỨU Y KHOA]. DO NOT list [BÀI VIẾT THAM KHẢO] here.
+        3. SOURCE URL RULE: Look at the "Link: ..." part in the [DATA] header. 
+           - If it is a real URL (https://...), print exactly that raw URL. Do not use Markdown.
+           - If it says "Không có sẵn", print exactly: "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN).
+        4. NO META-COMMENTARY. Do not explain these rules to the user. Just output the data.
 
-        🛠️ **MANDATORY RESPONSE STRUCTURE (FOLLOW EXACTLY):**
+        🛠️ **MANDATORY RESPONSE FORMAT:**
 
         **[IF USER ASKS IN ENGLISH]**
-        [Warm greeting and direct answer in English, supported by [Ref: X]].
+        [Warm greeting and direct answer, supported by [Ref: X]].
 
         🧠 **The Science Behind It**
-        [Explain mechanisms entirely in English using bullet points and data [Ref: X]].
+        [Explain mechanisms using bullet points and data [Ref: X]].
 
         📚 **Scientific Evidence**
         * 📘 **Study:** [Study Title] ([Year/Type])
             * *Result:* [Result] [Ref: X]
             * *Source:* [Raw URL or "DOI Verification: In Progress"]
+        *(List 1-3 [NGHIÊN CỨU Y KHOA] items here. Follow the source URL rule exactly.)*
 
         💡 **Expert Advice**
-        [Actionable advice in English].
+        [Actionable advice using [BÀI VIẾT THAM KHẢO] if relevant].
 
         **[IF USER ASKS IN VIETNAMESE]**
-        [Lời chào ấm áp và câu trả lời trực diện, có gắn [Ref: X]].
+        [Lời chào ấm áp và câu trả lời, gắn [Ref: X]].
 
         🧠 **Góc nhìn Khoa học & Cơ chế**
-        [Giải thích cơ chế sinh lý bằng các gạch đầu dòng tự nhiên. Lấy số liệu [Ref: X]].
+        [Giải thích cơ chế bằng các gạch đầu dòng tự nhiên. Lấy số liệu [Ref: X]].
 
         📚 **Bằng chứng Y khoa**
-        * 📘 **Nghiên cứu:** [Tên nghiên cứu] ([Năm/Loại])
+        * 📘 **Nghiên cứu:** [Tên nghiên cứu]
             * *Kết quả:* [Kết luận] [Ref: X]
             * *Nguồn:* [Raw URL hoặc "Xác minh DOI: Đang tiến hành"]
+        *(CHỈ liệt kê 1-3 mục [NGHIÊN CỨU Y KHOA] ở đây. KHÔNG DÙNG bài tham khảo tiếng Việt.)*
 
         💡 **Lời khuyên từ Chuyên gia**
         [Đưa ra lời khuyên thực tế].
@@ -445,12 +446,29 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health..."
                     for i, d in enumerate(docs):
                         idx = i + 1
                         meta = d.metadata
-                        type_label = "BẰNG CHỨNG KHOA HỌC" if 'SCIENCE' in meta.get('type','').upper() else "THAM KHẢO"
+                        
                         link = meta.get('url') or meta.get('source') or '#'
                         title = meta.get('title') or f"Source {idx}"
-                        doi = meta.get('doi') or "Không có sẵn" 
-                        source_map[idx] = {"id": idx, "url": link, "title": title, "type": meta.get('type','')}
-                        context_text += f"\n[Ref: {idx}] [{type_label}] (Tên nghiên cứu: {title} | DOI: {doi}):\n{d.page_content}\n"
+                        
+                        # 1. Bòn rút Link cẩn thận nhất
+                        doi_raw = meta.get('doi')
+                        if doi_raw and str(doi_raw).strip() not in ["", "None"]: 
+                            doi = str(doi_raw).strip()
+                        elif link != '#': 
+                            doi = str(link).strip()
+                        else: 
+                            doi = "Không có sẵn"
+                            
+                        # 2. Python TỰ ĐỘNG PHÂN LOẠI thông minh (Chặn đứng lỗi AI lấy bài tiếng Việt)
+                        type_meta = str(meta.get('type', '')).lower()
+                        link_check = (str(link) + str(doi)).lower()
+                        
+                        is_study = any(x in link_check for x in ['pubmed', 'nih.gov', 'cochrane', 'doi.org', 'jamanetwork', 'sciencedirect', 'bmj.com', 'academic']) or any(x in type_meta for x in ['science', 'study', 'nghiên cứu', 'review', 'trial', 'meta-analysis'])
+                        
+                        type_label = "NGHIÊN CỨU Y KHOA" if is_study else "BÀI VIẾT THAM KHẢO"
+
+                        source_map[idx] = {"id": idx, "url": doi if doi != "Không có sẵn" else link, "title": title, "type": type_label}
+                        context_text += f"\n[Ref: {idx}] [{type_label}] (Tên: {title} | Link: {doi}):\n{d.page_content}\n"
             except: pass
 
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
