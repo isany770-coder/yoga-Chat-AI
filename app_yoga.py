@@ -199,7 +199,7 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Data Error: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN FINAL: LINK BẤM ĐƯỢC 100%)
+# 4. HÀM AI THÔNG MINH (BẢN FINAL: TRẢ RAW URL CHUẨN HÀN LÂM)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
@@ -235,8 +235,8 @@ def get_ai_response_custom(prompt, context_text, history_context):
         1. **TWO TYPES OF DATA:** The [DATA] provides two types of sources: [BẰNG CHỨNG KHOA HỌC] (Peer-reviewed science studies) and [THAM KHẢO] (YogaIsMyLife website articles).
         2. **SCIENTIFIC EVIDENCE SECTION:** You MUST ONLY list sources labeled as [BẰNG CHỨNG KHOA HỌC] here. Limit to a maximum of 3 top studies.
         3. **USE REFERENCES:** Use [THAM KHẢO] sources to explain mechanisms or give advice, but do not pretend they are scientific studies.
-        4. **CLICKABLE HYPERLINKS (CRITICAL):** You MUST format the URL as a clickable Markdown link. Example: `[View Study](URL)` or `[Xem nghiên cứu](URL)`. DO NOT just paste the raw text URL.
-        5. **MISSING LINKS:** If a [BẰNG CHỨNG KHOA HỌC] study has "Không có sẵn" as DOI, write exactly: "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN) without any link formatting.
+        4. **RAW URL FORMAT (CRITICAL):** You MUST output the exact raw text URL (e.g., https://pubmed...). DO NOT format it as a hidden Markdown link like [View Study]. Let the user see the full URL.
+        5. **MISSING LINKS:** If a [BẰNG CHỨNG KHOA HỌC] study has "Không có sẵn" as DOI, write exactly: "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN).
 
         🛠️ **MANDATORY RESPONSE STRUCTURE:**
 
@@ -249,7 +249,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         📚 **Scientific Evidence**
         * 📘 **Study:** [Translate Title to English]
             * *Result:* [Translate result] [Ref: X]
-            * *Source:* [View Study](INSERT_URL_HERE)
+            * *Source:* [Insert RAW URL here]
         *(CRITICAL: ONLY list items labeled [BẰNG CHỨNG KHOA HỌC] here. Max 3 items. If none, output: "Currently, specific clinical trials for this exact query are being verified in our database.")*
 
         💡 **Expert Advice**
@@ -262,9 +262,9 @@ def get_ai_response_custom(prompt, context_text, history_context):
         [Giải thích cơ chế sinh lý bằng các gạch đầu dòng tự nhiên. Lấy số liệu [Ref: X]].
 
         📚 **Bằng chứng Y khoa**
-        * 📘 **Nghiên cứu:** [Tên nghiên cứu]
+        * 📘 **Nghiên cứu:** [Tên nghiên cứu] ([Năm/Loại])
             * *Kết quả:* [Kết luận] [Ref: X]
-            * *Nguồn:* [Xem nghiên cứu](CHÈN_LINK_VÀO_ĐÂY)
+            * *Nguồn:* [Chèn nguyên RAW URL vào đây]
         *(QUAN TRỌNG: CHỈ liệt kê mục [BẰNG CHỨNG KHOA HỌC] ở đây. Tối đa 3 mục. Nếu không có, ghi: "Hiện tại, các thử nghiệm lâm sàng chuyên sâu cho vấn đề này đang được bộ phận Y khoa của YIML tiếp tục xác minh.")*
 
         💡 **Lời khuyên từ Chuyên gia**
