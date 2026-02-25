@@ -241,7 +241,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         [Explain mechanisms using bullet points based on the data].
 
         📚 **Scientific Evidence**
-        * 📘 **Study:** [Study Title / Document Name]
+        * 📘 **Study:** [Study Title / Document Name] ([Year/Type])
             * *Result:* [Result/Key Point]
             * *Source:* [Insert exact raw URL or "Verification In Progress"]
         *(List 1-3 items here. Follow the source URL rule exactly.)*
@@ -450,6 +450,8 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / H
             else:
                 # TRƯỜNG HỢP THÀNH CÔNG: Chữ sạch sẽ nguyên chất, KHÔNG RÁC
                 clean_text = ai_raw.strip()
+                safety_notice = "\n\nBefore you begin, please complete our [Safety Screening Checklist](https://yogaismylife.vn/en/yoga-safety-checklist-tool/) to ensure these practices are safe for your specific condition."
+                clean_text = clean_text + safety_notice
 
                 # Bắt bóc ngôn ngữ thông minh
                 vn_chars = "áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ"
