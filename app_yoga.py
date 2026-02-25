@@ -217,7 +217,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         3. **MANDATORY SCIENTIFIC FORMAT:** Whenever you cite a study labeled [BẰNG CHỨNG KHOA HỌC], you MUST explicitly state the "Tên nghiên cứu" (Study Title) and its "DOI" directly in your response text.
         4. **NO HALLUCINATION:** If the DOI is somehow missing in [DATA], explicitly write "DOI: Không có sẵn trong dữ liệu". Do not invent DOIs.
         5. **Science First:** Prioritize citing the Original Study over a General Article if both exist in [DATA].
-        6. Maximum length: 300 words.         
+        6. Maximum length: 700 words.         
 
         STRUCTURE (Vietnamese queries):
         - **Greeting:** Short & warm (e.g., "Chào bạn, tôi là {ADMIN_PROFILE['name']}...").
