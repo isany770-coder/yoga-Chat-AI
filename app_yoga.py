@@ -414,6 +414,7 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                 chat_history += f"{msg['role']}: {clean_content}\n"
 
             # 1. Vector Search
+            # 1. Vector Search
             context_text = ""
             source_map = {}
             try:
@@ -425,8 +426,14 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                         type_label = "BẰNG CHỨNG KHOA HỌC" if 'SCIENCE' in meta.get('type','').upper() else "THAM KHẢO"
                         link = meta.get('url') or meta.get('source') or '#'
                         title = meta.get('title') or f"Source {idx}"
+                        
+                        # --- THÊM DÒNG NÀY ĐỂ LẤY DOI TỪ METADATA ---
+                        doi = meta.get('doi') or "Không có sẵn" 
+                        
                         source_map[idx] = {"id": idx, "url": link, "title": title, "type": meta.get('type','')}
-                        context_text += f"\n[Ref: {idx}] [{type_label}] ({title}):\n{d.page_content}\n"
+                        
+                        # --- SỬA LẠI DÒNG NÀY ĐỂ MỚM DOI CHO AI ---
+                        context_text += f"\n[Ref: {idx}] [{type_label}] (Tên nghiên cứu: {title} | DOI: {doi}):\n{d.page_content}\n"
             except: pass
 
             # 2. Gọi AI
