@@ -439,6 +439,7 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / H
                 st.error(f"System Error: {ai_raw}")
                 final_content = "Sorry, the system is undergoing maintenance."
 
+            # --- C. TRƯỜNG HỢP THÀNH CÔNG ---
             else:
                 ref_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_raw)]
                 clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
@@ -449,26 +450,23 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / H
                 vn_chars = "áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ"
                 is_vietnamese = any(char in prompt.lower() for char in vn_chars)
 
-                # HTML Nguồn (Song ngữ động)
+                # HTML Nguồn (CHỈ HIỂN THỊ NẾU LÀ TIẾNG VIỆT)
                 unique_sources = {source_map[rid]['url']: source_map[rid] for rid in ref_ids if rid in source_map and source_map[rid]['url'] != '#'}
                 sources_html = ""
-                if unique_sources:
-                    header_src = "**📚 Nguồn tham khảo & Bằng chứng:**" if is_vietnamese else "**📚 References & Evidence:**"
-                    sources_html += f"\n\n---\n{header_src}\n\n"
+                if unique_sources and is_vietnamese:
+                    sources_html += "\n\n---\n**📚 Nguồn tham khảo & Bằng chứng:**\n\n"
                     list_src = sorted(unique_sources.values(), key=lambda x: x['id'])
                     for info in list_src:
                         icon = "🧪" if 'SCIENCE' in info['type'].upper() else "🔗"
                         sources_html += f"- {icon} **[{info['id']}]** [{info['title']}]({info['url']})\n"
 
-                # HTML Upsell (Song ngữ động)
+                # HTML Upsell (CHỈ HIỂN THỊ NẾU LÀ TIẾNG VIỆT)
                 upsell_html = ""
                 recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
-                if recs:
-                    header_up = "💡 Giải pháp gợi ý từ Chuyên gia:" if is_vietnamese else "💡 Recommended Solutions:"
-                    btn_txt = "Xem" if is_vietnamese else "View"
-                    upsell_html += f"<div class='upsell-box'><b>{header_up}</b><br>"
+                if recs and is_vietnamese:
+                    upsell_html += "<div class='upsell-box'><b>💡 Giải pháp gợi ý từ Chuyên gia:</b><br>"
                     for r in recs[:2]:
-                        upsell_html += f"""<div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;"><span style="color:#33691e; font-weight:500">👉 {r['name']}</span><a href="{r['url']}" target="_blank" class="upsell-btn">{btn_txt}</a></div>"""
+                        upsell_html += f"""<div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;"><span style="color:#33691e; font-weight:500">👉 {r['name']}</span><a href="{r['url']}" target="_blank" class="upsell-btn">Xem</a></div>"""
                     upsell_html += "</div>"
                 
                 final_content = clean_text
