@@ -219,7 +219,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
            - In English: "According to the study '[Study Title]' (Link/DOI: [DOI/Link])... [Ref: X]"
         4. If the DOI/Link is missing in [DATA], explicitly write "DOI: Không có sẵn" (in VN) or "DOI: Not available" (in EN).
         5. Prioritize citing the Original Study over a General Article if both exist in [DATA].
-        6. Maximum length: 300 words.         
+        6. Maximum length: 700 words.         
 
         STRUCTURE:
         - **Greeting:** Short & warm.
