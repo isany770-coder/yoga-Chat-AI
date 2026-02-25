@@ -226,10 +226,9 @@ def get_ai_response_custom(prompt, context_text, history_context):
 
         🎯 **EVIDENCE RULES (CRITICAL):**
         1. Read the [DATA] provided below. Extract 1 to 3 relevant scientific studies.
-        2. SOURCE URL RULE: 
-           - Look at "DOI:" in the provided [DATA]. 
-           - Copy the exact string provided after "DOI:".
-           - DO NOT use or output any website links ending in .vn.
+        2. SOURCE URL RULE: Look at the "Link:" in the provided [DATA].
+           - Output the EXACT RAW URL. DO NOT hide the link behind text like "Click here". Just print the raw link (e.g., https://...).
+           - If it says "Not available", print exactly: "Source: Verification In Progress" (EN) or "Nguồn: Đang xác minh" (VN).
         3. Write naturally. DO NOT use citation tags like [Ref: 1] in the text.
 
         🛠️ **MANDATORY RESPONSE FORMAT:**
@@ -241,9 +240,9 @@ def get_ai_response_custom(prompt, context_text, history_context):
         [Explain mechanisms using bullet points based on the data].
 
         📚 **Scientific Evidence**
-        * 📘 **Study:** [Study Title / Document Name] ([Year/Type])
+        * 📘 **Study:** [Study Title / Document Name]
             * *Result:* [Result/Key Point]
-            * *Source:* [Raw URL or "DOI Verification: In Progress"]
+            * *Source:* [Insert exact raw URL or "Verification In Progress"]
         *(List 1-3 items here. Follow the source URL rule exactly.)*
 
         💡 **Expert Advice**
@@ -258,11 +257,11 @@ def get_ai_response_custom(prompt, context_text, history_context):
         📚 **Bằng chứng Y khoa**
         * 📘 **Nghiên cứu:** [Tên nghiên cứu / Tên tài liệu]
             * *Kết quả:* [Kết luận/Điểm chính]
-            * *Link nghiên cứu:* [Copy chính xác URL từ "Link gốc" hoặc "DOI" trong nội dung. Cấm tuyệt đối lấy link .vn]
+            * *Nguồn:* [Điền nguyên xi raw link hoặc "Đang xác minh"]
         *(Liệt kê 1-3 mục ở đây. Cấm bỏ trống).*
 
         💡 **Lời khuyên từ Chuyên gia**
-        [Đưa ra lời khuyên thực tế].
+        [Đưa ra lời khuyên thực tế. Nhắc nhở yoga là liệu pháp bổ trợ].
 
         --------------------------------------------------
         [DATA (CONTEXT)]:
