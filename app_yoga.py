@@ -75,7 +75,7 @@ st.markdown("""
 </style>
 
 <div class="disclaimer-text">
-    YIML AI can make mistakes. Please verify medical information with a healthcare professional.
+    AI can make mistakes. Verify medical information with a healthcare professional.
 </div>
 """, unsafe_allow_html=True)
 
