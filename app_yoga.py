@@ -226,10 +226,10 @@ def get_ai_response_custom(prompt, context_text, history_context):
 
         🎯 **EVIDENCE RULES (CRITICAL):**
         1. Read the [DATA] provided below. Extract 1 to 3 relevant scientific studies.
-        2. SOURCE URL RULE: You MUST read the "Nội dung" of the document. Look for the exact text "Link gốc:" or "DOI:" inside the text. 
-           - Extract and print EXACTLY the URL or DOI string you find there. 
-           - STRICTLY PROHIBITED: DO NOT output any website link ending in .vn.
-           - If neither "Link gốc" nor "DOI" is found in the text, print exactly: "Đang xác minh".
+        2. SOURCE URL RULE: 
+           - Look at "DOI:" in the provided [DATA]. 
+           - Copy the exact string provided after "DOI:".
+           - DO NOT use or output any website links ending in .vn.
         3. Write naturally. DO NOT use citation tags like [Ref: 1] in the text.
 
         🛠️ **MANDATORY RESPONSE FORMAT:**
@@ -411,9 +411,19 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / H
                 if docs:
                     for i, d in enumerate(docs):
                         meta = d.metadata
-                        link = meta.get('url') or meta.get('source') or '#'
+                        doi_raw = str(meta.get('doi', '')).strip()
+                        
+                        if doi_raw and doi_raw != '#' and doi_raw.lower() not in ["none", "null"]:
+                            doi = doi_raw
+                        else:
+                            doi = "Đang xác minh"
+                            
                         title = meta.get('title') or f"Tài liệu {i+1}"
-                        context_text += f"\n--- TÀI LIỆU {i+1} ---\nTên: {title}\nNội dung:\n{d.page_content}\n"
+                        
+                        # Forcefully remove any .vn links from the content
+                        clean_content = re.sub(r'https?://[^\s]+\.vn[^\s]*', '', d.page_content)
+                        
+                        context_text += f"\n--- TÀI LIỆU {i+1} ---\nTên: {title}\nDOI: {doi}\nNội dung:\n{clean_content}\n"
             except: pass
 
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
