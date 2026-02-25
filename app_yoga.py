@@ -150,6 +150,15 @@ def increment_usage(user_id):
     c.execute("UPDATE usage SET count = count + 1 WHERE user_id=? AND date=?", (user_id, today))
     conn.commit(); conn.close()
 
+def log_user_prompt(user_id, prompt):
+    """Âm thầm lưu câu hỏi của khách vào DB"""
+    try:
+        conn = sqlite3.connect(DB_PATH); c = conn.cursor()
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        c.execute("INSERT INTO chat_logs (user_id, timestamp, prompt) VALUES (?, ?, ?)", (user_id, now, prompt))
+        conn.commit(); conn.close()
+    except Exception as e: pass
+
 # --- B. LOAD AI ENGINE ---
 @st.cache_resource
 def load_brain_engine_safe():
