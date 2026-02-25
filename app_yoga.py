@@ -225,12 +225,12 @@ def get_ai_response_custom(prompt, context_text, history_context):
         - User asks in EN -> Reply 100% in EN. Translate ALL data into English.
 
         🎯 **EVIDENCE RULES (CRITICAL):**
-        1. Read the [DATA] provided below. Extract 1 to 3 relevant scientific studies or medical articles from the data to list in the "Scientific Evidence" section.
-        2. SOURCE URL RULE: Look at the "Link/DOI" in the data. 
-           - If it is a real URL (https://...), print exactly that raw URL.
-           - If it says "Không có sẵn", print exactly: "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN).
+        1. Read the [DATA] provided below. Extract 1 to 3 relevant scientific studies.
+        2. SOURCE URL RULE: You MUST read the "Nội dung" of the document. Look for the exact text "Link gốc:" or "DOI:" inside the text. 
+           - Extract and print EXACTLY the URL or DOI string you find there. 
+           - STRICTLY PROHIBITED: DO NOT output any website link ending in .vn.
+           - If neither "Link gốc" nor "DOI" is found in the text, print exactly: "Đang xác minh".
         3. Write naturally. DO NOT use citation tags like [Ref: 1] in the text.
-        4. NO META-COMMENTARY. DO NOT apologize or explain. Just output the requested structure.
 
         🛠️ **MANDATORY RESPONSE FORMAT:**
 
@@ -258,7 +258,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         📚 **Bằng chứng Y khoa**
         * 📘 **Nghiên cứu:** [Tên nghiên cứu / Tên tài liệu]
             * *Kết quả:* [Kết luận/Điểm chính]
-            * *Nguồn:* [Raw URL hoặc "Xác minh DOI: Đang tiến hành"]
+            * *Link nghiên cứu:* [Copy chính xác URL từ "Link gốc" hoặc "DOI" trong nội dung. Cấm tuyệt đối lấy link .vn]
         *(Liệt kê 1-3 mục ở đây. Cấm bỏ trống).*
 
         💡 **Lời khuyên từ Chuyên gia**
@@ -412,17 +412,8 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / H
                     for i, d in enumerate(docs):
                         meta = d.metadata
                         link = meta.get('url') or meta.get('source') or '#'
-                        doi_raw = meta.get('doi')
-                        if doi_raw and str(doi_raw).strip() not in ["", "None"]: 
-                            doi = str(doi_raw).strip()
-                        elif link != '#': 
-                            doi = str(link).strip()
-                        else: 
-                            doi = "Không có sẵn"
-                            
                         title = meta.get('title') or f"Tài liệu {i+1}"
-                        # Bơm data sạch vào cho AI đọc, KHÔNG CÓ REF
-                        context_text += f"\n--- TÀI LIỆU {i+1} ---\nTên: {title}\nLink/DOI: {doi}\nNội dung:\n{d.page_content}\n"
+                        context_text += f"\n--- TÀI LIỆU {i+1} ---\nTên: {title}\nNội dung:\n{d.page_content}\n"
             except: pass
 
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
