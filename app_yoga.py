@@ -411,13 +411,13 @@ for msg in st.session_state.messages:
 st.markdown('<div class="bottom-spacer"></div>', unsafe_allow_html=True)
 
 # Đổi placeholder nhập liệu thành tiếng Anh/Song ngữ
-if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / Hỏi về yoga và bệnh lý..."):
+if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health..."):
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     increment_usage(current_user)
 
     with st.chat_message("assistant"):
-        with st.spinner("Analyzing medical databases / Đang tra cứu hồ sơ y khoa..."):
+        with st.spinner("Analyzing databases..."):
             
             chat_history = ""
             for msg in st.session_state.messages[-4:]:
