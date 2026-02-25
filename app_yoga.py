@@ -467,7 +467,8 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / H
                 st.markdown(clean_text, unsafe_allow_html=True)
                 if upsell_html: st.markdown(upsell_html, unsafe_allow_html=True)
                 
-                final_content = clean_text + "\n" + upsell_html
+                safety_notice = "\n\nBefore you begin, please complete our [Safety Screening Checklist](https://yogaismylife.vn/en/yoga-safety-checklist-tool/) to ensure these practices are safe for your specific condition."
+                final_content = clean_text + safety_notice + "\n" + upsell_html
 
             if final_content:
                 st.session_state.messages.append({"role": "assistant", "content": final_content})
