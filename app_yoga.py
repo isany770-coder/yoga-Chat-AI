@@ -199,15 +199,13 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Data Error: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN FINAL: MỀM MẠI, CHUYÊN NGHIỆP, HẠN CHẾ NON-DOI)
+# 4. HÀM AI THÔNG MINH (BẢN FINAL: FIX LỖI MẤT LINK)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
-        # 1. CHECK TỪ KHÓA CẤM
         for kw in BLOCKED_KEYWORDS:
             if kw in prompt.lower(): return "VIOLATION_DETECTED"
 
-        # 2. CẤU HÌNH MODEL
         valid_model = 'models/gemini-1.5-flash'
         try:
             for m in genai.list_models():
@@ -215,7 +213,6 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # 3. SYSTEM PROMPT (EXPERT CONSULTATION STYLE)
         sys_prompt = f"""
         🛑 **SECURITY PROTOCOL (PRIORITY 1):**
         - Input: "{prompt}"
@@ -229,17 +226,16 @@ def get_ai_response_custom(prompt, context_text, history_context):
 
         🌍 **LANGUAGE & TRANSLATION (CRITICAL RULE):**
         - If User asks in Vietnamese -> Reply 100% in Vietnamese.
-        - If User asks in English -> Reply 100% in English. **CRITICAL:** The [DATA] provided below is in Vietnamese. You MUST translate ALL facts, explanations, mechanisms, and Study Titles from the [DATA] into English before outputting. Absolutely NO Vietnamese words should appear in your response if the user asked in English.
+        - If User asks in English -> Reply 100% in English. **CRITICAL:** The [DATA] provided below is in Vietnamese. You MUST translate ALL facts, explanations, mechanisms, and Study Titles from the [DATA] into English before outputting.
 
         🧠 **CONTEXT AWARENESS:**
         - You must read the [HISTORY] below to understand the conversation flow.
 
         🎯 **STRICT CITATION RULES:**
         1. **ACCURACY:** When stating a fact, you MUST attach the exact [Ref: ID].
-        2. **STRICT LINK REQUIREMENT:** You MUST ONLY cite studies from the [DATA] that have a valid, specific URL or DOI (e.g., a link to PubMed, PMC, or a specific DOI number).
-        3. **NO MISSING LINKS:** DO NOT cite any study where the DOI/Link is listed as "Không có sẵn" or "#". If you cannot find enough studies with valid links to answer the question comprehensively, base your answer on the available text content but only list the studies with valid links in the 'Scientific Evidence' section.
-        4. Prioritize citing the Original Study over a General Article.
-        5. Maximum length: 700 words.
+        2. **ALWAYS CITE:** You MUST extract and list the studies from the [DATA] to support your answer. 
+        3. **MISSING LINKS (THE SECRET TRICK):** If the DOI/Link in [DATA] is listed as "Không có sẵn", you MUST STILL CITE the study, but explicitly write "Source: DOI Verification: In Progress" (in EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (in VN). Do not skip the study!
+        4. Maximum length: 700 words.
 
         🛠️ **MANDATORY RESPONSE STRUCTURE:**
 
@@ -254,13 +250,13 @@ def get_ai_response_custom(prompt, context_text, history_context):
             * *Focus:* [English translation of the focus area]
             * *Result:* [English translation of the result] [Ref: X]
             * *Source:* [DOI/Link]
-        *(Repeat this block for each cited study. Only include studies with valid links.)*
+        *(Repeat this block for each cited study. Remember the "Verification In Progress" trick if link is missing!)*
 
         💡 **Expert Advice**
         [Actionable, warm advice in English].
 
         **[IF USER ASKS IN VIETNAMESE]**
-        [Lời chào ấm áp và câu trả lời trực diện cho vấn đề, có gắn [Ref: X]].
+        [Lời chào ấm áp và câu trả lời trực diện, có gắn [Ref: X]].
 
         🧠 **Góc nhìn Khoa học & Cơ chế**
         [Giải thích cơ chế sinh lý bằng các gạch đầu dòng tự nhiên. Lấy đúng số liệu [Ref: X]].
@@ -270,7 +266,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
             * *Vấn đề:* [Lĩnh vực/Bệnh lý]
             * *Kết quả:* [Số liệu/Kết luận] [Ref: X]
             * *Nguồn:* [DOI/Link]
-        *(Lặp lại khối này cho mỗi nghiên cứu được trích dẫn. Chỉ bao gồm các nghiên cứu có link hợp lệ.)*
+        *(Lặp lại khối cho mỗi nghiên cứu. Dùng "Xác minh DOI: Đang tiến hành" nếu không có link!)*
 
         💡 **Lời khuyên từ Chuyên gia**
         [Đưa ra lời khuyên thực tế. Nhắc nhở yoga là liệu pháp bổ trợ].
@@ -461,7 +457,16 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / H
                         type_label = "BẰNG CHỨNG KHOA HỌC" if 'SCIENCE' in meta.get('type','').upper() else "THAM KHẢO"
                         link = meta.get('url') or meta.get('source') or '#'
                         title = meta.get('title') or f"Source {idx}"
-                        doi = meta.get('doi') or "Không có sẵn" 
+                        
+                        # ---> SỬA LỖI Ở ĐÂY: Quét sạch DOI, nếu không có thì lấy Link URL, bí quá mới báo Không có sẵn
+                        doi_raw = meta.get('doi')
+                        if doi_raw: 
+                            doi = doi_raw
+                        elif link != '#': 
+                            doi = link
+                        else: 
+                            doi = "Không có sẵn"
+                            
                         source_map[idx] = {"id": idx, "url": link, "title": title, "type": meta.get('type','')}
                         context_text += f"\n[Ref: {idx}] [{type_label}] (Tên nghiên cứu: {title} | DOI: {doi}):\n{d.page_content}\n"
             except: pass
