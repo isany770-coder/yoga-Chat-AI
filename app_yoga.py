@@ -199,7 +199,7 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Data Error: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN FINAL 7.0: SẠCH BÓNG, TỰ TẠO LINK)
+# 4. HÀM AI THÔNG MINH (BẢN 6.0: ÉP XEM NGHIÊN CỨU)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
@@ -225,38 +225,40 @@ def get_ai_response_custom(prompt, context_text, history_context):
         - User asks in EN -> Reply 100% in EN. Translate ALL data into English.
 
         🎯 **EVIDENCE RULES (CRITICAL):**
-        1. Read the [DATA] provided below. It is strictly divided into "NGHIÊN CỨU KHOA HỌC" and "BÀI VIẾT TỪ CHUYÊN GIA".
-        2. For the "Scientific Evidence / Bằng chứng Y khoa" section, you MUST ONLY list items from the "NGHIÊN CỨU KHOA HỌC" group. 
-        3. SOURCE URL RULE: Print the exact "Link:" provided in the data. DO NOT alter it.
-        4. ABSOLUTELY DO NOT use citation tags like [Ref: 1] or [1].
-        5. NO META-COMMENTARY. DO NOT apologize or explain.
+        1. Look at the [DATA] below. It is strictly divided into "NGHIÊN CỨU KHOA HỌC" and "BÀI VIẾT TỪ CHUYÊN GIA".
+        2. For the "Scientific Evidence / Bằng chứng Y khoa" section, you MUST ONLY list items from the "NGHIÊN CỨU KHOA HỌC" group. NEVER use "BÀI VIẾT" here.
+        3. SOURCE URL RULE: Print the exact "Link:" provided in the data. If it says "Không có sẵn", print "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN).
+        4. ABSOLUTELY DO NOT use citation tags like [Ref: 1] or [1] anywhere in the text. Write naturally.
+        5. NO META-COMMENTARY. DO NOT apologize or explain. Just output the data.
 
-        🛠️ **MANDATORY RESPONSE FORMAT (DO NOT PRINT ANY INSTRUCTIONS OUT LOUD):**
+        🛠️ **MANDATORY RESPONSE FORMAT:**
 
         **[IF USER ASKS IN ENGLISH]**
         [Warm greeting and direct answer].
 
         🧠 **The Science Behind It**
-        [Explain mechanisms using bullet points based on the data. No Ref tags].
+        [Explain mechanisms using bullet points based on the data. Do NOT use Ref tags].
 
         📚 **Scientific Evidence**
         * 📘 **Study:** [Study Title]
             * *Result:* [Result/Key Point]
-            * *Source:* [Raw URL from data]
+            * *Source:* [Raw URL or "DOI Verification: In Progress"]
+        *(List 1-3 NGHIÊN CỨU KHOA HỌC items here. NEVER list BÀI VIẾT).*
 
         💡 **Expert Advice**
-        [Actionable advice].
+        [Actionable advice using BÀI VIẾT TỪ CHUYÊN GIA data].
 
         **[IF USER ASKS IN VIETNAMESE]**
         [Lời chào ấm áp và câu trả lời trực diện].
 
         🧠 **Góc nhìn Khoa học & Cơ chế**
-        [Giải thích cơ chế bằng các gạch đầu dòng tự nhiên].
+        [Giải thích cơ chế bằng các gạch đầu dòng tự nhiên. Tuyệt đối KHÔNG DÙNG thẻ tham chiếu].
 
         📚 **Bằng chứng Y khoa**
         * 📘 **Nghiên cứu:** [Tên nghiên cứu]
             * *Kết quả:* [Kết luận/Điểm chính]
-            * *Nguồn:* [Raw URL từ data]
+            * *Nguồn:* [Raw URL hoặc "Xác minh DOI: Đang tiến hành"]
+        *(Bắt buộc trích 1-3 mục NGHIÊN CỨU KHOA HỌC. Cấm dùng BÀI VIẾT).*
 
         💡 **Lời khuyên từ Chuyên gia**
         [Đưa ra lời khuyên thực tế].
@@ -360,8 +362,6 @@ if is_limit_reached:
 # =====================================================
 # 8. XỬ LÝ CHAT CHÍNH
 # =====================================================
-import urllib.parse # Import bùa hộ mệnh tạo Link
-
 if not st.session_state.authenticated:
     st.markdown("""<div class="welcome-banner">✨ Welcome to YIML Pro • Evidence-Based Medical Yoga Assistant</div>""", unsafe_allow_html=True)
 
@@ -383,47 +383,35 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health..."
                 clean_content = re.sub(r'<[^>]*>', '', msg['content'])
                 chat_history += f"{msg['role']}: {clean_content}\n"
 
-            # --- THUẬT TOÁN LỌC NGHIÊN CỨU ƯU TIÊN (BẢN TÀN NHẪN NHẤT) ---
+            # --- THUẬT TOÁN LỌC NGHIÊN CỨU ƯU TIÊN (LẤY 15 BÀI, CHỌN 4 BÀI CHUẨN) ---
             research_texts = ""
             blog_texts = ""
             r_count = 0
             b_count = 0
 
             try:
-                docs = db_text.similarity_search(prompt, k=15)
+                docs = db_text.similarity_search(prompt, k=15) # Tăng lên 15 để vớt nghiên cứu
                 if docs:
                     for d in docs:
                         meta = d.metadata
+                        link = meta.get('url') or meta.get('source') or '#'
+                        doi_raw = meta.get('doi')
                         
-                        # Vét sạch mọi loại Key viết hoa viết thường
-                        url_val = meta.get('url') or meta.get('URL') or meta.get('link') or meta.get('Link')
-                        doi_val = meta.get('doi') or meta.get('DOI')
-                        source_val = meta.get('source') or meta.get('Source')
+                        doi = str(doi_raw).strip() if doi_raw and str(doi_raw).strip() not in ["", "None"] else (str(link).strip() if link != '#' else "Không có sẵn")
+                        title = meta.get('title') or "Tài liệu Y khoa"
                         
-                        raw_link = str(url_val or doi_val or source_val or '#').strip()
-                        title = str(meta.get('title') or meta.get('Title') or 'Nghiên cứu Y khoa')
+                        type_meta = str(meta.get('type', '')).lower()
+                        link_check = (str(link) + str(doi)).lower()
                         
-                        # QUÂN LUẬT 1: Cứ có yogaismylife là tống sang mục Blog (THAM KHẢO)
-                        if 'yogaismylife.vn' in raw_link.lower():
-                            if b_count < 3:
-                                b_count += 1
-                                blog_texts += f"\n--- BÀI VIẾT TỪ CHUYÊN GIA {b_count} ---\nTên: {title}\nLink: {raw_link}\nNội dung:\n{d.page_content}\n"
-                        else:
-                            # QUÂN LUẬT 2: Còn lại chắc chắn là Nghiên cứu Y Khoa
-                            if r_count < 3:
-                                r_count += 1
-                                
-                                # BÙA HỘ MỆNH: Không có link ư? Tự tạo link tra cứu Google Scholar luôn!
-                                if raw_link == '#' or raw_link.lower() == 'none' or raw_link == '' or raw_link == 'Không có sẵn':
-                                    safe_title = urllib.parse.quote(title)
-                                    final_link = f"https://scholar.google.com/scholar?q={safe_title}"
-                                else:
-                                    final_link = raw_link
-                                    # Phủ đầu lỗi chỉ có mã DOI trần
-                                    if not final_link.startswith('http'):
-                                        final_link = f"https://doi.org/{final_link.replace('DOI:', '').strip()}"
-                                        
-                                research_texts += f"\n--- NGHIÊN CỨU KHOA HỌC {r_count} ---\nTên: {title}\nLink: {final_link}\nNội dung:\n{d.page_content}\n"
+                        # Điều kiện sống còn: Bắt đúng từ khóa nghiên cứu
+                        is_study = any(x in link_check for x in ['pubmed', 'nih.gov', 'cochrane', 'doi.org', 'jamanetwork', 'bmj', 'academic']) or any(x in type_meta for x in ['science', 'study', 'nghiên cứu', 'review', 'trial'])
+                        
+                        if is_study and r_count < 4:
+                            r_count += 1
+                            research_texts += f"\n--- NGHIÊN CỨU KHOA HỌC {r_count} ---\nTên: {title}\nLink: {doi}\nNội dung:\n{d.page_content}\n"
+                        elif not is_study and b_count < 3:
+                            b_count += 1
+                            blog_texts += f"\n--- BÀI VIẾT TỪ CHUYÊN GIA {b_count} ---\nTên: {title}\nNội dung:\n{d.page_content}\n"
             except: pass
 
             context_text = research_texts + "\n" + blog_texts
@@ -448,6 +436,7 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health..."
             else:
                 clean_text = ai_raw.strip()
                 
+                # Bắt ngôn ngữ
                 vn_chars = "áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ"
                 is_vietnamese = any(char in prompt.lower() for char in vn_chars)
 
