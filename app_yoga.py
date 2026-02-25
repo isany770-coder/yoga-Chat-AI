@@ -220,11 +220,11 @@ def get_ai_response_custom(prompt, context_text, history_context):
         6. Maximum length: 700 words.         
 
         STRUCTURE (Vietnamese queries):
-        - **Greeting:** Short & warm (e.g., "Chào bạn, tôi là {ADMIN_PROFILE['name']}...").
-        - **Direct Answer:** Answer the question clearly.
-        - **Scientific Explanation:** Biomechanics/Physiology details.
-        - **Specific Evidence:** Format MUST be -> "Theo nghiên cứu '[Tên nghiên cứu]' (DOI: [Mã DOI])... [Ref: X]"
-        - **Conclusion/Advice:** Actionable advice.
+        - Greeting: Short & warm.
+        - Direct Answer: Answer the question clearly.
+        - Scientific Explanation: Biomechanics/Physiology details.
+        - Specific Evidence: YOU MUST USE THIS EXACT FORMAT: "Theo nghiên cứu **[Tên nghiên cứu]** (DOI: [Mã DOI])... [Ref: X]"
+        - Conclusion/Advice: Actionable advice.
 
         STRUCTURE (English queries):
         - Same logic (Greeting, Direct Answer, Scientific Explanation, Actionable Advice), but strictly WITHOUT any citations, Study Titles, DOIs, or [Ref: X] tags.
