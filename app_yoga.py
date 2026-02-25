@@ -199,7 +199,7 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Data Error: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN FINAL: TRẢ RAW URL CHUẨN HÀN LÂM)
+# 4. HÀM AI THÔNG MINH (BẢN FINAL: RAW URL + NĂM/LOẠI NGHIÊN CỨU)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
@@ -247,7 +247,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         [Explain mechanisms entirely in English using bullet points and data [Ref: X]].
 
         📚 **Scientific Evidence**
-        * 📘 **Study:** [Translate Title to English]
+        * 📘 **Study:** [Translate Title to English] ([Extract Year / Study Type from DATA])
             * *Result:* [Translate result] [Ref: X]
             * *Source:* [Insert RAW URL here]
         *(CRITICAL: ONLY list items labeled [BẰNG CHỨNG KHOA HỌC] here. Max 3 items. If none, output: "Currently, specific clinical trials for this exact query are being verified in our database.")*
@@ -262,7 +262,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         [Giải thích cơ chế sinh lý bằng các gạch đầu dòng tự nhiên. Lấy số liệu [Ref: X]].
 
         📚 **Bằng chứng Y khoa**
-        * 📘 **Nghiên cứu:** [Tên nghiên cứu] ([Năm/Loại])
+        * 📘 **Nghiên cứu:** [Tên nghiên cứu] ([Trích xuất Năm / Loại nghiên cứu từ DATA])
             * *Kết quả:* [Kết luận] [Ref: X]
             * *Nguồn:* [Chèn nguyên RAW URL vào đây]
         *(QUAN TRỌNG: CHỈ liệt kê mục [BẰNG CHỨNG KHOA HỌC] ở đây. Tối đa 3 mục. Nếu không có, ghi: "Hiện tại, các thử nghiệm lâm sàng chuyên sâu cho vấn đề này đang được bộ phận Y khoa của YIML tiếp tục xác minh.")*
