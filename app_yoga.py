@@ -199,7 +199,7 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Data Error: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN 4.0: BẮT CHẾT PHÂN LOẠI & LINK)
+# 4. HÀM AI THÔNG MINH (BẢN 5.0: SẠCH BÓNG REF, TRỰC DIỆN)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
@@ -225,41 +225,41 @@ def get_ai_response_custom(prompt, context_text, history_context):
         - User asks in EN -> Reply 100% in EN. Translate ALL data into English.
 
         🎯 **EVIDENCE RULES (CRITICAL):**
-        1. In the [DATA] below, sources are labeled as [NGHIÊN CỨU Y KHOA] (medical studies) or [BÀI VIẾT THAM KHẢO] (blog posts).
-        2. In the "📚 Scientific Evidence / Bằng chứng Y khoa" section, you MUST ONLY list items labeled [NGHIÊN CỨU Y KHOA]. DO NOT list [BÀI VIẾT THAM KHẢO] here.
-        3. SOURCE URL RULE: Look at the "Link: ..." part in the [DATA] header. 
-           - If it is a real URL (https://...), print exactly that raw URL. Do not use Markdown.
+        1. Read the [DATA] provided below. Extract 1 to 3 relevant scientific studies or medical articles from the data to list in the "Scientific Evidence" section.
+        2. SOURCE URL RULE: Look at the "Link/DOI" in the data. 
+           - If it is a real URL (https://...), print exactly that raw URL.
            - If it says "Không có sẵn", print exactly: "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN).
-        4. NO META-COMMENTARY. Do not explain these rules to the user. Just output the data.
+        3. Write naturally. DO NOT use citation tags like [Ref: 1] in the text.
+        4. NO META-COMMENTARY. DO NOT apologize or explain. Just output the requested structure.
 
         🛠️ **MANDATORY RESPONSE FORMAT:**
 
         **[IF USER ASKS IN ENGLISH]**
-        [Warm greeting and direct answer, supported by [Ref: X]].
+        [Warm greeting and direct answer].
 
         🧠 **The Science Behind It**
-        [Explain mechanisms using bullet points and data [Ref: X]].
+        [Explain mechanisms using bullet points based on the data].
 
         📚 **Scientific Evidence**
-        * 📘 **Study:** [Study Title] ([Year/Type])
-            * *Result:* [Result] [Ref: X]
+        * 📘 **Study:** [Study Title / Document Name]
+            * *Result:* [Result/Key Point]
             * *Source:* [Raw URL or "DOI Verification: In Progress"]
-        *(List 1-3 [NGHIÊN CỨU Y KHOA] items here. Follow the source URL rule exactly.)*
+        *(List 1-3 items here. Follow the source URL rule exactly.)*
 
         💡 **Expert Advice**
-        [Actionable advice using [BÀI VIẾT THAM KHẢO] if relevant].
+        [Actionable advice].
 
         **[IF USER ASKS IN VIETNAMESE]**
-        [Lời chào ấm áp và câu trả lời, gắn [Ref: X]].
+        [Lời chào ấm áp và câu trả lời trực diện].
 
         🧠 **Góc nhìn Khoa học & Cơ chế**
-        [Giải thích cơ chế bằng các gạch đầu dòng tự nhiên. Lấy số liệu [Ref: X]].
+        [Giải thích cơ chế bằng các gạch đầu dòng tự nhiên].
 
         📚 **Bằng chứng Y khoa**
-        * 📘 **Nghiên cứu:** [Tên nghiên cứu]
-            * *Kết quả:* [Kết luận] [Ref: X]
+        * 📘 **Nghiên cứu:** [Tên nghiên cứu / Tên tài liệu]
+            * *Kết quả:* [Kết luận/Điểm chính]
             * *Nguồn:* [Raw URL hoặc "Xác minh DOI: Đang tiến hành"]
-        *(CHỈ liệt kê 1-3 mục [NGHIÊN CỨU Y KHOA] ở đây. KHÔNG DÙNG bài tham khảo tiếng Việt.)*
+        *(Liệt kê 1-3 mục ở đây. Cấm bỏ trống).*
 
         💡 **Lời khuyên từ Chuyên gia**
         [Đưa ra lời khuyên thực tế].
@@ -320,19 +320,18 @@ with st.sidebar:
     
     if st.session_state.authenticated:
         st.success(f"Hi {st.session_state.username}")
-        # ---> KHU VỰC ĐẶC QUYỀN CỦA ADMIN <---
-        if st.session_state.username == "admin_yiml": # Tên user cụ đặt cho admin
+        
+        if st.session_state.username == "admin_yiml": 
             import pandas as pd
             if st.button("👁️ Xem lịch sử khách hỏi"):
                 st.markdown("### 🕵️ Hồ sơ Chat")
                 try:
                     conn = sqlite3.connect(DB_PATH)
-                    # Lấy 50 câu hỏi gần nhất
                     df = pd.read_sql_query("SELECT timestamp, prompt, user_id FROM chat_logs ORDER BY id DESC LIMIT 50", conn)
                     st.dataframe(df, use_container_width=True)
                     conn.close()
                 except Exception as e: st.error("Chưa có data!")
-        # ---------------------------------------
+
         if st.button("Logout"): st.session_state.authenticated = False; st.rerun()
     else:
         with st.form("login_sidebar"):
@@ -344,22 +343,12 @@ with st.sidebar:
     
     st.markdown("---")
     with st.expander("👨‍⚕️ About the Expert", expanded=True):
-        st.markdown(f"""
-        **{ADMIN_PROFILE['name']}** *({ADMIN_PROFILE['role']})*
-        
-        🎖️ {ADMIN_PROFILE['certs']}
-        
-        💬 **{ADMIN_PROFILE['contact']}**
-        
-        > *"{ADMIN_PROFILE['mission']}"*
-        """)
+        st.markdown(f"**{ADMIN_PROFILE['name']}** *({ADMIN_PROFILE['role']})*\n\n🎖️ {ADMIN_PROFILE['certs']}\n\n💬 **{ADMIN_PROFILE['contact']}**\n\n> *\"{ADMIN_PROFILE['mission']}\"*")
 
 percent = min(100, int((used / LIMIT) * 100))
 st.markdown(f"""
 <div style="position: fixed; top: 10px; right: 10px; z-index: 100000;">
-    <div style="background: rgba(255,255,255,0.95); padding: 5px 12px; border-radius: 20px; 
-                border: 1px solid #009688; box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
-                font-size: 12px; font-weight: bold; color: #00796b; display: flex; align-items: center; gap: 8px;">
+    <div style="background: rgba(255,255,255,0.95); padding: 5px 12px; border-radius: 20px; border: 1px solid #009688; box-shadow: 0 2px 5px rgba(0,0,0,0.1); font-size: 12px; font-weight: bold; color: #00796b; display: flex; align-items: center; gap: 8px;">
         <span>⚡ {used}/{LIMIT}</span>
         <div style="width: 40px; height: 4px; background: #e0e0e0; border-radius: 2px;">
             <div style="width: {percent}%; height: 100%; background: linear-gradient(90deg, #009688, #80cbc4); border-radius: 2px;"></div>
@@ -369,7 +358,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 7. GIAO DIỆN HẾT HẠN (Song ngữ)
+# 7. GIAO DIỆN HẾT HẠN
 # =====================================================
 if is_limit_reached:
     if "hide_limit_modal" not in st.session_state: st.session_state.hide_limit_modal = False
@@ -387,51 +376,29 @@ if is_limit_reached:
                     <div style="text-align: center;">
                         <div style="font-size: 60px; margin-bottom: 10px;">🧘‍♀️</div>
                         <h3 style="color: #00897b; margin: 0; font-weight: 800;">LIMIT REACHED!</h3>
-                        <p style="color: #555; font-size: 15px; margin-top: 10px; line-height: 1.5;">
-                            Bạn đã sử dụng hết lượt hỏi hôm nay. Vui lòng quay lại vào ngày mai.<br>
-                            <i>You have reached your daily limit. Please come back tomorrow.</i><br><br>
-                            Liên hệ Admin để nâng cấp tài khoản VIP / <i>Contact Admin for VIP upgrade:</i>
-                        </p>
-                        <a href="https://zalo.me/84963759566" target="_blank" 
-                           style="display: inline-block; width: 100%; background-color: #009688; 
-                                  color: white; padding: 12px 0; border-radius: 30px; 
-                                  text-decoration: none; font-weight: bold; font-size: 16px;
-                                  margin: 15px 0 25px 0; box-shadow: 0 4px 10px rgba(0,150,136,0.3);">
-                           💬 Get Activation Code / Nhận mã kích hoạt
-                        </a>
+                        <p style="color: #555; font-size: 15px; margin-top: 10px; line-height: 1.5;">Bạn đã sử dụng hết lượt hỏi hôm nay.<br><i>You have reached your daily limit.</i></p>
                     </div>
                 """, unsafe_allow_html=True)
-
-                with st.form("login_form_limit"):
-                    user_input = st.text_input("Username")
-                    pass_input = st.text_input("Password", type="password")
-                    if st.form_submit_button("Login / Đăng Nhập", use_container_width=True):
-                        if st.secrets["passwords"].get(user_input) == pass_input:
-                            st.session_state.authenticated = True; st.session_state.username = user_input
-                            st.session_state.hide_limit_modal = True; st.rerun()
-                        else: st.error("❌ Wrong credentials")
         st.stop()
 
 # =====================================================
 # 8. XỬ LÝ CHAT CHÍNH
 # =====================================================
 if not st.session_state.authenticated:
-    # Banner Welcome xịn sò
-    st.markdown("""<div class="welcome-banner">✨ Welcome to YIML, have a fun day</div>""", unsafe_allow_html=True)
+    st.markdown("""<div class="welcome-banner">✨ Welcome to YIML Pro • Evidence-Based Medical Yoga Assistant</div>""", unsafe_allow_html=True)
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"], unsafe_allow_html=True)
 st.markdown('<div class="bottom-spacer"></div>', unsafe_allow_html=True)
 
-# Đổi placeholder nhập liệu thành tiếng Anh/Song ngữ
-if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health..."):
+if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / Hỏi về yoga và bệnh lý..."):
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     increment_usage(current_user)
     log_user_prompt(current_user, prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Analyzing databases..."):
+        with st.spinner("Analyzing medical databases / Đang tra cứu hồ sơ y khoa..."):
             
             chat_history = ""
             for msg in st.session_state.messages[-4:]:
@@ -439,18 +406,12 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health..."
                 chat_history += f"{msg['role']}: {clean_content}\n"
 
             context_text = ""
-            source_map = {}
             try:
                 docs = db_text.similarity_search(prompt, k=6)
                 if docs:
                     for i, d in enumerate(docs):
-                        idx = i + 1
                         meta = d.metadata
-                        
                         link = meta.get('url') or meta.get('source') or '#'
-                        title = meta.get('title') or f"Source {idx}"
-                        
-                        # 1. Bòn rút Link cẩn thận nhất
                         doi_raw = meta.get('doi')
                         if doi_raw and str(doi_raw).strip() not in ["", "None"]: 
                             doi = str(doi_raw).strip()
@@ -459,16 +420,9 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health..."
                         else: 
                             doi = "Không có sẵn"
                             
-                        # 2. Python TỰ ĐỘNG PHÂN LOẠI thông minh (Chặn đứng lỗi AI lấy bài tiếng Việt)
-                        type_meta = str(meta.get('type', '')).lower()
-                        link_check = (str(link) + str(doi)).lower()
-                        
-                        is_study = any(x in link_check for x in ['pubmed', 'nih.gov', 'cochrane', 'doi.org', 'jamanetwork', 'sciencedirect', 'bmj.com', 'academic']) or any(x in type_meta for x in ['science', 'study', 'nghiên cứu', 'review', 'trial', 'meta-analysis'])
-                        
-                        type_label = "NGHIÊN CỨU Y KHOA" if is_study else "BÀI VIẾT THAM KHẢO"
-
-                        source_map[idx] = {"id": idx, "url": doi if doi != "Không có sẵn" else link, "title": title, "type": type_label}
-                        context_text += f"\n[Ref: {idx}] [{type_label}] (Tên: {title} | Link: {doi}):\n{d.page_content}\n"
+                        title = meta.get('title') or f"Tài liệu {i+1}"
+                        # Bơm data sạch vào cho AI đọc, KHÔNG CÓ REF
+                        context_text += f"\n--- TÀI LIỆU {i+1} ---\nTên: {title}\nLink/DOI: {doi}\nNội dung:\n{d.page_content}\n"
             except: pass
 
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
@@ -481,39 +435,22 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health..."
                     st.session_state.is_blocked = True
                     msg = f"🚫 **ACCOUNT BLOCKED**\n\nID {current_user} has been permanently restricted."
                 else:
-                    left = 3 - st.session_state.bad_attempts
-                    msg = f"⚠️ **WARNING ({st.session_state.bad_attempts}/3)**\n\nPlease only ask about Health, Anatomy, and Yoga. Non-related topics are not permitted."
-                
-                st.markdown(msg)
-                final_content = msg
+                    msg = f"⚠️ **WARNING ({st.session_state.bad_attempts}/3)**\n\nPlease only ask about Health, Anatomy, and Yoga."
+                st.markdown(msg); final_content = msg
                 if st.session_state.is_blocked: time.sleep(3); st.rerun()
 
             elif ai_raw.startswith("ERR_SYS:"):
-                st.error(f"System Error: {ai_raw}")
-                final_content = "Sorry, the system is undergoing maintenance."
+                st.error(f"System Error: {ai_raw}"); final_content = "Sorry, system error."
 
-            # --- C. TRƯỜNG HỢP THÀNH CÔNG ---
             else:
-                ref_ids = [int(m) for m in re.findall(r'\[Ref:?\s*(\d+)\]', ai_raw)]
-                clean_text = re.sub(r'\[Ref:?\s*(\d+)\]', '', ai_raw).strip()
-                for p in ["Nguồn tham khảo", "References", "📚 Tài liệu"]:
-                    if p in clean_text: clean_text = clean_text.split(p)[0].strip(); break
+                # TRƯỜNG HỢP THÀNH CÔNG: Chữ sạch sẽ nguyên chất, KHÔNG RÁC
+                clean_text = ai_raw.strip()
 
                 # Bắt bóc ngôn ngữ thông minh
                 vn_chars = "áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ"
                 is_vietnamese = any(char in prompt.lower() for char in vn_chars)
 
-                # HTML Nguồn (CHỈ HIỂN THỊ NẾU LÀ TIẾNG VIỆT)
-                unique_sources = {source_map[rid]['url']: source_map[rid] for rid in ref_ids if rid in source_map and source_map[rid]['url'] != '#'}
-                sources_html = ""
-                if unique_sources and is_vietnamese:
-                    sources_html += "\n\n---\n**📚 Nguồn tham khảo & Bằng chứng:**\n\n"
-                    list_src = sorted(unique_sources.values(), key=lambda x: x['id'])
-                    for info in list_src:
-                        icon = "🧪" if 'SCIENCE' in info['type'].upper() else "🔗"
-                        sources_html += f"- {icon} **[{info['id']}]** [{info['title']}]({info['url']})\n"
-
-                # HTML Upsell (CHỈ HIỂN THỊ NẾU LÀ TIẾNG VIỆT)
+                # Cục Gợi ý Giải Pháp (CHỈ HIỂN THỊ NẾU LÀ TIẾNG VIỆT)
                 upsell_html = ""
                 recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
                 if recs and is_vietnamese:
@@ -522,12 +459,10 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health..."
                         upsell_html += f"""<div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;"><span style="color:#33691e; font-weight:500">👉 {r['name']}</span><a href="{r['url']}" target="_blank" class="upsell-btn">Xem</a></div>"""
                     upsell_html += "</div>"
                 
-                final_content = clean_text
-                st.markdown(final_content, unsafe_allow_html=True)
-                if sources_html: st.markdown(sources_html)
+                st.markdown(clean_text, unsafe_allow_html=True)
                 if upsell_html: st.markdown(upsell_html, unsafe_allow_html=True)
                 
-                final_content = final_content + "\n" + sources_html + "\n" + upsell_html
+                final_content = clean_text + "\n" + upsell_html
 
             if final_content:
                 st.session_state.messages.append({"role": "assistant", "content": final_content})
