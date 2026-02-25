@@ -214,8 +214,8 @@ def get_ai_response_custom(prompt, context_text, history_context):
 
         🎯 **STRICT CITATION RULES:**
         1. **ACCURACY:** When stating a fact, you MUST attach the exact [Ref: ID].
-        2. **PRIORITIZE VALID LINKS:** You MUST prioritize citing studies that have a valid DOI or Link in the [DATA]. You are allowed to cite a MAXIMUM OF ONE study that lacks a DOI/Link per response.
-        3. **MISSING DOI FORMAT:** If the DOI/Link is missing in [DATA], DO NOT fabricate it. Instead, explicitly write "Xác minh DOI: Đang tiến hành" (in VN) or "DOI Verification: In Progress" (in EN).
+        2. **STRICT LINK REQUIREMENT:** You MUST ONLY cite studies from the [DATA] that have a valid, specific URL or DOI (e.g., a link to PubMed, PMC, or a specific DOI number).
+        3. **NO MISSING LINKS:** DO NOT cite any study where the DOI/Link is listed as "Không có sẵn" or "#". If you cannot find enough studies with valid links to answer the question comprehensively, base your answer on the available text content but only list the studies with valid links in the 'Scientific Evidence' section.
         4. Prioritize citing the Original Study over a General Article.
         5. Maximum length: 700 words.
 
@@ -232,7 +232,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
             * *Focus:* [English translation of the focus area]
             * *Result:* [English translation of the result] [Ref: X]
             * *Source:* [DOI/Link]
-        *(Repeat this block for each cited study. Remember: Max ONE study without a link!)*
+        *(Repeat this block for each cited study. Only include studies with valid links.)*
 
         💡 **Expert Advice**
         [Actionable, warm advice in English].
@@ -248,7 +248,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
             * *Vấn đề:* [Lĩnh vực/Bệnh lý]
             * *Kết quả:* [Số liệu/Kết luận] [Ref: X]
             * *Nguồn:* [DOI/Link]
-        *(Lặp lại khối này cho mỗi nghiên cứu được trích dẫn. Nhớ: Tối đa 1 nghiên cứu không có link!)*
+        *(Lặp lại khối này cho mỗi nghiên cứu được trích dẫn. Chỉ bao gồm các nghiên cứu có link hợp lệ.)*
 
         💡 **Lời khuyên từ Chuyên gia**
         [Đưa ra lời khuyên thực tế. Nhắc nhở yoga là liệu pháp bổ trợ].
