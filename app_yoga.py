@@ -241,7 +241,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         [Explain mechanisms using bullet points based on the data].
 
         📚 **Scientific Evidence**
-        * 📘 **Study:** [Study Title / Document Name]
+        * 📘 **Study:** [Study Title / Document Name] ([Year/Type])
             * *Result:* [Result/Key Point]
             * *Source:* [Raw URL or "DOI Verification: In Progress"]
         *(List 1-3 items here. Follow the source URL rule exactly.)*
@@ -412,18 +412,18 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / H
                     for i, d in enumerate(docs):
                         meta = d.metadata
                         doi_raw = str(meta.get('doi', '')).strip()
+                        url_raw = str(meta.get('url', meta.get('source', ''))).strip()
                         
-                        if doi_raw and doi_raw != '#' and doi_raw.lower() not in ["none", "null"]:
-                            doi = doi_raw
+                        # Prioritize DOI, fallback to URL
+                        if doi_raw and doi_raw not in ["", "None", "#"]:
+                            final_link = doi_raw
+                        elif url_raw and url_raw not in ["", "None", "#"]:
+                            final_link = url_raw
                         else:
-                            doi = "Đang xác minh"
+                            final_link = "Not available"
                             
-                        title = meta.get('title') or f"Tài liệu {i+1}"
-                        
-                        # Forcefully remove any .vn links from the content
-                        clean_content = re.sub(r'https?://[^\s]+\.vn[^\s]*', '', d.page_content)
-                        
-                        context_text += f"\n--- TÀI LIỆU {i+1} ---\nTên: {title}\nDOI: {doi}\nNội dung:\n{clean_content}\n"
+                        title = meta.get('title_vi') or meta.get('title_en') or meta.get('title') or f"Document {i+1}"
+                        context_text += f"\n--- TÀI LIỆU {i+1} ---\nTên: {title}\nLink: {final_link}\nNội dung:\n{d.page_content}\n"
             except: pass
 
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
