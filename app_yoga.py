@@ -175,7 +175,24 @@ def load_brain_engine_safe():
 db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Lỗi Data: {status}"); st.stop()
 
- # 3. SYSTEM PROMPT (TỔNG HÒA: ADMIN + SECURITY + LOGIC CŨ)
+# =====================================================
+# 4. HÀM AI THÔNG MINH (BẢN FINAL: CẤU TRÚC CŨ + IDENTITY + SECURITY)
+# =====================================================
+def get_ai_response_custom(prompt, context_text, history_context):
+    try:
+        # 1. CHECK TỪ KHÓA CẤM (Lớp vỏ cứng Python - giữ nguyên)
+        for kw in BLOCKED_KEYWORDS:
+            if kw in prompt.lower(): return "VIOLATION_DETECTED"
+
+        # 2. CẤU HÌNH MODEL
+        valid_model = 'models/gemini-1.5-flash'
+        try:
+            for m in genai.list_models():
+                if 'flash' in m.name.lower(): valid_model = m.name; break
+        except: pass
+        model = genai.GenerativeModel(valid_model)
+        
+        # 3. SYSTEM PROMPT (TỔNG HÒA: ADMIN + SECURITY + LOGIC CŨ)
         sys_prompt = f"""
         🛑 **SECURITY PROTOCOL (PRIORITY 1):**
         - Input: "{prompt}"
