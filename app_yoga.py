@@ -193,7 +193,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         model = genai.GenerativeModel(valid_model)
         
         # 3. SYSTEM PROMPT (TỔNG HÒA: ADMIN + SECURITY + LOGIC CŨ)
-     sys_prompt = f"""
+         sys_prompt = f"""
         🛑 **SECURITY PROTOCOL (PRIORITY 1):**
         - Input: "{prompt}"
         - Check: If user asks about Lottery, Gambling, Sex, Politics, Coding, or NON-HEALTH topics -> REPLY EXACTLY: "VIOLATION_DETECTED".
