@@ -19,7 +19,7 @@ st.set_page_config(
     page_title="Yoga Assistant Pro",
     page_icon="🧘",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 st.markdown("""
@@ -118,7 +118,6 @@ def init_db():
     c = conn.cursor()
     c.execute('CREATE TABLE IF NOT EXISTS usage (user_id TEXT, date TEXT, count INTEGER, PRIMARY KEY (user_id, date))')
     c.execute('CREATE TABLE IF NOT EXISTS blacklist (user_id TEXT PRIMARY KEY, reason TEXT, timestamp TEXT)')
-    c.execute('CREATE TABLE IF NOT EXISTS chat_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, timestamp TEXT, prompt TEXT)')
     conn.commit(); conn.close()
 init_db()
 
@@ -149,15 +148,6 @@ def increment_usage(user_id):
     c.execute("INSERT OR IGNORE INTO usage (user_id, date, count) VALUES (?, ?, 0)", (user_id, today))
     c.execute("UPDATE usage SET count = count + 1 WHERE user_id=? AND date=?", (user_id, today))
     conn.commit(); conn.close()
-
-def log_user_prompt(user_id, prompt):
-    """Âm thầm lưu câu hỏi của khách vào DB"""
-    try:
-        conn = sqlite3.connect(DB_PATH); c = conn.cursor()
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        c.execute("INSERT INTO chat_logs (user_id, timestamp, prompt) VALUES (?, ?, ?)", (user_id, now, prompt))
-        conn.commit(); conn.close()
-    except Exception as e: pass
 
 # --- B. LOAD AI ENGINE ---
 @st.cache_resource
@@ -199,7 +189,7 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Data Error: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN FINAL: RAW URL + NĂM/LOẠI NGHIÊN CỨU)
+# 4. HÀM AI THÔNG MINH (BẢN FINAL: MỀM MẠI, CHUYÊN NGHIỆP, HẠN CHẾ NON-DOI)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
@@ -215,7 +205,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # 3. SYSTEM PROMPT
+        # 3. SYSTEM PROMPT (EXPERT CONSULTATION STYLE)
         sys_prompt = f"""
         🛑 **SECURITY PROTOCOL (PRIORITY 1):**
         - Input: "{prompt}"
@@ -225,18 +215,21 @@ def get_ai_response_custom(prompt, context_text, history_context):
         --------------------------------------------------
 
         ROLE: You are **{ADMIN_PROFILE['name']}**, the official Medical Yoga Expert for YogaIsMyLife.vn.
-        TONE: Professional, empathetic, warmly conversational, and highly data-driven.
+        TONE: Professional, empathetic, warmly conversational, and highly data-driven. You act like a caring doctor giving a consultation.
 
         🌍 **LANGUAGE & TRANSLATION (CRITICAL RULE):**
         - If User asks in Vietnamese -> Reply 100% in Vietnamese.
-        - If User asks in English -> Reply 100% in English. **CRITICAL:** Translate ALL facts and Study Titles from [DATA] into English before outputting.
+        - If User asks in English -> Reply 100% in English. **CRITICAL:** The [DATA] provided below is in Vietnamese. You MUST translate ALL facts, explanations, mechanisms, and Study Titles from the [DATA] into English before outputting. Absolutely NO Vietnamese words should appear in your response if the user asked in English.
 
-        🎯 **STRICT CITATION RULES (THE MOST IMPORTANT RULE):**
-        1. **TWO TYPES OF DATA:** The [DATA] provides two types of sources: [BẰNG CHỨNG KHOA HỌC] (Peer-reviewed science studies) and [THAM KHẢO] (YogaIsMyLife website articles).
-        2. **SCIENTIFIC EVIDENCE SECTION:** You MUST ONLY list sources labeled as [BẰNG CHỨNG KHOA HỌC] here. Limit to a maximum of 3 top studies.
-        3. **USE REFERENCES:** Use [THAM KHẢO] sources to explain mechanisms or give advice, but do not pretend they are scientific studies.
-        4. **RAW URL FORMAT (CRITICAL):** You MUST output the exact raw text URL (e.g., https://pubmed...). DO NOT format it as a hidden Markdown link like [View Study]. Let the user see the full URL.
-        5. **MISSING LINKS:** If a [BẰNG CHỨNG KHOA HỌC] study has "Không có sẵn" as DOI, write exactly: "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN).
+        🧠 **CONTEXT AWARENESS:**
+        - You must read the [HISTORY] below to understand the conversation flow.
+
+        🎯 **STRICT CITATION RULES:**
+        1. **ACCURACY:** When stating a fact, you MUST attach the exact [Ref: ID].
+        2. **STRICT LINK REQUIREMENT:** You MUST ONLY cite studies from the [DATA] that have a valid, specific URL or DOI (e.g., a link to PubMed, PMC, or a specific DOI number).
+        3. **NO MISSING LINKS:** DO NOT cite any study where the DOI/Link is listed as "Không có sẵn" or "#". If you cannot find enough studies with valid links to answer the question comprehensively, base your answer on the available text content but only list the studies with valid links in the 'Scientific Evidence' section.
+        4. Prioritize citing the Original Study over a General Article.
+        5. Maximum length: 700 words.
 
         🛠️ **MANDATORY RESPONSE STRUCTURE:**
 
@@ -247,28 +240,30 @@ def get_ai_response_custom(prompt, context_text, history_context):
         [Explain mechanisms entirely in English using bullet points and data [Ref: X]].
 
         📚 **Scientific Evidence**
-        * 📘 **Study:** [Translate Title to English] ([Extract Year / Study Type from DATA])
-            * *Result:* [Translate result] [Ref: X]
-            * *Source:* [Insert RAW URL here]
-        *(CRITICAL: ONLY list items labeled [BẰNG CHỨNG KHOA HỌC] here. Max 3 items. If none, output: "Currently, specific clinical trials for this exact query are being verified in our database.")*
+        * 📘 **Study:** [Translate Vietnamese Title to English] ([Year/Type])
+            * *Focus:* [English translation of the focus area]
+            * *Result:* [English translation of the result] [Ref: X]
+            * *Source:* [DOI/Link]
+        *(Repeat this block for each cited study. Only include studies with valid links.)*
 
         💡 **Expert Advice**
-        [Actionable advice in English, utilizing [THAM KHẢO] data if relevant].
+        [Actionable, warm advice in English].
 
         **[IF USER ASKS IN VIETNAMESE]**
-        [Lời chào ấm áp và câu trả lời trực diện, có gắn [Ref: X]].
+        [Lời chào ấm áp và câu trả lời trực diện cho vấn đề, có gắn [Ref: X]].
 
         🧠 **Góc nhìn Khoa học & Cơ chế**
-        [Giải thích cơ chế sinh lý bằng các gạch đầu dòng tự nhiên. Lấy số liệu [Ref: X]].
+        [Giải thích cơ chế sinh lý bằng các gạch đầu dòng tự nhiên. Lấy đúng số liệu [Ref: X]].
 
         📚 **Bằng chứng Y khoa**
-        * 📘 **Nghiên cứu:** [Tên nghiên cứu] ([Trích xuất Năm / Loại nghiên cứu từ DATA])
-            * *Kết quả:* [Kết luận] [Ref: X]
-            * *Nguồn:* [Chèn nguyên RAW URL vào đây]
-        *(QUAN TRỌNG: CHỈ liệt kê mục [BẰNG CHỨNG KHOA HỌC] ở đây. Tối đa 3 mục. Nếu không có, ghi: "Hiện tại, các thử nghiệm lâm sàng chuyên sâu cho vấn đề này đang được bộ phận Y khoa của YIML tiếp tục xác minh.")*
+        * 📘 **Nghiên cứu:** [Tên nghiên cứu] ([Năm/Loại])
+            * *Vấn đề:* [Lĩnh vực/Bệnh lý]
+            * *Kết quả:* [Số liệu/Kết luận] [Ref: X]
+            * *Nguồn:* [DOI/Link]
+        *(Lặp lại khối này cho mỗi nghiên cứu được trích dẫn. Chỉ bao gồm các nghiên cứu có link hợp lệ.)*
 
         💡 **Lời khuyên từ Chuyên gia**
-        [Đưa ra lời khuyên thực tế, có thể dùng thông tin từ [THAM KHẢO]].
+        [Đưa ra lời khuyên thực tế. Nhắc nhở yoga là liệu pháp bổ trợ].
 
         [DATA (CONTEXT)]:
         {context_text}
@@ -304,7 +299,7 @@ if "username" not in st.session_state: st.session_state.username = ""
 if "bad_attempts" not in st.session_state: st.session_state.bad_attempts = 0
 if "is_blocked" not in st.session_state: st.session_state.is_blocked = False
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": f"Hello! I am **{ADMIN_PROFILE['name']}**. How can I assist you with your health and yoga practice today?"}]
+    st.session_state.messages = [{"role": "assistant", "content": f"Hello! I am **{ADMIN_PROFILE['name']}**. How can I assist you with your health and yoga practice today? / Chào bạn! Tôi là **{ADMIN_PROFILE['name']}**. Tôi có thể giúp gì cho sức khỏe của bạn?"}]
 
 current_user = st.session_state.username if st.session_state.authenticated else st.session_state.user_id
 
@@ -325,21 +320,6 @@ with st.sidebar:
     
     if st.session_state.authenticated:
         st.success(f"Hi {st.session_state.username}")
-        
-        # ---> KHU VỰC ĐẶC QUYỀN CỦA ADMIN <---
-        if st.session_state.username == "admin_yiml": # Tên user cụ đặt cho admin
-            import pandas as pd
-            if st.button("👁️ Xem lịch sử khách hỏi"):
-                st.markdown("### 🕵️ Hồ sơ Chat")
-                try:
-                    conn = sqlite3.connect(DB_PATH)
-                    # Lấy 50 câu hỏi gần nhất
-                    df = pd.read_sql_query("SELECT timestamp, prompt, user_id FROM chat_logs ORDER BY id DESC LIMIT 50", conn)
-                    st.dataframe(df, use_container_width=True)
-                    conn.close()
-                except Exception as e: st.error("Chưa có data!")
-        # ---------------------------------------
-
         if st.button("Logout"): st.session_state.authenticated = False; st.rerun()
     else:
         with st.form("login_sidebar"):
@@ -435,7 +415,6 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / H
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     increment_usage(current_user)
-    log_user_prompt(current_user, prompt)
 
     with st.chat_message("assistant"):
         with st.spinner("Analyzing medical databases / Đang tra cứu hồ sơ y khoa..."):
@@ -456,16 +435,7 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / H
                         type_label = "BẰNG CHỨNG KHOA HỌC" if 'SCIENCE' in meta.get('type','').upper() else "THAM KHẢO"
                         link = meta.get('url') or meta.get('source') or '#'
                         title = meta.get('title') or f"Source {idx}"
-                        
-                        # ---> SỬA LỖI Ở ĐÂY: Quét sạch DOI, nếu không có thì lấy Link URL, bí quá mới báo Không có sẵn
-                        doi_raw = meta.get('doi')
-                        if doi_raw: 
-                            doi = doi_raw
-                        elif link != '#': 
-                            doi = link
-                        else: 
-                            doi = "Không có sẵn"
-                            
+                        doi = meta.get('doi') or "Không có sẵn" 
                         source_map[idx] = {"id": idx, "url": link, "title": title, "type": meta.get('type','')}
                         context_text += f"\n[Ref: {idx}] [{type_label}] (Tên nghiên cứu: {title} | DOI: {doi}):\n{d.page_content}\n"
             except: pass
