@@ -282,7 +282,7 @@ if ban_reason:
     st.stop() # Dừng hình, không cho load tiếp
 
 used = check_usage(current_user)
-LIMIT = 50 if st.session_state.authenticated else 5
+LIMIT = 50 if st.session_state.authenticated else 30
 is_limit_reached = used >= LIMIT
 
 # =====================================================
