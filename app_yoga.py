@@ -262,7 +262,9 @@ def get_ai_response_custom(prompt, context_text, history_context):
 
         USER QUESTION: "{prompt}"
         """
-
+        response = model.generate_content(sys_prompt)
+        return response.text.strip()
+    except Exception as e: return f"ERR_SYS: {str(e)}"
 # =====================================================
 # 5. QUẢN LÝ SESSION "DÍNH CHẶT" (CHỐNG F5)
 # =====================================================
