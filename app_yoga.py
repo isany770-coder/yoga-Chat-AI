@@ -226,10 +226,12 @@ def get_ai_response_custom(prompt, context_text, history_context):
 
         🎯 **EVIDENCE RULES (CRITICAL):**
         1. Read the [DATA] provided below. Extract 1 to 3 relevant scientific studies.
-        2. SOURCE URL RULE: Look for "Link Y Khoa:", "Link gốc:", or "DOI:" in the provided [DATA].
-           - Print EXACTLY the international medical URL you find (doi.org, pubmed, ncbi, mdpi, etc.).
-           - STRICTLY PROHIBITED: Never output any URL containing ".vn".
-           - If no valid medical link is found, print exactly: "Đang xác minh".
+        2. SOURCE URL RULE (STRICT): 
+           - Look at "Link Y Khoa:" in the provided [DATA].
+           - Output the EXACT RAW URL found there (e.g., https://doi.org/..., https://pubmed...).
+           - 🚫 FATAL ERROR AVOIDANCE: DO NOT EVER generate, invent, or guess URLs.
+           - 🚫 NEVER output any link containing "yogaismylife.vn" or ".vn" in the Scientific Evidence section. This is strictly prohibited.
+           - If the link says "Đang xác minh", print exactly: "Source: Verification In Progress" (EN) or "Nguồn: Đang xác minh DOI" (VN).
         3. Write naturally. DO NOT use citation tags like [Ref: 1] in the text.
 
         🛠️ **MANDATORY RESPONSE FORMAT:**
