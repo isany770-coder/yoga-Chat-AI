@@ -199,7 +199,7 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Data Error: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN FINAL: MỀM MẠI, CHUYÊN NGHIỆP, HẠN CHẾ NON-DOI)
+# 4. HÀM AI THÔNG MINH (BẢN FINAL: PHÂN BIỆT RÕ NGHIÊN CỨU & BÀI VIẾT)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
@@ -215,7 +215,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         except: pass
         model = genai.GenerativeModel(valid_model)
         
-        # 3. SYSTEM PROMPT (EXPERT CONSULTATION STYLE)
+        # 3. SYSTEM PROMPT
         sys_prompt = f"""
         🛑 **SECURITY PROTOCOL (PRIORITY 1):**
         - Input: "{prompt}"
@@ -225,21 +225,17 @@ def get_ai_response_custom(prompt, context_text, history_context):
         --------------------------------------------------
 
         ROLE: You are **{ADMIN_PROFILE['name']}**, the official Medical Yoga Expert for YogaIsMyLife.vn.
-        TONE: Professional, empathetic, warmly conversational, and highly data-driven. You act like a caring doctor giving a consultation.
+        TONE: Professional, empathetic, warmly conversational, and highly data-driven.
 
         🌍 **LANGUAGE & TRANSLATION (CRITICAL RULE):**
         - If User asks in Vietnamese -> Reply 100% in Vietnamese.
-        - If User asks in English -> Reply 100% in English. **CRITICAL:** The [DATA] provided below is in Vietnamese. You MUST translate ALL facts, explanations, mechanisms, and Study Titles from the [DATA] into English before outputting. Absolutely NO Vietnamese words should appear in your response if the user asked in English.
+        - If User asks in English -> Reply 100% in English. **CRITICAL:** Translate ALL facts and Study Titles from [DATA] into English before outputting.
 
-        🧠 **CONTEXT AWARENESS:**
-        - You must read the [HISTORY] below to understand the conversation flow.
-
-        🎯 **STRICT CITATION RULES:**
-        1. **ACCURACY:** When stating a fact, you MUST attach the exact [Ref: ID].
-        2. **STRICT LINK REQUIREMENT:** You MUST ONLY cite studies from the [DATA] that have a valid, specific URL or DOI (e.g., a link to PubMed, PMC, or a specific DOI number).
-        3. **NO MISSING LINKS:** DO NOT cite any study where the DOI/Link is listed as "Không có sẵn" or "#". If you cannot find enough studies with valid links to answer the question comprehensively, base your answer on the available text content but only list the studies with valid links in the 'Scientific Evidence' section.
-        4. Prioritize citing the Original Study over a General Article.
-        5. Maximum length: 700 words.
+        🎯 **STRICT CITATION RULES (THE MOST IMPORTANT RULE):**
+        1. **TWO TYPES OF DATA:** The [DATA] provides two types of sources: [BẰNG CHỨNG KHOA HỌC] (Peer-reviewed science studies) and [THAM KHẢO] (YogaIsMyLife website articles).
+        2. **SCIENTIFIC EVIDENCE SECTION:** In the "Scientific Evidence" section, you MUST ONLY list sources labeled as [BẰNG CHỨNG KHOA HỌC]. **ABSOLUTELY DO NOT** list [THAM KHẢO] website articles here. Limit to a maximum of 3 top studies.
+        3. **USE REFERENCES:** You can use [THAM KHẢO] sources to explain mechanisms or give advice in other sections, but do not pretend they are scientific studies.
+        4. **MISSING LINKS:** If a [BẰNG CHỨNG KHOA HỌC] study has "Không có sẵn" as DOI, cite it but write "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN).
 
         🛠️ **MANDATORY RESPONSE STRUCTURE:**
 
@@ -250,30 +246,28 @@ def get_ai_response_custom(prompt, context_text, history_context):
         [Explain mechanisms entirely in English using bullet points and data [Ref: X]].
 
         📚 **Scientific Evidence**
-        * 📘 **Study:** [Translate Vietnamese Title to English] ([Year/Type])
-            * *Focus:* [English translation of the focus area]
-            * *Result:* [English translation of the result] [Ref: X]
+        * 📘 **Study:** [Translate Title to English]
+            * *Result:* [Translate result] [Ref: X]
             * *Source:* [DOI/Link]
-        *(Repeat this block for each cited study. Only include studies with valid links.)*
+        *(CRITICAL: ONLY list items labeled [BẰNG CHỨNG KHOA HỌC] here. Max 3 items. If there are no [BẰNG CHỨNG KHOA HỌC] items, output exactly: "Currently, specific clinical trials for this exact query are being verified in our database.")*
 
         💡 **Expert Advice**
-        [Actionable, warm advice in English].
+        [Actionable advice in English, utilizing [THAM KHẢO] data if relevant].
 
         **[IF USER ASKS IN VIETNAMESE]**
-        [Lời chào ấm áp và câu trả lời trực diện cho vấn đề, có gắn [Ref: X]].
+        [Lời chào ấm áp và câu trả lời trực diện, có gắn [Ref: X]].
 
         🧠 **Góc nhìn Khoa học & Cơ chế**
-        [Giải thích cơ chế sinh lý bằng các gạch đầu dòng tự nhiên. Lấy đúng số liệu [Ref: X]].
+        [Giải thích cơ chế sinh lý bằng các gạch đầu dòng tự nhiên. Lấy số liệu [Ref: X]].
 
         📚 **Bằng chứng Y khoa**
-        * 📘 **Nghiên cứu:** [Tên nghiên cứu] ([Năm/Loại])
-            * *Vấn đề:* [Lĩnh vực/Bệnh lý]
-            * *Kết quả:* [Số liệu/Kết luận] [Ref: X]
+        * 📘 **Nghiên cứu:** [Tên nghiên cứu]
+            * *Kết quả:* [Kết luận] [Ref: X]
             * *Nguồn:* [DOI/Link]
-        *(Lặp lại khối này cho mỗi nghiên cứu được trích dẫn. Chỉ bao gồm các nghiên cứu có link hợp lệ.)*
+        *(QUAN TRỌNG: CHỈ liệt kê các mục [BẰNG CHỨNG KHOA HỌC] ở đây. Tối đa 3 mục. Nếu không có mục nào, ghi đúng 1 câu: "Hiện tại, các thử nghiệm lâm sàng chuyên sâu cho vấn đề này đang được bộ phận Y khoa của YIML tiếp tục xác minh và cập nhật.")*
 
         💡 **Lời khuyên từ Chuyên gia**
-        [Đưa ra lời khuyên thực tế. Nhắc nhở yoga là liệu pháp bổ trợ].
+        [Đưa ra lời khuyên thực tế, có thể dùng thông tin từ [THAM KHẢO]].
 
         [DATA (CONTEXT)]:
         {context_text}
