@@ -330,8 +330,6 @@ with st.sidebar:
     
     if st.session_state.authenticated:
         st.success(f"Hi {st.session_state.username}")
-        if st.session_state.authenticated:
-        st.success(f"Hi {st.session_state.username}")
         
         # ---> KHU VỰC ĐẶC QUYỀN CỦA ADMIN <---
         if st.session_state.username == "admin_yiml": # Tên user cụ đặt cho admin
@@ -346,6 +344,7 @@ with st.sidebar:
                     conn.close()
                 except Exception as e: st.error("Chưa có data!")
         # ---------------------------------------
+
         if st.button("Logout"): st.session_state.authenticated = False; st.rerun()
     else:
         with st.form("login_sidebar"):
