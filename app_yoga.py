@@ -225,14 +225,12 @@ def get_ai_response_custom(prompt, context_text, history_context):
         - User asks in EN -> Reply 100% in EN. Translate ALL data into English.
 
         🎯 **EVIDENCE RULES (CRITICAL):**
-        1. Read the [DATA] provided below. Extract 1 to 3 relevant scientific studies.
+        1. Extract ONLY the scientific studies explicitly present in the [DATA]. If there is only 1, list exactly 1. DO NOT invent or add any studies.
         2. SOURCE URL RULE (STRICT): 
-           - Look at "Link Y Khoa:" in the provided [DATA].
-           - Output the EXACT RAW URL found there (e.g., https://doi.org/..., https://pubmed...).
-           - 🚫 FATAL ERROR AVOIDANCE: DO NOT EVER generate, invent, or guess URLs.
-           - 🚫 NEVER output any link containing "yogaismylife.vn" or ".vn" in the Scientific Evidence section. This is strictly prohibited.
-           - If the link says "Đang xác minh", print exactly: "Source: Verification In Progress" (EN) or "Nguồn: Đang xác minh DOI" (VN).
-        3. Write naturally. DO NOT use citation tags like [Ref: 1] in the text.
+           - Find "Link gốc:" or "DOI:" in the text and copy the exact URL.
+           - FATAL ERROR: NEVER output any link containing "yogaismylife.vn" or ".vn" in the Scientific Evidence section.
+           - If not found, print exactly: "Đang xác minh".
+        3. Write naturally without [Ref: x] tags.
 
         🛠️ **MANDATORY RESPONSE FORMAT:**
 
@@ -258,10 +256,10 @@ def get_ai_response_custom(prompt, context_text, history_context):
         [Giải thích cơ chế bằng các gạch đầu dòng tự nhiên].
 
         📚 **Bằng chứng Y khoa**
-        * 📘 **Nghiên cứu:** [Tên nghiên cứu / Tên tài liệu]
-            * *Kết quả:* [Kết luận/Điểm chính]
-            * *Nguồn:* [Điền nguyên xi raw link hoặc "Đang xác minh"]
-        *(Liệt kê 1-3 mục ở đây. Cấm bỏ trống).*
+        * 📘 **Nghiên cứu:** [Tên tài liệu]
+            * *Kết quả:* [Điểm chính]
+            * *Nguồn:* [Copy chính xác raw link. Cấm tuyệt đối link .vn]
+        *(Chỉ liệt kê các nghiên cứu có thật trong DATA, tuyệt đối không tự bịa thêm).*
 
         💡 **Lời khuyên từ Chuyên gia**
         [Đưa ra lời khuyên thực tế. Nhắc nhở yoga là liệu pháp bổ trợ].
