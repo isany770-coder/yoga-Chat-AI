@@ -226,9 +226,10 @@ def get_ai_response_custom(prompt, context_text, history_context):
 
         🎯 **EVIDENCE RULES (CRITICAL):**
         1. Read the [DATA] provided below. Extract 1 to 3 relevant scientific studies.
-        2. SOURCE URL RULE: Look at the "Link:" in the provided [DATA].
-           - Output the EXACT RAW URL. DO NOT hide the link behind text like "Click here". Just print the raw link (e.g., https://...).
-           - If it says "Not available", print exactly: "Source: Verification In Progress" (EN) or "Nguồn: Đang xác minh" (VN).
+        2. SOURCE URL RULE: Look for "Link Y Khoa:", "Link gốc:", or "DOI:" in the provided [DATA].
+           - Print EXACTLY the international medical URL you find (doi.org, pubmed, ncbi, mdpi, etc.).
+           - STRICTLY PROHIBITED: Never output any URL containing ".vn".
+           - If no valid medical link is found, print exactly: "Đang xác minh".
         3. Write naturally. DO NOT use citation tags like [Ref: 1] in the text.
 
         🛠️ **MANDATORY RESPONSE FORMAT:**
@@ -413,16 +414,20 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / H
                         doi_raw = str(meta.get('doi', '')).strip()
                         url_raw = str(meta.get('url', meta.get('source', ''))).strip()
                         
-                        # Prioritize DOI, fallback to URL
-                        if doi_raw and doi_raw not in ["", "None", "#"]:
+                        final_link = "Đang xác minh"
+                        if doi_raw and doi_raw not in ["", "None", "#"] and ".vn" not in doi_raw:
                             final_link = doi_raw
-                        elif url_raw and url_raw not in ["", "None", "#"]:
+                        elif url_raw and url_raw not in ["", "None", "#"] and ".vn" not in url_raw:
                             final_link = url_raw
-                        else:
-                            final_link = "Not available"
                             
-                        title = meta.get('title_vi') or meta.get('title_en') or meta.get('title') or f"Document {i+1}"
-                        context_text += f"\n--- TÀI LIỆU {i+1} ---\nTên: {title}\nLink: {final_link}\nNội dung:\n{d.page_content}\n"
+                        title = meta.get('title_vi') or meta.get('title_en') or meta.get('title') or f"Tài liệu {i+1}"
+                        
+                        # KIỂM DUYỆT CỨNG: Xóa sạch mọi link .vn trong nội dung để chặn AI đọc trộm
+                        clean_content = d.page_content
+                        clean_content = re.sub(r'https?://[^\s]*\.vn[^\s]*', '', clean_content)
+                        clean_content = re.sub(r'yogaismylife\.vn[^\s]*', '', clean_content)
+                        
+                        context_text += f"\n--- TÀI LIỆU {i+1} ---\nTên: {title}\nLink Y Khoa: {final_link}\nNội dung:\n{clean_content}\n"
             except: pass
 
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
