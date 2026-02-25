@@ -91,8 +91,8 @@ try:
 except:
     st.error("❌ Chưa cấu hình secrets.toml"); st.stop()
 
-ZIP_PATH = "/tmp/brain_data_v3.zip" 
-EXTRACT_PATH = "/tmp/brain_data_extracted_v5"
+ZIP_PATH = "/tmp/brain_data_v6.zip" 
+EXTRACT_PATH = "/tmp/brain_data_extracted_v6"
 DB_PATH = "user_usage.db"
 
 # --- A. DATABASE & BLACKLIST (CHỐNG F5) ---
