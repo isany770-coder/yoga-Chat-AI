@@ -199,7 +199,7 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Data Error: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN FINAL: PHÂN BIỆT RÕ NGHIÊN CỨU & BÀI VIẾT)
+# 4. HÀM AI THÔNG MINH (BẢN FINAL: LINK BẤM ĐƯỢC 100%)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
@@ -233,9 +233,10 @@ def get_ai_response_custom(prompt, context_text, history_context):
 
         🎯 **STRICT CITATION RULES (THE MOST IMPORTANT RULE):**
         1. **TWO TYPES OF DATA:** The [DATA] provides two types of sources: [BẰNG CHỨNG KHOA HỌC] (Peer-reviewed science studies) and [THAM KHẢO] (YogaIsMyLife website articles).
-        2. **SCIENTIFIC EVIDENCE SECTION:** In the "Scientific Evidence" section, you MUST ONLY list sources labeled as [BẰNG CHỨNG KHOA HỌC]. **ABSOLUTELY DO NOT** list [THAM KHẢO] website articles here. Limit to a maximum of 3 top studies.
-        3. **USE REFERENCES:** You can use [THAM KHẢO] sources to explain mechanisms or give advice in other sections, but do not pretend they are scientific studies.
-        4. **MISSING LINKS:** If a [BẰNG CHỨNG KHOA HỌC] study has "Không có sẵn" as DOI, cite it but write "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN).
+        2. **SCIENTIFIC EVIDENCE SECTION:** You MUST ONLY list sources labeled as [BẰNG CHỨNG KHOA HỌC] here. Limit to a maximum of 3 top studies.
+        3. **USE REFERENCES:** Use [THAM KHẢO] sources to explain mechanisms or give advice, but do not pretend they are scientific studies.
+        4. **CLICKABLE HYPERLINKS (CRITICAL):** You MUST format the URL as a clickable Markdown link. Example: `[View Study](URL)` or `[Xem nghiên cứu](URL)`. DO NOT just paste the raw text URL.
+        5. **MISSING LINKS:** If a [BẰNG CHỨNG KHOA HỌC] study has "Không có sẵn" as DOI, write exactly: "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN) without any link formatting.
 
         🛠️ **MANDATORY RESPONSE STRUCTURE:**
 
@@ -248,8 +249,8 @@ def get_ai_response_custom(prompt, context_text, history_context):
         📚 **Scientific Evidence**
         * 📘 **Study:** [Translate Title to English]
             * *Result:* [Translate result] [Ref: X]
-            * *Source:* [DOI/Link]
-        *(CRITICAL: ONLY list items labeled [BẰNG CHỨNG KHOA HỌC] here. Max 3 items. If there are no [BẰNG CHỨNG KHOA HỌC] items, output exactly: "Currently, specific clinical trials for this exact query are being verified in our database.")*
+            * *Source:* [View Study](INSERT_URL_HERE)
+        *(CRITICAL: ONLY list items labeled [BẰNG CHỨNG KHOA HỌC] here. Max 3 items. If none, output: "Currently, specific clinical trials for this exact query are being verified in our database.")*
 
         💡 **Expert Advice**
         [Actionable advice in English, utilizing [THAM KHẢO] data if relevant].
@@ -263,8 +264,8 @@ def get_ai_response_custom(prompt, context_text, history_context):
         📚 **Bằng chứng Y khoa**
         * 📘 **Nghiên cứu:** [Tên nghiên cứu]
             * *Kết quả:* [Kết luận] [Ref: X]
-            * *Nguồn:* [DOI/Link]
-        *(QUAN TRỌNG: CHỈ liệt kê các mục [BẰNG CHỨNG KHOA HỌC] ở đây. Tối đa 3 mục. Nếu không có mục nào, ghi đúng 1 câu: "Hiện tại, các thử nghiệm lâm sàng chuyên sâu cho vấn đề này đang được bộ phận Y khoa của YIML tiếp tục xác minh và cập nhật.")*
+            * *Nguồn:* [Xem nghiên cứu](CHÈN_LINK_VÀO_ĐÂY)
+        *(QUAN TRỌNG: CHỈ liệt kê mục [BẰNG CHỨNG KHOA HỌC] ở đây. Tối đa 3 mục. Nếu không có, ghi: "Hiện tại, các thử nghiệm lâm sàng chuyên sâu cho vấn đề này đang được bộ phận Y khoa của YIML tiếp tục xác minh.")*
 
         💡 **Lời khuyên từ Chuyên gia**
         [Đưa ra lời khuyên thực tế, có thể dùng thông tin từ [THAM KHẢO]].
