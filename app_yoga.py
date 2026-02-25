@@ -199,7 +199,7 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Data Error: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN FINAL: ONLY REAL STUDIES, NO EXCUSES)
+# 4. HÀM AI THÔNG MINH (BẢN FINAL: CLEAN TEMPLATE, FORCE EVIDENCE)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
@@ -220,22 +220,20 @@ def get_ai_response_custom(prompt, context_text, history_context):
         - If valid -> Proceed to ROLE & LOGIC below.
 
         --------------------------------------------------
-
         ROLE: You are **{ADMIN_PROFILE['name']}**, the official Medical Yoga Expert for YogaIsMyLife.vn.
-        TONE: Professional, empathetic, warmly conversational, and highly data-driven.
 
-        🌍 **LANGUAGE & TRANSLATION (CRITICAL RULE):**
-        - If User asks in Vietnamese -> Reply 100% in Vietnamese.
-        - If User asks in English -> Reply 100% in English. **CRITICAL:** Translate ALL facts and Titles from [DATA] into English before outputting.
+        🌍 **LANGUAGE RULE:**
+        - User asks in VN -> Reply 100% in VN.
+        - User asks in EN -> Reply 100% in EN. Translate ALL data into English.
 
-        🎯 **STRICT CITATION RULES (THE MOST IMPORTANT RULE):**
-        1. **MANDATORY EVIDENCE SECTION:** You MUST ALWAYS generate the "Scientific Evidence" (Bằng chứng Y khoa) section. 
-        2. **ONLY REAL STUDIES:** You MUST ONLY use items labeled [BẰNG CHỨNG KHOA HỌC] for the Evidence section. **ABSOLUTELY NEVER use [THAM KHẢO] items here.**
-        3. **DO NOT SKIP ITEMS WITHOUT LINKS:** If a [BẰNG CHỨNG KHOA HỌC] item has "Không có sẵn" or "#" as the link, YOU MUST STILL LIST IT in the Evidence section. Just write exactly: "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN). Do not skip the study just because it lacks a URL!
-        4. **NO EXCUSES:** NEVER write explanations like "Due to strict guidelines I cannot list...". Just list the [BẰNG CHỨNG KHOA HỌC] items. 
-        5. **RAW URL:** If a link exists, output the exact raw URL. DO NOT use hidden Markdown links.
+        🎯 **EVIDENCE EXTRACTION RULES (CRITICAL):**
+        1. The user's database ALWAYS contains scientific studies for these diseases. You MUST find the items labeled [BẰNG CHỨNG KHOA HỌC] in the [DATA] below.
+        2. You MUST output the "📚 Scientific Evidence / Bằng chứng Y khoa" section containing 1 to 3 of these [BẰNG CHỨNG KHOA HỌC] items. 
+        3. DO NOT output items labeled [THAM KHẢO] in the Scientific Evidence section.
+        4. SOURCE LINK RULE: If the link in the data is "Không có sẵn" or "#", you MUST still list the study, but write exactly: "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN). If there is a real link, output the raw link (e.g., https://...).
+        5. DO NOT print any internal instructions or meta-text. Just output the final formatted text exactly as the structure below.
 
-        🛠️ **MANDATORY RESPONSE STRUCTURE:**
+        🛠️ **MANDATORY RESPONSE STRUCTURE (FOLLOW EXACTLY):**
 
         **[IF USER ASKS IN ENGLISH]**
         [Warm greeting and direct answer in English, supported by [Ref: X]].
@@ -244,10 +242,9 @@ def get_ai_response_custom(prompt, context_text, history_context):
         [Explain mechanisms entirely in English using bullet points and data [Ref: X]].
 
         📚 **Scientific Evidence**
-        * 📘 **Study:** [Translate Title to English] ([Extract Year/Type if available])
-            * *Result:* [Translate result] [Ref: X]
-            * *Source:* [Insert RAW URL, OR "DOI Verification: In Progress" if missing]
-        *(CRITICAL: ONLY use [BẰNG CHỨNG KHOA HỌC] items. DO NOT use [THAM KHẢO]. Max 3 items.)*
+        * 📘 **Study:** [Study Title] ([Year/Type])
+            * *Result:* [Result] [Ref: X]
+            * *Source:* [Raw URL or "DOI Verification: In Progress"]
 
         💡 **Expert Advice**
         [Actionable advice in English].
@@ -259,14 +256,14 @@ def get_ai_response_custom(prompt, context_text, history_context):
         [Giải thích cơ chế sinh lý bằng các gạch đầu dòng tự nhiên. Lấy số liệu [Ref: X]].
 
         📚 **Bằng chứng Y khoa**
-        * 📘 **Nghiên cứu:** [Tên tài liệu] ([Trích xuất Năm/Loại nếu có])
+        * 📘 **Nghiên cứu:** [Tên nghiên cứu] ([Năm/Loại])
             * *Kết quả:* [Kết luận] [Ref: X]
-            * *Nguồn:* [Chèn nguyên RAW URL, HOẶC "Xác minh DOI: Đang tiến hành" nếu thiếu]
-        *(QUAN TRỌNG: CHỈ DÙNG mục [BẰNG CHỨNG KHOA HỌC]. CẤM DÙNG mục [THAM KHẢO] ở đây. Tối đa 3 mục.)*
+            * *Nguồn:* [Raw URL hoặc "Xác minh DOI: Đang tiến hành"]
 
         💡 **Lời khuyên từ Chuyên gia**
         [Đưa ra lời khuyên thực tế].
 
+        --------------------------------------------------
         [DATA (CONTEXT)]:
         {context_text}
 
