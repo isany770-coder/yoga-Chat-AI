@@ -193,7 +193,7 @@ def get_ai_response_custom(prompt, context_text, history_context):
         model = genai.GenerativeModel(valid_model)
         
         # 3. SYSTEM PROMPT (TỔNG HÒA: ADMIN + SECURITY + LOGIC CŨ)
-        sys_prompt = f"""
+     sys_prompt = f"""
         🛑 **SECURITY PROTOCOL (PRIORITY 1):**
         - Input: "{prompt}"
         - Check: If user asks about Lottery, Gambling, Sex, Politics, Coding, or NON-HEALTH topics -> REPLY EXACTLY: "VIOLATION_DETECTED".
@@ -204,30 +204,29 @@ def get_ai_response_custom(prompt, context_text, history_context):
         ROLE: You are **{ADMIN_PROFILE['name']}** ({ADMIN_PROFILE['role']}), the official Medical Yoga Expert for **{ADMIN_PROFILE.get('website', 'YogaIsMyLife.vn')}**.
         MISSION: {ADMIN_PROFILE['mission']}
 
-        🌍 **LANGUAGE & CITATION TOGGLE (QUAN TRỌNG):**
-        - User asks in Vietnamese -> Reply in Vietnamese AND strictly follow the Citation Rules below (use [Ref: X]).
-        - User asks in English -> Reply in English AND strictly DO NOT use any [Ref: X] tags, DOIs, or citations.
+        🌍 **LANGUAGE:**
+        - User asks in Vietnamese -> Reply in Vietnamese.
+        - User asks in English -> Reply in English.
 
         🧠 **CONTEXT AWARENESS:**
         - You must read the [HISTORY] below to understand the conversation flow.
 
-        🎯 **STRICT CITATION RULES (CHỈ ÁP DỤNG KHI CHAT TIẾNG VIỆT):**
+        🎯 **STRICT CITATION RULES (APPLIES TO BOTH LANGUAGES):**
         1. You are provided with context chunks labeled [Ref: 1], [Ref: 2], etc.
-        2. **ACCURACY IS PARAMOUNT:** When stating a fact, you MUST attach the exact [Ref: ID]. Do not mix sources. Do not cite if not in [DATA].
-        3. **MANDATORY SCIENTIFIC FORMAT:** Whenever you cite a study labeled [BẰNG CHỨNG KHOA HỌC], you MUST explicitly state the "Tên nghiên cứu" (Study Title) and its "DOI" directly in your response text.
-        4. **NO HALLUCINATION:** If the DOI is somehow missing in [DATA], explicitly write "DOI: Không có sẵn trong dữ liệu". Do not invent DOIs.
-        5. **Science First:** Prioritize citing the Original Study over a General Article if both exist in [DATA].
-        6. Maximum length: 700 words.         
+        2. **ACCURACY IS PARAMOUNT:** When stating a fact, you MUST attach the exact [Ref: ID].
+        3. **MANDATORY SCIENTIFIC FORMAT:** Whenever you cite a study labeled [BẰNG CHỨNG KHOA HỌC], you MUST explicitly state the Study Title and its DOI/Link directly in your response text.
+           - In Vietnamese: "Theo nghiên cứu '[Tên nghiên cứu]' (Link/DOI: [Mã DOI/Link])... [Ref: X]"
+           - In English: "According to the study '[Study Title]' (Link/DOI: [DOI/Link])... [Ref: X]"
+        4. If the DOI/Link is missing in [DATA], explicitly write "DOI: Không có sẵn" (in VN) or "DOI: Not available" (in EN).
+        5. Prioritize citing the Original Study over a General Article if both exist in [DATA].
+        6. Maximum length: 300 words.         
 
-        STRUCTURE (Vietnamese queries):
-        - Greeting: Short & warm.
-        - Direct Answer: Answer the question clearly.
-        - Scientific Explanation: Biomechanics/Physiology details.
-        - Specific Evidence: YOU MUST USE THIS EXACT FORMAT: "Theo nghiên cứu **[Tên nghiên cứu]** (DOI: [Mã DOI])... [Ref: X]"
-        - Conclusion/Advice: Actionable advice.
-
-        STRUCTURE (English queries):
-        - Same logic (Greeting, Direct Answer, Scientific Explanation, Actionable Advice), but strictly WITHOUT any citations, Study Titles, DOIs, or [Ref: X] tags.
+        STRUCTURE:
+        - **Greeting:** Short & warm.
+        - **Direct Answer:** Answer the question clearly.
+        - **Scientific Explanation:** Biomechanics/Physiology details.
+        - **Specific Evidence:** Cite the study title and DOI/link as required above.
+        - **Conclusion/Advice:** Actionable advice.
 
         [DATA (CONTEXT)]:
         {context_text}
@@ -477,20 +476,25 @@ if prompt := st.chat_input(f"Hỏi {ADMIN_PROFILE['name']} về đau lưng, tr�
                 for p in ["Nguồn tham khảo", "References", "📚 Tài liệu"]:
                     if p in clean_text: clean_text = clean_text.split(p)[0].strip(); break
 
-                # HTML Nguồn
+                # ---> THÊM ĐOẠN CHECK NGÔN NGỮ Ở ĐÂY <---
+                # Kiểm tra xem câu hỏi có chứa dấu tiếng Việt không
+                vn_chars = "áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ"
+                is_vietnamese = any(char in prompt.lower() for char in vn_chars)
+
+                # HTML Nguồn (CHỈ HIỂN THỊ NẾU LÀ TIẾNG VIỆT)
                 unique_sources = {source_map[rid]['url']: source_map[rid] for rid in ref_ids if rid in source_map and source_map[rid]['url'] != '#'}
                 sources_html = ""
-                if unique_sources:
+                if unique_sources and is_vietnamese:
                     sources_html += "\n\n---\n**📚 Nguồn tham khảo & Bằng chứng:**\n\n"
                     list_src = sorted(unique_sources.values(), key=lambda x: x['id'])
                     for info in list_src:
                         icon = "🧪" if 'SCIENCE' in info['type'].upper() else "🔗"
                         sources_html += f"- {icon} **[{info['id']}]** [{info['title']}]({info['url']})\n"
 
-                # HTML Upsell
+                # HTML Upsell (CHỈ HIỂN THỊ NẾU LÀ TIẾNG VIỆT)
                 upsell_html = ""
                 recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
-                if recs:
+                if recs and is_vietnamese:
                     upsell_html += "<div class='upsell-box'><b>💡 Giải pháp gợi ý từ Chuyên gia:</b><br>"
                     for r in recs[:2]:
                         upsell_html += f"""<div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;"><span style="color:#33691e; font-weight:500">👉 {r['name']}</span><a href="{r['url']}" target="_blank" class="upsell-btn">Xem</a></div>"""
