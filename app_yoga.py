@@ -26,22 +26,34 @@ st.markdown("""
 <style>
     header[data-testid="stHeader"], footer, .stDeployButton {display: none !important;}
     
-    /* Input Chat được nâng lên một chút để nhường chỗ cho dòng Disclaimer */
+    /* ---------------------------------------------------- */
+    /* SỬA LỖI 1: Bắt buộc bẻ gãy các link dài trên Mobile */
+    /* ---------------------------------------------------- */
+    a, .stMarkdown a {
+        word-wrap: break-word !important;
+        word-break: break-all !important;
+        overflow-wrap: break-word !important;
+    }
+    
+    /* ---------------------------------------------------- */
+    /* SỬA LỖI 2: Nâng ô chat lên cao hơn (bottom: 35px)    */
+    /* ---------------------------------------------------- */
     div[data-testid="stChatInput"] {
-        position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%);
+        position: fixed; bottom: 35px !important; left: 50%; transform: translateX(-50%);
         width: 95%; max-width: 800px; z-index: 1000;
         background-color: white; border-radius: 30px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.08); padding: 5px; border: 1px solid #e0e0e0;
     }
     
-    /* Dòng cảnh báo Disclaimer ở đáy màn hình giống ChatGPT */
+    /* Dòng cảnh báo Disclaimer ở đáy màn hình */
     .disclaimer-text {
-        position: fixed; bottom: 5px; left: 50%; transform: translateX(-50%);
-        font-size: 11px; color: #888; z-index: 1000; width: 100%; text-align: center;
-        font-family: sans-serif;
+        position: fixed; bottom: 5px; left: 0; right: 0;
+        font-size: 11px; color: #888; z-index: 999; width: 100%; text-align: center;
+        font-family: sans-serif; 
+        pointer-events: none; /* Thêm cái này để lỡ bấm nhầm vào chữ nó xuyên qua luôn, ko bị kẹt */
     }
     
-    /* Banner Welcome xịn sò thay cho Promo cũ */
+    /* Banner Welcome xịn sò */
     .welcome-banner {
         background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
         padding: 12px 15px; margin-bottom: 20px; border-radius: 12px;
@@ -59,7 +71,7 @@ st.markdown("""
         border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: bold;
         float: right; margin-top: -2px;
     }
-    .bottom-spacer { height: 120px; }
+    .bottom-spacer { height: 130px; } /* Tăng khoảng đệm để cuộn xuống không bị che text */
 </style>
 
 <div class="disclaimer-text">
