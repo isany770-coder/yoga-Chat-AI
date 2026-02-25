@@ -199,7 +199,7 @@ db_text, status = load_brain_engine_safe()
 if status != "OK": st.error(f"Data Error: {status}"); st.stop()
 
 # =====================================================
-# 4. HÀM AI THÔNG MINH (BẢN 6.0: ÉP XEM NGHIÊN CỨU)
+# 4. HÀM AI THÔNG MINH (BẢN 5.0: SẠCH BÓNG REF, TRỰC DIỆN)
 # =====================================================
 def get_ai_response_custom(prompt, context_text, history_context):
     try:
@@ -225,11 +225,12 @@ def get_ai_response_custom(prompt, context_text, history_context):
         - User asks in EN -> Reply 100% in EN. Translate ALL data into English.
 
         🎯 **EVIDENCE RULES (CRITICAL):**
-        1. Look at the [DATA] below. It is strictly divided into "NGHIÊN CỨU KHOA HỌC" and "BÀI VIẾT TỪ CHUYÊN GIA".
-        2. For the "Scientific Evidence / Bằng chứng Y khoa" section, you MUST ONLY list items from the "NGHIÊN CỨU KHOA HỌC" group. NEVER use "BÀI VIẾT" here.
-        3. SOURCE URL RULE: Print the exact "Link:" provided in the data. If it says "Không có sẵn", print "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN).
-        4. ABSOLUTELY DO NOT use citation tags like [Ref: 1] or [1] anywhere in the text. Write naturally.
-        5. NO META-COMMENTARY. DO NOT apologize or explain. Just output the data.
+        1. Read the [DATA] provided below. Extract 1 to 3 relevant scientific studies or medical articles from the data to list in the "Scientific Evidence" section.
+        2. SOURCE URL RULE: Look at the "Link/DOI" in the data. 
+           - If it is a real URL (https://...), print exactly that raw URL.
+           - If it says "Không có sẵn", print exactly: "Source: DOI Verification: In Progress" (EN) or "Nguồn: Xác minh DOI: Đang tiến hành" (VN).
+        3. Write naturally. DO NOT use citation tags like [Ref: 1] in the text.
+        4. NO META-COMMENTARY. DO NOT apologize or explain. Just output the requested structure.
 
         🛠️ **MANDATORY RESPONSE FORMAT:**
 
@@ -237,28 +238,28 @@ def get_ai_response_custom(prompt, context_text, history_context):
         [Warm greeting and direct answer].
 
         🧠 **The Science Behind It**
-        [Explain mechanisms using bullet points based on the data. Do NOT use Ref tags].
+        [Explain mechanisms using bullet points based on the data].
 
         📚 **Scientific Evidence**
-        * 📘 **Study:** [Study Title]
+        * 📘 **Study:** [Study Title / Document Name]
             * *Result:* [Result/Key Point]
             * *Source:* [Raw URL or "DOI Verification: In Progress"]
-        *(List 1-3 NGHIÊN CỨU KHOA HỌC items here. NEVER list BÀI VIẾT).*
+        *(List 1-3 items here. Follow the source URL rule exactly.)*
 
         💡 **Expert Advice**
-        [Actionable advice using BÀI VIẾT TỪ CHUYÊN GIA data].
+        [Actionable advice].
 
         **[IF USER ASKS IN VIETNAMESE]**
         [Lời chào ấm áp và câu trả lời trực diện].
 
         🧠 **Góc nhìn Khoa học & Cơ chế**
-        [Giải thích cơ chế bằng các gạch đầu dòng tự nhiên. Tuyệt đối KHÔNG DÙNG thẻ tham chiếu].
+        [Giải thích cơ chế bằng các gạch đầu dòng tự nhiên].
 
         📚 **Bằng chứng Y khoa**
-        * 📘 **Nghiên cứu:** [Tên nghiên cứu]
+        * 📘 **Nghiên cứu:** [Tên nghiên cứu / Tên tài liệu]
             * *Kết quả:* [Kết luận/Điểm chính]
             * *Nguồn:* [Raw URL hoặc "Xác minh DOI: Đang tiến hành"]
-        *(Bắt buộc trích 1-3 mục NGHIÊN CỨU KHOA HỌC. Cấm dùng BÀI VIẾT).*
+        *(Liệt kê 1-3 mục ở đây. Cấm bỏ trống).*
 
         💡 **Lời khuyên từ Chuyên gia**
         [Đưa ra lời khuyên thực tế].
@@ -304,7 +305,7 @@ current_user = st.session_state.username if st.session_state.authenticated else 
 
 ban_reason = check_ban_status(current_user)
 if ban_reason:
-    st.error(f"🚫 **ACCOUNT BLOCKED**\n\nReason: {ban_reason}\n\nContact Admin: {ADMIN_PROFILE['contact']}")
+    st.error(f"🚫 **ACCOUNT BLOCKED / TÀI KHOẢN ĐÃ BỊ KHÓA**\n\nReason: {ban_reason}\n\nContact Admin: {ADMIN_PROFILE['contact']}")
     st.stop()
 
 used = check_usage(current_user)
@@ -319,6 +320,7 @@ with st.sidebar:
     
     if st.session_state.authenticated:
         st.success(f"Hi {st.session_state.username}")
+        
         if st.session_state.username == "admin_yiml": 
             import pandas as pd
             if st.button("👁️ Xem lịch sử khách hỏi"):
@@ -329,6 +331,7 @@ with st.sidebar:
                     st.dataframe(df, use_container_width=True)
                     conn.close()
                 except Exception as e: st.error("Chưa có data!")
+
         if st.button("Logout"): st.session_state.authenticated = False; st.rerun()
     else:
         with st.form("login_sidebar"):
@@ -354,10 +357,29 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# =====================================================
+# 7. GIAO DIỆN HẾT HẠN
+# =====================================================
 if is_limit_reached:
+    if "hide_limit_modal" not in st.session_state: st.session_state.hide_limit_modal = False
     st.markdown("""<style>div[data-testid="stChatInput"] {display: none !important;}</style>""", unsafe_allow_html=True)
-    st.warning("Bạn đã hết lượt hỏi hôm nay. Vui lòng quay lại vào ngày mai.")
-    st.stop()
+
+    if not st.session_state.hide_limit_modal:
+        col_left, col_center, col_right = st.columns([1, 4, 1]) 
+        with col_center:
+            with st.container(border=True):
+                c1, c2 = st.columns([9, 1])
+                with c2:
+                    if st.button("✕"): st.session_state.hide_limit_modal = True; st.rerun()
+                
+                st.markdown("""
+                    <div style="text-align: center;">
+                        <div style="font-size: 60px; margin-bottom: 10px;">🧘‍♀️</div>
+                        <h3 style="color: #00897b; margin: 0; font-weight: 800;">LIMIT REACHED!</h3>
+                        <p style="color: #555; font-size: 15px; margin-top: 10px; line-height: 1.5;">Bạn đã sử dụng hết lượt hỏi hôm nay.<br><i>You have reached your daily limit.</i></p>
+                    </div>
+                """, unsafe_allow_html=True)
+        st.stop()
 
 # =====================================================
 # 8. XỬ LÝ CHAT CHÍNH
@@ -369,52 +391,39 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"], unsafe_allow_html=True)
 st.markdown('<div class="bottom-spacer"></div>', unsafe_allow_html=True)
 
-if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health..."):
+if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health / Hỏi về yoga và bệnh lý..."):
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     increment_usage(current_user)
     log_user_prompt(current_user, prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Analyzing medical databases..."):
+        with st.spinner("Analyzing medical databases / Đang tra cứu hồ sơ y khoa..."):
             
             chat_history = ""
             for msg in st.session_state.messages[-4:]:
                 clean_content = re.sub(r'<[^>]*>', '', msg['content'])
                 chat_history += f"{msg['role']}: {clean_content}\n"
 
-            # --- THUẬT TOÁN LỌC NGHIÊN CỨU ƯU TIÊN (LẤY 15 BÀI, CHỌN 4 BÀI CHUẨN) ---
-            research_texts = ""
-            blog_texts = ""
-            r_count = 0
-            b_count = 0
-
+            context_text = ""
             try:
-                docs = db_text.similarity_search(prompt, k=15) # Tăng lên 15 để vớt nghiên cứu
+                docs = db_text.similarity_search(prompt, k=6)
                 if docs:
-                    for d in docs:
+                    for i, d in enumerate(docs):
                         meta = d.metadata
                         link = meta.get('url') or meta.get('source') or '#'
                         doi_raw = meta.get('doi')
-                        
-                        doi = str(doi_raw).strip() if doi_raw and str(doi_raw).strip() not in ["", "None"] else (str(link).strip() if link != '#' else "Không có sẵn")
-                        title = meta.get('title') or "Tài liệu Y khoa"
-                        
-                        type_meta = str(meta.get('type', '')).lower()
-                        link_check = (str(link) + str(doi)).lower()
-                        
-                        # Điều kiện sống còn: Bắt đúng từ khóa nghiên cứu
-                        is_study = any(x in link_check for x in ['pubmed', 'nih.gov', 'cochrane', 'doi.org', 'jamanetwork', 'bmj', 'academic']) or any(x in type_meta for x in ['science', 'study', 'nghiên cứu', 'review', 'trial'])
-                        
-                        if is_study and r_count < 4:
-                            r_count += 1
-                            research_texts += f"\n--- NGHIÊN CỨU KHOA HỌC {r_count} ---\nTên: {title}\nLink: {doi}\nNội dung:\n{d.page_content}\n"
-                        elif not is_study and b_count < 3:
-                            b_count += 1
-                            blog_texts += f"\n--- BÀI VIẾT TỪ CHUYÊN GIA {b_count} ---\nTên: {title}\nNội dung:\n{d.page_content}\n"
+                        if doi_raw and str(doi_raw).strip() not in ["", "None"]: 
+                            doi = str(doi_raw).strip()
+                        elif link != '#': 
+                            doi = str(link).strip()
+                        else: 
+                            doi = "Không có sẵn"
+                            
+                        title = meta.get('title') or f"Tài liệu {i+1}"
+                        # Bơm data sạch vào cho AI đọc, KHÔNG CÓ REF
+                        context_text += f"\n--- TÀI LIỆU {i+1} ---\nTên: {title}\nLink/DOI: {doi}\nNội dung:\n{d.page_content}\n"
             except: pass
-
-            context_text = research_texts + "\n" + blog_texts
 
             ai_raw = get_ai_response_custom(prompt, context_text, chat_history)
             final_content = ""
@@ -424,9 +433,9 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health..."
                 if st.session_state.bad_attempts >= 3:
                     ban_user_forever(current_user, "Spam/Policy Violation")
                     st.session_state.is_blocked = True
-                    msg = "🚫 **ACCOUNT BLOCKED**"
+                    msg = f"🚫 **ACCOUNT BLOCKED**\n\nID {current_user} has been permanently restricted."
                 else:
-                    msg = f"⚠️ **WARNING ({st.session_state.bad_attempts}/3)**"
+                    msg = f"⚠️ **WARNING ({st.session_state.bad_attempts}/3)**\n\nPlease only ask about Health, Anatomy, and Yoga."
                 st.markdown(msg); final_content = msg
                 if st.session_state.is_blocked: time.sleep(3); st.rerun()
 
@@ -434,12 +443,14 @@ if prompt := st.chat_input(f"Ask {ADMIN_PROFILE['name']} about yoga & health..."
                 st.error(f"System Error: {ai_raw}"); final_content = "Sorry, system error."
 
             else:
+                # TRƯỜNG HỢP THÀNH CÔNG: Chữ sạch sẽ nguyên chất, KHÔNG RÁC
                 clean_text = ai_raw.strip()
-                
-                # Bắt ngôn ngữ
+
+                # Bắt bóc ngôn ngữ thông minh
                 vn_chars = "áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ"
                 is_vietnamese = any(char in prompt.lower() for char in vn_chars)
 
+                # Cục Gợi ý Giải Pháp (CHỈ HIỂN THỊ NẾU LÀ TIẾNG VIỆT)
                 upsell_html = ""
                 recs = [v for k,v in YOGA_SOLUTIONS.items() if any(key in prompt.lower() for key in v['key'])]
                 if recs and is_vietnamese:
