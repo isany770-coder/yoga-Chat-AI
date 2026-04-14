@@ -169,7 +169,7 @@ def load_brain_engine_safe():
             
             with st.spinner("Downloading database..."):
                 url = f'https://drive.google.com/uc?id={file_id}'
-                gdown.download(url, ZIP_PATH, quiet=True, fuzzy=True)
+                gdown.download(url, ZIP_PATH, quiet=True)
             
             if not zipfile.is_zipfile(ZIP_PATH): return None, "ZIP file error"
 
